@@ -1,0 +1,57 @@
+# Bağımlılıklar
+node_modules/
+.pnp
+.pnp.js
+
+# Üretim
+.next/
+out/
+dist/
+build/
+
+# Çevre değişkenleri
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Loglar
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# İşletim sistemi
+.DS_Store
+Thumbs.db
+
+# Testler
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# Geçici dosyalar
+*.log
+*.tmp
+.cache/
+.turbo/
+
+# Yedekler
+*.bak
+*.backup
+*.old
+
+# Yüklemeler
+uploads/
+yüklemeler/
+
+# Prisma
+*.db
+*.db-journal
