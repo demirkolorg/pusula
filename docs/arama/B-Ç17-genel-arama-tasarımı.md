@@ -639,7 +639,7 @@ const sorgular = [
 
 export default function () {
   const sorgu = sorgular[Math.floor(Math.random() * sorgular.length)]
-  const yanıt = http.get(`https://hazırlık.pusula.gov.tr/api/v1/arama?s=${sorgu}`, {
+  const yanıt = http.get(`https://staging.pusulaportal.com/api/v1/arama?s=${sorgu}`, {
     cookies: { oturum: __ENV.OTURUM_ÇEREZ },
   })
   check(yanıt, {

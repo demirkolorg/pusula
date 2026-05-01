@@ -70,9 +70,13 @@ Tüm tasarım, gereksinim ve plan belgeleri:
 
 ## Altyapı
 
-- **Sağlayıcı:** HostingDünyam (TR yerel)
-- **Topoloji:** Tek sanal sunucu (8 vCPU / 16 GB RAM / 320 GB NVMe)
-- **Yedekleme:** Yerel günlük + Cloudflare R2/B2 haftalık (gpg+AES-256)
+- **Sağlayıcı:** HostingDünyam (TR yerel) — **TR-VDS7** sınıfı
+- **Sunucu:** 4 çekirdek E5-2699-v4 / 12 GB DDR4 ECC RAM / 70 GB SSD / Limitsiz trafik / ₺580/ay
+- **Domain:** `pusulaportal.com` (TurHost'ta kayıtlı, Cloudflare DNS ile HD sunucuya yönlendirilir)
+- **Cloudflare:** DNS + DDoS koruma + WAF + CDN + SSL kenar (ücretsiz plan)
+- **TLS:** Let's Encrypt (sunucuda) + Cloudflare Edge (kenar)
+- **Yedekleme:** Yerel günlük + Cloudflare R2 haftalık (gpg+AES-256)
+- **Aylık altyapı maliyeti:** ~₺580 (sunucu) + ~₺50 (R2) + 0 (Cloudflare ücretsiz) ≈ **₺630**
 
 ## Proje Yapısı (B-Ç18 — KRİTİK)
 

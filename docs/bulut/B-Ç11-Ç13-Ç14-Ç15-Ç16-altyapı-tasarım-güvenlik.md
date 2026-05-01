@@ -543,7 +543,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: üretim
-      url: https://pusula.gov.tr
+      url: https://pusulaportal.com
     # GitHub Environment koruması ile ELLE ONAY zorunlu
     steps:
       # ... benzer adımlar, üretim hedefli

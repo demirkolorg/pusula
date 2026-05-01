@@ -2189,7 +2189,31 @@ model GüvenilirCihaz {
 
 Kullanıcı profilde güvenilir cihazları görür ve istediğini iptal edebilir.
 
-### F.4. Güncellenen Tehdit Modeli (B-Ç16 ek)
+### F.5. Sunucu Sınıfı + Domain Stratejisi (2026-05-01 — Nihai)
+
+| # | Konu | Karar |
+|---|---|---|
+| **F-3** | Sunucu sağlayıcı | **HostingDünyam** ([hostingdunyam.com.tr](https://hostingdunyam.com.tr/)) |
+| **F-4** | Sunucu sınıfı | **TR-VDS7** (4 çekirdek E5-2699-v4 / 12 GB DDR4 ECC / 70 GB SSD / Limitsiz / ₺580/ay) |
+| **F-5** | Domain | **pusulaportal.com** (TurHost'ta kayıtlı registrar) |
+| **F-6** | DNS yönetimi | **Cloudflare DNS** (ücretsiz plan, nameserver Cloudflare'a delege) |
+| **F-7** | Cloudflare özellikleri | DNS + DDoS koruma + WAF + CDN + SSL kenar (ücretsiz plan) |
+| **F-8** | TLS | Let's Encrypt (HD sunucuda) + Cloudflare Edge (kenar) |
+| **F-9** | Domain transfer (HD'ye) | Şimdilik HAYIR (yıl sonu yenilemede tekrar değerlendirilir) |
+| **F-10** | Aylık altyapı maliyeti | **~₺630** (sunucu ₺580 + R2 yedek ~₺50 + Cloudflare 0) |
+
+**TurHost neden seçilmedi:**
+- USD faturalama → kur riski
+- İlk 3 ay indirim tuzağı (4. aydan sonra HD'den 3-4 kat pahalı)
+- Yıllık TCO HD'den ~%67 daha pahalı
+
+**Cloudflare neden seçildi (Domain transfer yerine):**
+- Ücretsiz plan PUSULA'nın tüm DNS/CDN/DDoS/WAF gereksinimini karşılar
+- Domain TurHost'ta kalsa da DNS Cloudflare'da yönetilir → en esnek hibrit yapı
+- Domain transferi 5-7 gün gerekir; pilot başlamadan önce zaman kaybı
+- Yıl sonunda TurHost yenilemesi geldiğinde HD'ye transfer yine mümkün
+
+### F.6. Güncellenen Tehdit Modeli (B-Ç16 ek)
 
 | Tehdit | Önceki Önlem | Yeni Önlem (F-1) |
 |---|---|---|

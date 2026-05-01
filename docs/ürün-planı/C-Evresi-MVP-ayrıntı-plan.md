@@ -85,8 +85,8 @@ EPİK 12 — DevOps Altyapı (Hazırlık + Üretim İskele)
 | # | Öykü | Tahmin |
 |---|---|---|
 | **KÖ-0.1** | Türkiye yerel sunucu sağlayıcı seçimi + sözleşme | 5 SP |
-| **KÖ-0.2** | Tek sanal sunucu provizyon (8 vCPU / 16 GB / 320 GB NVMe) | 5 SP |
-| **KÖ-0.3** | Etki alanı (pusula.gov.tr) + TLS sertifika (Let's Encrypt) | 3 SP |
+| **KÖ-0.2** | HostingDünyam **TR-VDS7** sanal sunucu provizyon (4 çekirdek E5-2699-v4 / 12 GB DDR4 ECC RAM / 70 GB SSD / Limitsiz trafik) | 5 SP |
+| **KÖ-0.3** | Etki alanı (**pusulaportal.com** — TurHost'ta kayıtlı, Cloudflare DNS'e geçiş) + Let's Encrypt TLS + Cloudflare proxy (DDoS + CDN + WAF) | 5 SP |
 | **KÖ-0.4** | GitHub deposu + ana dal koruması + Renovate | 2 SP |
 | **KÖ-0.5** | **Tek Next.js projesi iskeleti** + B-Ç18 klasör yapısı (app/(auth), app/(dashboard), app/api, components/, lib/, hooks/, types/, prisma/) | 3 SP |
 | **KÖ-0.5b** | **ESLint + Prettier + B-Ç18 kuralları** (max-lines, no-restricted-imports çapraz özellik yasak, no-explicit-any) | 3 SP |
@@ -266,8 +266,8 @@ EPİK 12 — DevOps Altyapı (Hazırlık + Üretim İskele)
 | **KÖ-12.2** | e2e.yml — kritik Playwright sınamaları | 8 SP |
 | **KÖ-12.3** | deploy-staging.yml — main itme sonrası dağıtım | 5 SP |
 | **KÖ-12.4** | deploy-production.yml — yayın etiketi + elle onay | 5 SP |
-| **KÖ-12.5** | Hazırlık ortamı (staging.pusula.gov.tr) | 5 SP |
-| **KÖ-12.6** | Üretim ortamı iskeleti (pusula.gov.tr, henüz public değil) — **TEK SUNUCU** Docker Compose | 8 SP |
+| **KÖ-12.5** | Hazırlık ortamı (staging.pusulaportal.com — Cloudflare alt domain) | 5 SP |
+| **KÖ-12.6** | Üretim ortamı iskeleti (pusulaportal.com, henüz public değil) — **TEK SUNUCU** (TR-VDS7) Docker Compose | 8 SP |
 | **KÖ-12.7** | Yerel yedekleme betikleri — günlük pg_dump + MinIO snapshot, /yedek dizini, 7 gün saklama | 3 SP |
 | **KÖ-12.7b** | Dış hedef yedekleme — haftalık şifreli (gpg+AES-256) Cloudflare R2 / Backblaze B2 yükleme | 3 SP |
 | **KÖ-12.7c** | Yedekleme dosyalarının saklama politikası — 7 gün yerel + 12 ay dış hedef + log | 2 SP |
@@ -818,63 +818,85 @@ Daha agresif kesintiyle (Audit görüntüleme yok, MinIO yok, sadece yerel) ek 3
 | Secrets Manager | `.env` dosyası (B-10) | Sunucuda `chmod 600` |
 | Mail | **C-Q6: HARİCİ** — Mailgun / SES / SendGrid | TR yerel sunucudan dış API çağrısı |
 
-### 13.5. Önerilen Asgari Sunucu Topolojisi (TEK SUNUCU — Tekman Pilot İçin Yeterli)
+### 13.5. Sunucu Topolojisi — KESİN KARAR: HostingDünyam **TR-VDS7**
 
-> **C-Q ek karar (2026-05-01):** Maliyet kısıtı sebebiyle 5 ayrı sunucu yerine **tek sunucu** üzerinde tüm bileşenler çalıştırılır. Tekman pilotunda (5-15 eşzamanlı kullanıcı) bu yeterlidir.
+> **Karar (2026-05-01):** Bütçe ve gereksinim dengesi → **HostingDünyam TR-VDS7** sınıfı seçildi. Tek sunucuda tüm yığın çalışır. Tekman pilotu (5-15 eşzamanlı, 50-100 personel) için **rahat yeterli**.
 
 ```
-HostingDünyam — TEK SANAL SUNUCU
-srv-pusula (8 vCPU, 16 GB RAM, 320 GB NVMe SSD)
+HostingDünyam — TEK SANAL SUNUCU (TR-VDS7)
+srv-pusula
+  CPU: 4 çekirdek E5-2699-v4 (Xeon Broadwell-EP)
+  RAM: 12 GB DDR4 ECC
+  Disk: 70 GB SSD
+  Trafik: Limitsiz
+  Aylık: ₺580 (sabit TL)
 │
 ├── nginx                  → Ters proxy + TLS sonlandırma + gzip
 ├── Docker Compose Yığını
-│   ├── pusula-web         → Next.js (port 3000)
+│   ├── pusula-web         → Next.js (port 3000, Bun çalıştırıcı)
 │   ├── pusula-db          → PostgreSQL 16 (port 5432, yerel volume)
 │   ├── pusula-redis       → Redis 7 (port 6379, oturum + önbellek)
 │   ├── pusula-minio       → MinIO (port 9000, dosya depolama)
-│   └── pusula-monitoring  → Prometheus + Loki (opsiyonel, hafif)
-├── Sentry (üçüncü taraf, dış)
-└── Yedekleme (ayrı sunucu DEĞİL — yerel + dış hedef)
-    ├── /yedek/ klasörü (sunucu içinde ham yedek, son 7 gün)
-    └── Cloudflare R2 / Backblaze B2 / dış yedek (haftalık)
+│   └── pusula-monitoring  → Prometheus + Loki (hafif)
+├── Sentry (üçüncü taraf, dış — hata izleme)
+├── Cloudflare proxy (dış — DNS + DDoS + CDN + WAF, ücretsiz plan)
+└── Yedekleme
+    ├── /yedek/ klasörü (sunucu içinde, son 7 gün)
+    └── Cloudflare R2 / Backblaze B2 (haftalık off-site, gpg+AES-256)
 ```
 
-### 13.5.1. Sunucu Boyutu Karşılaştırması
+### 13.5.1. Seçilen Sınıf vs Alternatifler (HostingDünyam)
 
-| Sınıf | vCPU | RAM | SSD | Aylık Tahmini | Uygunluk |
+| Sınıf | Çekirdek | RAM | SSD | Aylık | Karar |
 |---|---|---|---|---|---|
-| **Küçük** (Yetersiz) | 4 | 8 GB | 160 GB | ~600-900 TL | Risk yüksek |
-| **Orta (ÖNERİLEN)** | **8** | **16 GB** | **320 GB NVMe** | **~1.200-1.800 TL** | Tekman pilot için ideal |
-| Büyük | 16 | 32 GB | 640 GB | ~2.500-3.500 TL | Erken |
-| Tahsisli | 8-16 | 32 GB | 1 TB | ~3.000+ TL | Çoklu kaymakamlık geldiğinde |
+| TR-VDS5 | 4 | 6 GB | 50 GB | ₺315 | ❌ Bellek dar |
+| TR-VDS6 | 4 | 8 GB | 60 GB | ₺395 | ⚪ Yeterli ama tampon yok |
+| **TR-VDS7** | **4** | **12 GB** | **70 GB** | **₺580** | **✅ SEÇİLDİ — orta yol, dengeli** |
+| TR-VDS8 | 6 | 16 GB | 80 GB | ₺710 | ⚪ Erken (pilot için fazla) |
+| TR-VDS9 | 6 | 24 GB | 120 GB | ₺940 | ⚪ Çoklu kaymakamlık aşaması için |
 
-> **Tahmini aylık maliyet (TEK SUNUCU):** **~1.200-1.800 TL** (HostingDünyam fiyatları sözleşmede netleşir).
-> 5 ayrı sunucudan **~50% tasarruf**.
+**TR-VDS7 seçim gerekçeleri:**
+1. **12 GB RAM** yığını rahatça taşır (8 GB sıkışırdı; 16 GB pilot için fazla).
+2. **Limitsiz trafik** — havuz aşımı endişesi yok.
+3. **TL faturalama** + sabit fiyat — kamu bütçesi için öngörülebilir.
+4. **DDR4 ECC RAM + E5-2699-v4** — veritabanı güvenilirliği.
+5. **VDS** (kaynak garantili), VPS değil — başarım sabit.
+6. Yıllık maliyet: ₺580 × 12 = **₺6.960** (TurHost VDS Plus 6'dan ~%67 ucuz).
 
-### 13.5.2. RAM Tahsisi (16 GB Üzerinde)
+**Karar dışı bırakılanlar:**
+- ❌ TurHost (USD faturalama + ilk 3 ay indirim tuzağı + 4. aydan itibaren çok pahalı)
+- ❌ AWS / DigitalOcean (yurt dışı + KVKK kaygısı + USD)
+- ❌ Tahsisli sunucu (erken)
+
+### 13.5.2. RAM Tahsisi (12 GB Üzerinde)
 
 | Bileşen | Ayrılan RAM |
 |---|---|
-| İşletim sistemi (Linux) | 1.5 GB |
-| nginx | 200 MB |
-| Next.js (Bun çalıştırıcı) | 2 GB |
-| PostgreSQL | 6 GB (shared_buffers + effective_cache_size) |
-| Redis | 1 GB (maxmemory) |
-| MinIO | 2 GB |
-| İzleme (Prometheus + Loki) | 1 GB |
-| Tampon/önbellek | 2.3 GB |
-| **Toplam** | **16 GB** |
+| İşletim sistemi (Ubuntu 24.04 LTS) | 1.0 GB |
+| nginx | 150 MB |
+| Next.js (Bun çalıştırıcı) | 2.0 GB (`mem_limit: 2g`) |
+| PostgreSQL 16 | 4.0 GB (shared_buffers 2 GB + effective_cache_size 4 GB hedefli) |
+| Redis 7 | 0.7 GB (maxmemory) |
+| MinIO | 1.5 GB |
+| Prometheus + Loki | 0.8 GB |
+| Tampon/önbellek/Docker | 1.85 GB |
+| **Toplam** | **12 GB** |
 
-### 13.5.3. Disk Düzeni
+> **PostgreSQL ayarları:** `shared_buffers=2GB`, `effective_cache_size=6GB`, `work_mem=24MB`, `max_connections=80`.
+
+### 13.5.3. Disk Düzeni (70 GB SSD)
 
 ```
-/dev/sda (320 GB NVMe SSD)
-├── /              60 GB   → İşletim sistemi + Docker
-├── /var/lib/postgresql  120 GB  → PostgreSQL veri (büyüyebilir)
-├── /var/lib/minio       100 GB  → Dosya depolama
-├── /yedek               30 GB   → Yerel yedekler (7 gün)
-└── /var/log             10 GB   → Loglar
+/dev/sda (70 GB SSD)
+├── /                       20 GB   → İşletim sistemi + Docker imajları
+├── /var/lib/postgresql     20 GB   → PostgreSQL veri (büyüyebilir, izlenir)
+├── /var/lib/minio          15 GB   → Dosya depolama (ilk evre)
+├── /yedek                   8 GB   → Yerel yedekler (son 7 gün)
+├── /var/log                 4 GB   → Loglar (logrotate ile)
+└── swap                     3 GB   → Olağanüstü durum
 ```
+
+> **70 GB darsa:** Pilot dosya yüklemesi büyürse `MinIO` Cloudflare R2'ye taşınabilir (depolama soyutlaması bunu kolaylaştırır). Veya HD'de disk yükseltmesi istenir.
 
 ### 13.5.4. Yedekleme Yaklaşımı (TEK SUNUCU + DIŞ HEDEF)
 
@@ -901,11 +923,13 @@ srv-pusula (8 vCPU, 16 GB RAM, 320 GB NVMe SSD)
 | Risk | Azaltma |
 |---|---|
 | **Sunucu çökerse her şey gider** | Günlük yedek + dış hedefe haftalık. Kurtarma süresi 4-8 saat. |
-| **Bellek baskısı (16 GB yeterli mi?)** | Limit eklendi (`mem_limit` Docker), izleme eşiği. Pilot'ta yeterli olduğu doğrulanır. |
-| **Tek bağlantı noktası (network)** | nginx ters proxy + Cloudflare proxy (DDoS + cache). |
+| **Bellek baskısı (12 GB yeterli mi?)** | `mem_limit` Docker eşiği + Prometheus uyarı. Pilot'ta doğrulanır. 12 GB → §13.5.2'de net dağıtım yapıldı. |
+| **Disk darlığı (70 GB)** | İzleme: %80 dolulukta uyarı. MinIO Cloudflare R2'ye taşıma planı hazır. |
+| **Tek bağlantı noktası (network)** | nginx ters proxy + **Cloudflare proxy** (DDoS + WAF + CDN, ücretsiz plan). |
 | **Yedek geri alma denenmedi** | Sprint 8'de aylık tatbikat (KÖ-12.8). |
-| **Ölçek dar** | Pilot başarılı olunca ikinci sunucu eklenir (yatay). |
-| **PostgreSQL + uygulama aynı sunucuda I/O çekişmesi** | NVMe SSD seçimi + PostgreSQL config tuning. |
+| **Ölçek dar** | Pilot başarılı olunca TR-VDS9'a yükseltme veya ikinci sunucu (yatay). |
+| **PostgreSQL + uygulama aynı sunucuda I/O çekişmesi** | E5-2699-v4 + SSD + PostgreSQL config tuning. Prometheus IO ölçütleri izlenir. |
+| **Disk SSD (NVMe değil)** | Yazma ağırlıklı yük olmadığı sürece SSD yeter. Üretimde sözleşmede NVMe yükseltmesi sorulur. |
 
 ### 13.5.6. Tek Sunucu için Docker Compose (Genel Hat)
 
@@ -944,19 +968,19 @@ services:
       - /var/lib/postgresql/data:/var/lib/postgresql/data
     command: |
       postgres
-      -c shared_buffers=4GB
-      -c effective_cache_size=12GB
-      -c work_mem=32MB
-      -c max_connections=100
-    mem_limit: 6g
+      -c shared_buffers=2GB
+      -c effective_cache_size=6GB
+      -c work_mem=24MB
+      -c max_connections=80
+    mem_limit: 4g
     restart: always
 
   redis:
     image: redis:7-alpine
-    command: redis-server --maxmemory 1gb --maxmemory-policy allkeys-lru --appendonly yes
+    command: redis-server --maxmemory 700mb --maxmemory-policy allkeys-lru --appendonly yes
     volumes:
       - /var/lib/redis:/data
-    mem_limit: 1g
+    mem_limit: 700m
     restart: always
 
   minio:
@@ -967,7 +991,7 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_PAROLA}
     volumes:
       - /var/lib/minio:/data
-    mem_limit: 2g
+    mem_limit: 1500m
     restart: always
 ```
 
@@ -979,12 +1003,105 @@ Pilot başarılı olunca ve yük artarsa:
 
 | Adım | Eklenen | Maliyet Etkisi |
 |---|---|---|
-| **A** | İkinci sunucu (yalnızca PostgreSQL'i ayır) | +600-900 TL |
-| **B** | Üçüncü sunucu (uygulama yedeği + yük dengeleyici) | +600-900 TL |
-| **C** | MinIO ayrı sunucu | +400-600 TL |
-| **D** | Çoklu bölge yedek | +500 TL |
+| **A** | TR-VDS7 → TR-VDS9 yükseltme (24 GB RAM) | +₺360/ay (₺580→₺940) |
+| **B** | İkinci sunucu (yalnızca PostgreSQL ayır, TR-VDS6) | +₺395/ay |
+| **C** | Üçüncü sunucu (uygulama yedeği + yük dengeleyici, TR-VDS6) | +₺395/ay |
+| **D** | MinIO Cloudflare R2'ye taşı | -₺0 sunucu yükü, +~₺50/ay (R2 ücreti) |
+| **E** | Çoklu bölge yedek | +₺200-300/ay |
 
-> **Strateji:** Tek sunucuyla başla → pilot doğrulanınca ihtiyaca göre adım adım büyüt. Soyutlanmış mimari (Docker + ENV) sayesinde hizmet ayrıma kolay.
+> **Strateji:** TR-VDS7'den başla → pilot doğrulanınca **A → B → C** sırası. Soyutlanmış mimari (Docker + ENV + Depolama Soyutlaması) sayesinde hizmet ayırma kolay.
+
+### 13.5.8. Domain Yapılandırması
+
+> **Karar (2026-05-01):** Domain `pusulaportal.com` (TurHost'ta kayıtlı), Cloudflare DNS proxy üzerinden HostingDünyam sunucusuna yönlendirilir. Domain transferi gerekmez.
+
+**Mimari:**
+
+```
+Kullanıcı
+   ↓
+TurHost (yalnızca domain registrar — 365 gün/yıl yenileme)
+   ↓ nameserver delegasyonu
+Cloudflare DNS (kira.ns.cloudflare.com, tom.ns.cloudflare.com)
+   ↓ proxy 🟧 (DDoS + WAF + CDN + SSL/TLS sonlandırma)
+HostingDünyam TR-VDS7 (nginx → Next.js)
+```
+
+**Adım Adım Uygulama (KÖ-0.3):**
+
+1. **HostingDünyam TR-VDS7** sunucu provizyonu — sunucu IP'sini (örn. `185.x.x.x`) öğren.
+2. **Cloudflare** ücretsiz hesap aç: https://dash.cloudflare.com/sign-up
+3. Cloudflare'de **+ Add a Site** → `pusulaportal.com` → **Free plan** seç.
+4. Cloudflare TurHost'taki mevcut DNS kayıtlarını otomatik tarar — kontrol et.
+5. DNS kayıtları:
+   ```
+   A      @       <HD_IP>     proxy 🟧 (turuncu = aktif)
+   A      www     <HD_IP>     proxy 🟧
+   AAAA   @       <HD_IPv6>   proxy 🟧 (varsa)
+   CNAME  staging <HD_IP>     proxy 🟧 (hazırlık alt domain)
+   ```
+6. Cloudflare 2 nameserver verir, kopyala (örn. `kira.ns.cloudflare.com`, `tom.ns.cloudflare.com`).
+7. **TurHost paneli** → Domain → Nameserver Yönet → Cloudflare nameserver'larını gir, kaydet.
+8. 1-24 saat bekle (Cloudflare panelinde domain "Active" olunca tamam).
+9. **Cloudflare → SSL/TLS** → "Full (strict)" seç (HD'de Let's Encrypt sertifikası olur).
+10. **Cloudflare → SSL/TLS → Edge Certificates**:
+    - "Always Use HTTPS" aç
+    - "HTTP Strict Transport Security (HSTS)" aç (max-age 6 ay)
+    - "Minimum TLS Version" → 1.2
+11. **Cloudflare → Speed → Optimization** → "Auto Minify" (CSS, JS, HTML) aç.
+12. **Cloudflare → Caching → Configuration** → "Browser Cache TTL" → 1 saat (durağan).
+13. **Cloudflare → Security → WAF** → "Managed Rules" → açık.
+14. **Cloudflare → Security → Bots** → "Bot Fight Mode" aç (ücretsiz).
+
+**HD Sunucuda nginx (özet):**
+
+```nginx
+server {
+    listen 80;
+    server_name pusulaportal.com www.pusulaportal.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name pusulaportal.com www.pusulaportal.com;
+
+    ssl_certificate /etc/letsencrypt/live/pusulaportal.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/pusulaportal.com/privkey.pem;
+
+    # Cloudflare gerçek IP'yi geçir
+    real_ip_header CF-Connecting-IP;
+    set_real_ip_from 173.245.48.0/20;
+    set_real_ip_from 103.21.244.0/22;
+    # ... tam liste: https://www.cloudflare.com/ips-v4
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+**Let's Encrypt sertifika kurulumu:**
+
+```bash
+sudo certbot --nginx -d pusulaportal.com -d www.pusulaportal.com
+```
+
+**Domain yönetimi:**
+- Yıllık yenileme: TurHost'ta (USD ödeme)
+- DNS yönetimi: Cloudflare (ücretsiz)
+- Nameserver: Cloudflare
+- SSL: Let's Encrypt (HD sunucuda) + Cloudflare (kenar)
+
+**İleride (opsiyonel):** Yıl sonu domain yenileme zamanında transfer ile **HostingDünyam'a taşıma** mümkün — TL faturalama avantajı için.
+
+**Domain adı ile ilgili not:**
+- Pilot ve uzun vadede `pusulaportal.com` kullanılacak.
+- ⚠ `pusula.gov.tr` (resmi kamu uzantısı) **AKTİF DEĞİL** — bu uzantıyı almak için Kaymakamlık'ın resmi başvuru yapması gerekir; pilot için zorunlu değil.
 
 ### 13.6. C-Q3 Etkisi — Tekman Kaymakamlığı Pilot
 
