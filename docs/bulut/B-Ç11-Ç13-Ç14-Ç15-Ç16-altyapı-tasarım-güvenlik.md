@@ -673,7 +673,7 @@ pusula/
 │       ├── Dockerfile.web
 │       └── docker-compose.yml      # geliştirme
 ├── docs/
-│   ├── prd/                        # mevcut ÜGB belgeleri
+│   ├── ana-ügb/                    # Ana ÜGB (PUSULA-Ana-ÜGB.md)
 │   ├── mimari/                     # B-Ç1
 │   ├── varlık-ilişki/              # B-Ç2
 │   ├── yetki/                      # B-Ç12

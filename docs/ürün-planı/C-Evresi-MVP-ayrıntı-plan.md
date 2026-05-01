@@ -1098,7 +1098,7 @@ Plan aşaması **bitti**. Bundan sonra:
 3. **İlk gerçek kod** Sprint 1'de yazılır (KÖ-0.6+).
 
 **Plan dökümanları:**
-- `prd/PUSULA - Konsolide Master Analiz (Türkçe).md` (Ana ÜGB)
+- `docs/ana-ügb/PUSULA-Ana-ÜGB.md` (Ana ÜGB)
 - `docs/mimari/B-Ç1-üst-düzey-mimari.md`
 - `docs/varlık-ilişki/B-Ç2-varlık-ilişki-çizgesi.md`
 - `docs/yetki/B-Ç12-yetki-izin-matrisi.md`

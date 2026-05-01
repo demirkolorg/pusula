@@ -36,11 +36,9 @@ PUSULA, mülki idare amirliği bünyesindeki tüm süreçlerin, kararların, den
 
 Tüm tasarım, gereksinim ve plan belgeleri:
 
-### Ürün Gereksinim Belgeleri (ÜGB)
+### Ana Ürün Gereksinim Belgesi (ÜGB)
 
-- [Ana ÜGB — Türkçe](prd/PUSULA%20-%20Konsolide%20Master%20Analiz%20%28Türkçe%29.md)
-- [Ana ÜGB — İngilizce/Karma](prd/PUSULA%20-%20Konsolide%20Master%20Analiz.md)
-- [PRD V1-V6](prd/) — Tarihsel sürümler
+- [PUSULA — Ana ÜGB](docs/ana-ügb/PUSULA-Ana-ÜGB.md) — V1-V6 ve Master PRD'lerin birleştirilmiş, kararlar dahil, **tek doğru kaynak** belgesi
 
 ### Tasarım & Mimari (B Evresi Çıktıları)
 

@@ -2298,7 +2298,7 @@ pusula/
 ├── .github/
 │   └── workflows/              # B-8 GitHub Actions
 ├── docs/
-│   ├── prd/                    # Mevcut ÜGB belgeleri
+│   ├── ana-ügb/                # Ana ÜGB (bu belge)
 │   ├── açık-uç-nokta/          # OpenAPI 3.0 (B-Ç9)
 │   ├── varlık-ilişki/          # Varlık-ilişki çizgesi (B-Ç2)
 │   └── yerleşim/               # Yerleşim çizimleri (B-Ç3..B-Ç8)
