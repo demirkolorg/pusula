@@ -48,8 +48,9 @@ Tüm tasarım, gereksinim ve plan belgeleri:
 - [B-Ç10 — Olay Sözlüğü](docs/olay/B-Ç10-olay-sözlüğü.md)
 - [B-Ç12 — Yetki/İzin Matrisi](docs/yetki/B-Ç12-yetki-izin-matrisi.md)
 - [B-Ç3-Ç8 — Yerleşim Çizimleri](docs/yerleşim/B-Ç3-Ç8-yerleşim-çizimleri.md)
-- [B-Ç11/Ç13/Ç14/Ç15/Ç16 — Tasarım İmleri, Bulut, CI/CD, Tek Depo, Tehdit](docs/bulut/B-Ç11-Ç13-Ç14-Ç15-Ç16-altyapı-tasarım-güvenlik.md)
+- [B-Ç11/Ç13/Ç14/Ç15/Ç16 — Tasarım İmleri, Bulut, CI/CD, Tehdit](docs/bulut/B-Ç11-Ç13-Ç14-Ç15-Ç16-altyapı-tasarım-güvenlik.md)
 - [B-Ç17 — Genel Arama Tasarımı](docs/arama/B-Ç17-genel-arama-tasarımı.md)
+- **[B-Ç18 — Proje Yapısı + Mikro Bileşen Stratejisi (KRİTİK)](docs/proje-yapısı/B-Ç18-proje-yapısı-ve-bileşen-stratejisi.md)**
 
 ### Ürün Planı (C Evresi)
 
@@ -73,6 +74,35 @@ Tüm tasarım, gereksinim ve plan belgeleri:
 - **Topoloji:** Tek sanal sunucu (8 vCPU / 16 GB RAM / 320 GB NVMe)
 - **Yedekleme:** Yerel günlük + Cloudflare R2/B2 haftalık (gpg+AES-256)
 
+## Proje Yapısı (B-Ç18 — KRİTİK)
+
+**Tek Next.js projesi** (apps/* veya monorepo YOK). API yol öbeği ile ayrılmış. **Özellik bazlı + mikro bileşen** ilkeleri sıkı uygulanır.
+
+```
+pusula/
+├── app/
+│   ├── (auth)/                # kimlik akışları
+│   ├── (dashboard)/           # uygulama
+│   │   ├── projeler/          # ÖZELLİK (kendi components/, hooks/, schemas.ts)
+│   │   ├── gorevler/          # ÖZELLİK
+│   │   └── ...
+│   └── api/v1/                # REST uç noktaları
+├── components/                # paylaşımlı mikro bileşenler (data-table, form, ui)
+├── lib/                       # genel altyapı (auth, prisma, permissions, audit)
+├── hooks/                     # paylaşımlı kancalar
+├── types/
+└── prisma/
+```
+
+**Asal Kurallar:**
+- Bileşen ≤150 satır, tek sorumluluk
+- 1 özellikte → özellik içinde / 2+ özellikte → kök `components/`
+- Çapraz özellik importu yasak
+- TR karakter klasör/dosya adında yasak
+- `any` yasak
+
+Ayrıntı: [B-Ç18 belgesi](docs/proje-yapısı/B-Ç18-proje-yapısı-ve-bileşen-stratejisi.md)
+
 ## Geliştirme
 
 ```bash
@@ -90,6 +120,11 @@ pnpm e2e
 # Tip + lint kontrolleri
 pnpm typecheck
 pnpm lint
+
+# Veritabanı
+pnpm db:migrate
+pnpm db:seed
+pnpm db:studio
 ```
 
 ## Plan Durumu

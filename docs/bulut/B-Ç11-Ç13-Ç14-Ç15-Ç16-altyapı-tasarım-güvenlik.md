@@ -569,232 +569,26 @@ jobs:
 
 ---
 
-# B-Ç15 — TEK DEPO (MONOREPO) YAPISI VE BAĞIMLILIK ÇİZGESİ
+# B-Ç15 — PROJE YAPISI (KALDIRILDI — B-Ç18'E TAŞINDI)
 
-## 1. KLASÖR YAPISI
+> **DİKKAT:** Bu bölümdeki **monorepo (apps/* + packages/*) yaklaşımı KALDIRILMIŞTIR.**
+>
+> Yeni proje yapısı, **özellik bazlı + tek Next.js projesi + mikro bileşen** ilkeleri ile **B-Ç18** belgesinde tanımlanmıştır:
+>
+> 👉 **[docs/proje-yapısı/B-Ç18-proje-yapısı-ve-bileşen-stratejisi.md](../proje-yapısı/B-Ç18-proje-yapısı-ve-bileşen-stratejisi.md)**
 
-```
-pusula/
-├── apps/
-│   ├── web/                       # Next.js (App Router)
-│   │   ├── app/
-│   │   │   ├── (kimlik)/          # giriş, kayıt
-│   │   │   ├── (uygulama)/        # ana app yolları
-│   │   │   │   ├── ana-sayfa/
-│   │   │   │   ├── projeler/
-│   │   │   │   ├── görevler/
-│   │   │   │   └── ayarlar/
-│   │   │   ├── api/               # Yol İşleyicileri
-│   │   │   │   └── v1/
-│   │   │   │       ├── görevler/
-│   │   │   │       ├── projeler/
-│   │   │   │       └── ...
-│   │   │   ├── layout.tsx
-│   │   │   └── page.tsx
-│   │   ├── bileşenler/            # uygulama özel bileşenler
-│   │   ├── kancalar/              # özel React kancaları
-│   │   ├── lib/
-│   │   ├── public/
-│   │   ├── next.config.js
-│   │   ├── tailwind.config.js
-│   │   └── package.json
-│   └── (gelecekte) api/           # ayrı backend gerekirse
-├── packages/
-│   ├── arayüz/                    # Shadcn UI bileşen kütüphanesi
-│   │   ├── bileşenler/
-│   │   │   ├── düğme.tsx
-│   │   │   ├── kart.tsx
-│   │   │   ├── ilerleme-çubuğu.tsx
-│   │   │   ├── sla-rozet.tsx
-│   │   │   └── ...
-│   │   └── package.json
-│   ├── shared/                    # paylaşılan TS tipleri
-│   │   ├── tipler/
-│   │   │   ├── varlıklar.ts       # Görev, Proje, vb. tipler
-│   │   │   ├── enumlar.ts
-│   │   │   └── api.ts
-│   │   ├── şemalar/               # Zod şemaları
-│   │   │   ├── görev.ts
-│   │   │   ├── proje.ts
-│   │   │   ├── derkenar.ts
-│   │   │   ├── vekâlet.ts
-│   │   │   └── olaylar.ts          # B-Ç10 olay sözlüğü
-│   │   ├── yardımcılar/
-│   │   │   ├── tarih.ts            # iş günü, tatil hesabı
-│   │   │   ├── süre.ts             # SLA, %25 hesabı
-│   │   │   └── biçim.ts
-│   │   └── package.json
-│   ├── veritabanı/                # Prisma şeması + istemci
-│   │   ├── prisma/
-│   │   │   ├── schema.prisma       # B-Ç2 modelleri
-│   │   │   ├── geçişler/
-│   │   │   └── tohum.ts            # ilk veri
-│   │   ├── istemci.ts              # singleton Prisma istemci
-│   │   ├── ara-katman/
-│   │   │   ├── yumuşak-silme.ts
-│   │   │   └── denetim.ts          # K-011
-│   │   └── package.json
-│   ├── kimlik-doğrulama/          # better-auth yapılandırması
-│   │   ├── yapılandırma.ts
-│   │   ├── ara-katman.ts
-│   │   └── package.json
-│   ├── izin/                       # B-Ç12 izin denetleyici
-│   │   ├── matris.ts
-│   │   ├── denetleyici.ts
-│   │   ├── vekâlet-çözücü.ts
-│   │   └── package.json
-│   ├── olay-yolu/                 # B-Ç10 olay yolu
-│   │   ├── yol.ts
-│   │   ├── dinleyiciler/
-│   │   │   ├── denetim-yazıcı.ts
-│   │   │   ├── bildirim.ts
-│   │   │   ├── ilerleme-yenidenhesaplayıcı.ts
-│   │   │   └── ...
-│   │   └── package.json
-│   ├── depolama/                  # B-Ç1 depolama soyutlaması
-│   │   ├── arayüz.ts
-│   │   ├── sağlayıcılar/
-│   │   │   ├── yerel.ts
-│   │   │   ├── minio.ts
-│   │   │   └── s3.ts
-│   │   └── package.json
-│   ├── eposta/                     # SMTP/Mailgun/SES soyutlaması
-│   │   ├── arayüz.ts
-│   │   ├── sağlayıcılar/
-│   │   ├── kalıplar/               # eposta şablonları
-│   │   └── package.json
-│   └── yapılandırma/               # ESLint, TS, Prettier
-│       ├── eslint-yapılandırma.js
-│       ├── tsconfig.temel.json
-│       └── package.json
-├── altyapı/
-│   ├── bulut/terraform/            # B-Ç13
-│   └── docker/
-│       ├── Dockerfile.web
-│       └── docker-compose.yml      # geliştirme
-├── docs/
-│   ├── ana-ügb/                    # Ana ÜGB (PUSULA-Ana-ÜGB.md)
-│   ├── mimari/                     # B-Ç1
-│   ├── varlık-ilişki/              # B-Ç2
-│   ├── yetki/                      # B-Ç12
-│   ├── açık-uç-nokta/              # B-Ç9
-│   ├── olay/                       # B-Ç10
-│   ├── yerleşim/                   # B-Ç3..B-Ç8
-│   ├── bulut/                      # B-Ç11, Ç13, Ç14, Ç15, Ç16 (bu dosya)
-│   ├── iş-akışları/                # B-Ç14
-│   └── güvenlik/                   # B-Ç16
-├── betikler/                       # bakım betikleri
-│   ├── denetim-arşivle.ts
-│   ├── tohumla.ts
-│   └── ...
-├── .github/
-│   └── workflows/                  # B-Ç14 iş akışları
-├── .env.example
-├── .gitignore
-├── package.json                    # workspace kökü
-├── pnpm-workspace.yaml
-├── turbo.json
-└── README.md
-```
+## Özet
 
-## 2. PNPM-WORKSPACE.YAML
+| Eski (kaldırıldı) | Yeni (B-Ç18) |
+|---|---|
+| `apps/web/`, `apps/api/`, `packages/*` | Tek Next.js projesi (kök) |
+| Turborepo + pnpm workspace | Düz `next dev/build` |
+| Yatay paketler (`arayüz`, `shared`, `veritabanı`) | Özellik bazlı `app/(dashboard)/<özellik>/` + paylaşımlı `components/`, `lib/`, `hooks/`, `types/` |
+| Çok dosya çok klasör | Mikro bileşen ilkesi (≤150 satır), tek sorumluluk |
 
-```yaml
-packages:
-  - 'apps/*'
-  - 'packages/*'
-```
+**Gerekçe:** Tek pilot kaymakamlık (Tekman) için tek proje yeterli; yapıyı net görmek + yeniden kullanılabilirliği zorlamak için özellik bazlı + mikro bileşen seçildi. Altay projesi referans alındı.
 
-## 3. TURBO.JSON
-
-```json
-{
-  "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": ["**/.env"],
-  "pipeline": {
-    "build": {
-      "dependsOn": ["^build"],
-      "outputs": [".next/**", "dist/**"]
-    },
-    "lint": {},
-    "typecheck": {},
-    "test:unit": {
-      "outputs": ["coverage/**"]
-    },
-    "test:integration": {
-      "dependsOn": ["^build"]
-    },
-    "dev": {
-      "cache": false,
-      "persistent": true
-    }
-  }
-}
-```
-
-## 4. PAKET BAĞIMLILIK ÇİZGESİ
-
-```mermaid
-flowchart TB
-    web["apps/web"]
-
-    web --> arayüz["packages/arayüz"]
-    web --> shared["packages/shared"]
-    web --> veritabanı["packages/veritabanı"]
-    web --> kimlikDoğrulama["packages/kimlik-doğrulama"]
-    web --> izin["packages/izin"]
-    web --> olayYolu["packages/olay-yolu"]
-    web --> depolama["packages/depolama"]
-    web --> eposta["packages/eposta"]
-
-    arayüz --> shared
-    veritabanı --> shared
-    kimlikDoğrulama --> veritabanı
-    kimlikDoğrulama --> shared
-    izin --> veritabanı
-    izin --> shared
-    olayYolu --> shared
-    olayYolu --> veritabanı
-    depolama --> shared
-    eposta --> shared
-
-    shared -.bağımlılık.-> z["zod"]
-    arayüz -.bağımlılık.-> r["react + radix-ui"]
-    veritabanı -.bağımlılık.-> p["prisma + @prisma/client"]
-```
-
-**Kurallar:**
-- `shared` en alt katman; başka pakete bağımlı değildir.
-- `arayüz` yalnızca `shared`'e bağlı (görsel kütüphane).
-- `veritabanı` yalnızca `shared`'e bağlı.
-- Diğer hizmet paketleri (`kimlik-doğrulama`, `izin`, `olay-yolu`, `depolama`, `eposta`) kendi alanlarında ihtiyaca göre `veritabanı` ve `shared`'e bağlı.
-- `apps/web` her şeyi tüketir.
-
-## 5. PAKET SÜRÜMLEME
-
-- Tek depo, **dahili paketler `1.0.0` sabit**, dış sürüm yok.
-- Sürümleme yalnızca uygulama (`apps/web`) için (`v1.0.0`, `v1.1.0`, ...).
-
-## 6. SCRIPT KOMUTLARI (kök package.json)
-
-```json
-{
-  "scripts": {
-    "dev": "turbo run dev",
-    "build": "turbo run build",
-    "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck",
-    "test:unit": "turbo run test:unit",
-    "test:integration": "turbo run test:integration",
-    "e2e": "pnpm --filter web e2e",
-    "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,md,json}\"",
-    "db:migrate": "pnpm --filter veritabanı prisma migrate dev",
-    "db:generate": "pnpm --filter veritabanı prisma generate",
-    "db:tohum": "pnpm --filter veritabanı tsx prisma/tohum.ts"
-  }
-}
-```
+> Ayrıntı, klasör şablonları, ESLint kuralları, karar ağacı ve adlandırma kuralları için **B-Ç18'i** okuyun.
 
 ---
 

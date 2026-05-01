@@ -85,16 +85,18 @@ EPİK 12 — DevOps Altyapı (Hazırlık + Üretim İskele)
 | # | Öykü | Tahmin |
 |---|---|---|
 | **KÖ-0.1** | Türkiye yerel sunucu sağlayıcı seçimi + sözleşme | 5 SP |
-| **KÖ-0.2** | Sunucu provizyon (en az 2 sanal sunucu + 1 DB sunucu + 1 yedek) | 8 SP |
-| **KÖ-0.3** | Etki alanı (pusula.gov.tr) + TLS sertifika | 3 SP |
+| **KÖ-0.2** | Tek sanal sunucu provizyon (8 vCPU / 16 GB / 320 GB NVMe) | 5 SP |
+| **KÖ-0.3** | Etki alanı (pusula.gov.tr) + TLS sertifika (Let's Encrypt) | 3 SP |
 | **KÖ-0.4** | GitHub deposu + ana dal koruması + Renovate | 2 SP |
-| **KÖ-0.5** | Tek depo (monorepo) iskeleti (pnpm + Turborepo) | 5 SP |
-| **KÖ-0.6** | Dockerfile + docker-compose (geliştirme) | 5 SP |
+| **KÖ-0.5** | **Tek Next.js projesi iskeleti** + B-Ç18 klasör yapısı (app/(auth), app/(dashboard), app/api, components/, lib/, hooks/, types/, prisma/) | 3 SP |
+| **KÖ-0.5b** | **ESLint + Prettier + B-Ç18 kuralları** (max-lines, no-restricted-imports çapraz özellik yasak, no-explicit-any) | 3 SP |
+| **KÖ-0.5c** | tsconfig path alias (`@/*`) + import order yapılandırması | 1 SP |
+| **KÖ-0.6** | Dockerfile + docker-compose (geliştirme + üretim) | 5 SP |
 | **KÖ-0.7** | GitHub Actions iş akışları (pr.yml, deploy-staging.yml temel) | 8 SP |
 | **KÖ-0.8** | PostgreSQL kurulumu + ilk geçiş + tohum verisi | 5 SP |
 | **KÖ-0.9** | nginx ters proxy + güvenlik öbekleri | 3 SP |
 | **KÖ-0.10** | Sentry hesabı + DSN entegrasyonu | 2 SP |
-| **EPİK 0 TOPLAM** | | **46 SP** |
+| **EPİK 0 TOPLAM** | | **40 SP** (B-Ç18'e göre yeniden boyutlandı) |
 
 ### EPİK 1 — KİMLİK DOĞRULAMA & OTURUM
 
@@ -284,7 +286,7 @@ EPİK 12 — DevOps Altyapı (Hazırlık + Üretim İskele)
 
 | Epik | SP |
 |---|---|
-| Epik 0 — Hazırlık | 46 |
+| Epik 0 — Hazırlık | 40 |
 | Epik 1 — Kimlik | 45 |
 | Epik 2 — İzin | 38 |
 | Epik 3 — Birim & Kullanıcı | 30 |
@@ -297,7 +299,7 @@ EPİK 12 — DevOps Altyapı (Hazırlık + Üretim İskele)
 | Epik 10 — Dosya | 31 |
 | Epik 11 — Tema & Erişilebilirlik | 24 |
 | Epik 12 — DevOps | 71 |
-| **TOPLAM** | **484 SP** |
+| **TOPLAM** | **478 SP** |
 
 ### Hız Varsayımı
 
@@ -1062,7 +1064,9 @@ KÖ-12.7 ve KÖ-12.8 değişmeden devam.
 | İlk taban toplam | 467 |
 | KÖ-12.11 (eposta sağlayıcı) | +5 (önceden eklendi) |
 | Tek sunucu öyküleri (KÖ-12.7b/c, KÖ-12.12-12.14) | +12 |
-| **Yeni toplam** | **484 SP** |
+| **Yeni toplam** | **478 SP** |
+| B-Ç18 (KÖ-0.5 yeniden + 0.5b/0.5c eklenmesi) | -6 + 4 = net **-2 SP** |
+| **B-Ç18 sonrası nihai** | **478 SP** |
 
 | Senaryo | Süre |
 |---|---|

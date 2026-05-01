@@ -2264,49 +2264,76 @@ Kullanıcı profilde güvenilir cihazları görür ve istediğini iptal edebilir
 | **B-Ç12** | Yetki / İzin haritası (rol × izin matrisi) | Mimar + Güvenlik | YÜKSEK |
 | **B-Ç13** | Bulut altyapı çizgesi (B-1 kararına göre) | Bulut Uzmanı | YÜKSEK |
 | **B-Ç14** | GitHub Actions iş akış kataloğu (B-8'e göre) | DevOps | ORTA |
-| **B-Ç15** | Tek depo yapısı kararı (paket bağımlılık çizgesi) | Mimar | ORTA |
+| **B-Ç15** | ⚠ KALDIRILDI — yerine **B-Ç18** | — | — |
 | **B-Ç16** | Tehdit modeli (B-2 ile e-Devlet yokluğunda kimlik doğrulama riskleri) | Güvenlik | ORTA |
+| **B-Ç17** | Genel arama tasarımı (Evre 2) | Mimar + Veritabanı | YÜKSEK |
+| **B-Ç18** | **Proje yapısı + Mikro bileşen stratejisi** (özellik bazlı, tek Next.js) | Mimar + Ön Yüz | **YÜKSEK — KRİTİK** |
 
-### E.5. Tek Depo (Monorepo) Önerilen Yapı (B-9 Kararı)
+### E.5. Proje Yapısı — TEK NEXT.JS + ÖZELLİK BAZLI (B-Ç18 Kararı)
+
+> **B-9 (eski monorepo kararı) KALDIRILDI.** Yerine B-Ç18'deki **tek Next.js projesi + özellik bazlı + mikro bileşen** yapısı kabul edildi.
+
+Tam belge: [docs/proje-yapısı/B-Ç18-proje-yapısı-ve-bileşen-stratejisi.md](../proje-yapısı/B-Ç18-proje-yapısı-ve-bileşen-stratejisi.md)
 
 ```
 pusula/
-├── apps/
-│   ├── web/                    # Next.js (App Router) — ön yüz
-│   │   ├── app/
-│   │   ├── components/
-│   │   └── package.json
-│   └── api/                    # Next.js Yol İşleyicileri (veya ayrı Node hizmet)
-│       ├── routes/
-│       └── package.json
-├── packages/
-│   ├── shared/                 # Paylaşılan TypeScript tipleri
-│   │   ├── tipler/
-│   │   ├── şemalar/            # Zod şemaları
-│   │   └── yardımcılar/
-│   ├── veritabanı/             # Prisma şeması + istemci + ara katman
-│   │   ├── prisma/
-│   │   └── istemci.ts
-│   ├── arayüz/                 # Shadcn UI bileşen kütüphanesi (paylaşılan)
-│   ├── kimlik-doğrulama/       # better-auth yapılandırması
-│   ├── depolama/               # IDepolamaSağlayıcı + uygulamalar
-│   ├── eposta/                 # IEpostaSağlayıcı + uygulamalar
-│   └── olay-yolu/              # Olay yayımcı/dinleyici çatısı
-├── altyapı/
-│   ├── bulut/                  # Terraform / Pulumi (B-1)
-│   └── docker/
-├── .github/
-│   └── workflows/              # B-8 GitHub Actions
+├── app/                              # ★ Next.js App Router
+│   ├── (auth)/                       # yol öbeği — kimlik
+│   ├── (dashboard)/                  # yol öbeği — uygulama
+│   │   ├── layout.tsx
+│   │   ├── projeler/                 # ÖZELLİK
+│   │   │   ├── page.tsx
+│   │   │   ├── [kimlik]/
+│   │   │   ├── components/           # özelliğe özel
+│   │   │   ├── hooks/
+│   │   │   ├── actions.ts
+│   │   │   ├── schemas.ts
+│   │   │   ├── types.ts
+│   │   │   └── utils.ts
+│   │   ├── gorevler/                 # ÖZELLİK
+│   │   ├── derkenarlar/              # ÖZELLİK
+│   │   ├── vekalet/
+│   │   └── ...
+│   └── api/                          # ★ REST uç noktaları
+│       └── v1/
+│           └── ...
+├── components/                       # ★ PAYLAŞIMLI MİKRO BİLEŞENLER
+│   ├── ui/                           # Shadcn primitives
+│   ├── data-table/
+│   ├── form/
+│   ├── feedback/
+│   ├── layout/
+│   ├── badges/
+│   ├── search/                       # Ctrl+K
+│   └── ...
+├── lib/                              # ★ Genel altyapı
+│   ├── auth/
+│   ├── prisma/
+│   ├── permissions/
+│   ├── event-bus/
+│   ├── storage/
+│   ├── email/
+│   └── audit/
+├── hooks/                            # paylaşımlı React kancaları
+├── types/                            # paylaşımlı tipler
+├── prisma/
+│   ├── schema.prisma
+│   └── migrations/
+├── e2e/
+├── tests/
+├── altyapi/
+├── .github/workflows/
 ├── docs/
-│   ├── ana-ügb/                # Ana ÜGB (bu belge)
-│   ├── açık-uç-nokta/          # OpenAPI 3.0 (B-Ç9)
-│   ├── varlık-ilişki/          # Varlık-ilişki çizgesi (B-Ç2)
-│   └── yerleşim/               # Yerleşim çizimleri (B-Ç3..B-Ç8)
-├── .env.example
-├── package.json                # pnpm çalışma alanı / Turborepo kökü
-├── pnpm-workspace.yaml         # veya turbo.json
-└── README.md
+└── package.json                      # tek kök
 ```
+
+**Asal kurallar (B-Ç18):**
+- Tek Next.js projesi (`apps/*`, `packages/*` YOK)
+- Özellik bazlı: her özellik kendi klasöründe (sayfa + bileşen + kanca + şema + actions)
+- Mikro bileşen: ≤150 satır, tek sorumluluk, bileşim
+- Yeniden kullanılabilirlik: 1 özellikte → özellik içinde / 2+ özellikte → kök `components/`
+- Çapraz özellik importu yasak
+- ESLint kuralları yapıyı zorlar
 
 ### E.6. Sınanmış Kararlardan Türeyen Veri Modeli Eklemeleri
 
