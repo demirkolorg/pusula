@@ -25,6 +25,37 @@
 - Kök dizin doğrudan Next.js projesidir (`package.json` köke ait)
 - API, ön yüz, paylaşılan kod **aynı proje içinde** ama mantıksal olarak ayrılmış
 
+### 1.1.1. Paket Yöneticisi: BUN (ZORUNLU)
+
+❌ **YASAK:**
+- `npm`, `pnpm`, `yarn` (hiçbiri kullanılmaz — `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock` deposunda yer almaz)
+
+✅ **ZORUNLU:**
+- **Bun** (https://bun.sh) — paket yöneticisi + çalıştırıcı
+- Lock dosyası: `bun.lockb` (binary)
+- Tüm `package.json` script'leri Bun ile çalışır
+- CI/CD (GitHub Actions) Bun kullanır (`oven-sh/setup-bun@v1`)
+- Geliştirici makinelerinde Bun kurulu olmak zorunda
+
+**Kurulum:**
+```bash
+# Linux / macOS
+curl -fsSL https://bun.sh/install | bash
+
+# Windows (PowerShell)
+powershell -c "irm bun.sh/install.ps1 | iex"
+
+# Doğrulama
+bun --version  # >= 1.1.x
+```
+
+**Faydalar (gerekçe):**
+- 10-20 kat daha hızlı `install`
+- Yerleşik TypeScript/JSX çalıştırıcı (`bun run *.ts` doğrudan)
+- Yerleşik test çalıştırıcı (`bun test`)
+- Yerleşik bundler ve paket yöneticisi
+- Daha düşük `node_modules` boyutu
+
 ### 1.2. API Yol Öbeği ile Ayrım
 
 API, Next.js App Router'ın `app/api/` yol öbeği içinde yaşar. Ayrı süreç/sunucu değildir.
@@ -192,7 +223,7 @@ pusula/
 ├── tailwind.config.ts
 ├── tsconfig.json
 ├── package.json
-├── pnpm-lock.yaml
+├── bun.lockb
 └── README.md
 ```
 
@@ -842,7 +873,9 @@ prisma.$use(denetimAraKatmanı)
 
 ---
 
-## 13. SCRIPT KOMUTLARI (package.json)
+## 13. SCRIPT KOMUTLARI (package.json) — BUN
+
+> Tüm komutlar **`bun`** veya **`bun run`** ile çalışır. `npm`/`pnpm`/`yarn` kullanılmaz.
 
 ```json
 {
@@ -855,20 +888,42 @@ prisma.$use(denetimAraKatmanı)
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,md,json}\"",
-    "test": "vitest",
-    "test:unit": "vitest run --dir tests/unit",
-    "test:integration": "vitest run --dir tests/integration",
-    "test:coverage": "vitest run --coverage",
+    "test": "bun test",
+    "test:unit": "bun test --bail tests/unit",
+    "test:integration": "bun test tests/integration",
+    "test:coverage": "bun test --coverage",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
-    "db:seed": "tsx prisma/seed.ts",
+    "db:seed": "bun run prisma/seed.ts",
     "db:studio": "prisma studio"
   }
 }
 ```
+
+**Komut kullanımı:**
+
+```bash
+bun install                # bağımlılıkları kur (pnpm install yerine)
+bun add <paket>            # paket ekle (pnpm add yerine)
+bun add -d <paket>         # geliştirme bağımlılığı (pnpm add -D yerine)
+bun remove <paket>         # paket kaldır
+bun dev                    # → bun run dev (kısayol)
+bun run lint               # script çalıştır
+bun test                   # yerleşik test çalıştırıcı (Vitest YOK)
+bun run prisma/seed.ts     # TS dosyası doğrudan (tsx YOK)
+```
+
+**Not — Test çalıştırıcı:**
+- `bun test` Bun'un yerleşik test çalıştırıcısıdır (Jest API uyumlu).
+- Vitest **gerekmez**; tüm birim/tümleşim testleri `bun test` ile çalışır.
+- Playwright ayrı kalır (uçtan uca için).
+- Test dosyası şablonu: `*.test.ts(x)` veya `*.spec.ts(x)`.
+
+**Not — TS çalıştırıcı:**
+- `tsx`, `ts-node` **gereksizdir**. Bun TypeScript dosyalarını doğrudan çalıştırır: `bun run prisma/seed.ts`.
 
 ---
 
@@ -950,9 +1005,9 @@ C-Evresi-MVP plan içindeki öykü değişir:
 > KÖ-0.5 — Tek depo (monorepo) iskeleti (pnpm + Turborepo) — 5 SP
 
 **Yeni:**
-> **KÖ-0.5** — Tek Next.js projesi iskeleti + B-Ç18'e uygun klasör yapısı (app, components, lib, hooks, types, prisma) — **3 SP**
+> **KÖ-0.5** — Tek Next.js projesi iskeleti + **Bun** kurulum + B-Ç18 klasör yapısı (app, components, lib, hooks, types, prisma) — **3 SP**
 
-Tasarruf: 2 SP (Turborepo karmaşıklığı yok).
+Tasarruf: 2 SP (Turborepo karmaşıklığı yok). Ek: Bun ile kurulum + dev döngüsü daha hızlı.
 
 ---
 

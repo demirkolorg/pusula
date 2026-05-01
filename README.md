@@ -105,26 +105,30 @@ Ayrıntı: [B-Ç18 belgesi](docs/proje-yapısı/B-Ç18-proje-yapısı-ve-bileşe
 
 ## Geliştirme
 
+> **Paket Yöneticisi:** **Bun** (zorunlu — npm/pnpm/yarn YASAK).
+> Kurulum: https://bun.sh — `curl -fsSL https://bun.sh/install | bash`
+
 ```bash
 # Bağımlılıkları kur
-pnpm install
+bun install
 
 # Geliştirme sunucusu
-pnpm dev
+bun dev
 
 # Sınamalar
-pnpm test:unit
-pnpm test:integration
-pnpm e2e
+bun test
+bun run test:unit
+bun run test:integration
+bun run e2e
 
 # Tip + lint kontrolleri
-pnpm typecheck
-pnpm lint
+bun run typecheck
+bun run lint
 
 # Veritabanı
-pnpm db:migrate
-pnpm db:seed
-pnpm db:studio
+bun run db:migrate
+bun run db:seed
+bun run db:studio
 ```
 
 ## Plan Durumu
@@ -142,7 +146,3 @@ Bu proje kamu kurumları için tasarlanmıştır. Lisans bilgisi proje sahibi ta
 
 Geliştirici: demirkol.abdullah93@gmail.com
 
----
-
-> **Hazırlayan:** Hızır YZ destekli planlama ve geliştirme süreci
-> **Pilot Hedef Tarih:** Kasım 2026 (2 geliştirici varsayımı)

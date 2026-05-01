@@ -375,6 +375,8 @@ altyapı/bulut/terraform/
 
 # B-Ç14 — GITHUB ACTIONS İŞ AKIŞ KATALOĞU (B-8)
 
+> **Paket Yöneticisi:** Tüm iş akışları **Bun** kullanır (`oven-sh/setup-bun@v1`). `pnpm`, `npm`, `yarn` YASAK.
+
 ## 1. İŞ AKIŞ DOSYALARI
 
 ```
@@ -402,26 +404,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v3
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
-      - run: pnpm format:check
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+      - run: bun run format:check
 
   tip-denetim:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v3
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
+      - uses: oven-sh/setup-bun@v1
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
 
   birim-sınama:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v3
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm test:unit -- --coverage
+      - uses: oven-sh/setup-bun@v1
+      - run: bun install --frozen-lockfile
+      - run: bun test --coverage
       - uses: codecov/codecov-action@v4
 
   tümleşim-sınama:
@@ -435,18 +439,19 @@ jobs:
           --health-cmd "pg_isready"
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v3
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm prisma migrate deploy
-      - run: pnpm test:integration
+      - uses: oven-sh/setup-bun@v1
+      - run: bun install --frozen-lockfile
+      - run: bunx prisma migrate deploy
+      - run: bun test tests/integration
 
   derleme:
     runs-on: ubuntu-latest
     needs: [lint, tip-denetim, birim-sınama, tümleşim-sınama]
     steps:
       - uses: actions/checkout@v4
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm build
+      - uses: oven-sh/setup-bun@v1
+      - run: bun install --frozen-lockfile
+      - run: bun run build
 ```
 
 ## 3. e2e.yml ÖZET
@@ -465,11 +470,12 @@ jobs:
         image: postgres:16
     steps:
       - uses: actions/checkout@v4
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps
-      - run: pnpm prisma migrate deploy
-      - run: pnpm seed:e2e
-      - run: pnpm e2e --grep @kritik
+      - uses: oven-sh/setup-bun@v1
+      - run: bun install --frozen-lockfile
+      - run: bunx playwright install --with-deps
+      - run: bunx prisma migrate deploy
+      - run: bun run seed:e2e
+      - run: bun run e2e --grep @kritik
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -487,13 +493,13 @@ on:
 
 jobs:
   e2e-tümü:
-    # ... pnpm e2e (etiketsiz, tüm uçtan uca)
+    # ... bun run e2e (etiketsiz, tüm uçtan uca)
   lighthouse:
-    # @lhci/cli ile başarım ölçütleri
+    # @lhci/cli ile başarım ölçütleri (bunx lhci autorun)
   owasp-zap:
     # OWASP ZAP baseline scan
   bağımlılık-denetimi:
-    # pnpm audit + npm audit + osv-scanner
+    # bun audit (1.1.x+) + osv-scanner
 ```
 
 ## 5. deploy-staging.yml ÖZET
@@ -514,9 +520,11 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROL_ARN }}
           aws-region: eu-central-1
+      - uses: oven-sh/setup-bun@v1
       - run: docker build -t pusula .
       - run: docker push ${{ steps.ecr.outputs.kayıt }}/pusula:${{ github.sha }}
-      - run: pnpm prisma migrate deploy
+      - run: bun install --frozen-lockfile
+      - run: bunx prisma migrate deploy
         env:
           VERİTABANI_URL: ${{ secrets.HAZIRLIK_VERİTABANI_URL }}
       - run: aws ecs update-service --cluster pusula-hazırlık --service web --force-new-deployment
@@ -554,7 +562,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: pnpm tsx betikler/denetim-arşivle.ts
+      - uses: oven-sh/setup-bun@v1
+      - run: bun install --frozen-lockfile
+      - run: bun run scripts/denetim-arsivle.ts
         env:
           KESİM_TARİHİ: 1 yıl önce
           HEDEF: s3://pusula-arşiv/denetim/
@@ -582,7 +592,7 @@ jobs:
 | Eski (kaldırıldı) | Yeni (B-Ç18) |
 |---|---|
 | `apps/web/`, `apps/api/`, `packages/*` | Tek Next.js projesi (kök) |
-| Turborepo + pnpm workspace | Düz `next dev/build` |
+| Turborepo + pnpm workspace | Düz `next dev/build` (Bun ile) |
 | Yatay paketler (`arayüz`, `shared`, `veritabanı`) | Özellik bazlı `app/(dashboard)/<özellik>/` + paylaşımlı `components/`, `lib/`, `hooks/`, `types/` |
 | Çok dosya çok klasör | Mikro bileşen ilkesi (≤150 satır), tek sorumluluk |
 
@@ -669,7 +679,7 @@ jobs:
 
 | Tehdit | STRIDE | Risk | Önlem |
 |---|---|---|---|
-| **Bağımlılık zafiyeti** | T | ORTA | Renovate haftalık, `pnpm audit`, OSV-scanner. |
+| **Bağımlılık zafiyeti** | T | ORTA | Renovate haftalık, `bun audit`, OSV-scanner. |
 | **Tedarik zinciri saldırısı** | T | ORTA | Lockfile commit, npm install scripts denetimi. |
 | **Gizli sızdırma** | I | YÜKSEK | `.env` git'te yok; AWS Secrets Manager / Parameter Store. **B-10 .env basitliğinde gizli rotasyonu manuel.** |
 | **Konteyner zafiyeti** | T | ORTA | Trivy ile docker image taraması, base image güncel. |
@@ -710,7 +720,7 @@ jobs:
 | 10 | Denetim günlüğü yalnızca ekleme (DB seviyesi) | Veritabanı |
 | 11 | Yedekleme şifreli (AES-256) | Bulut |
 | 12 | Sentry üzerinde kişisel veri maskeleme | Sentry yapılandırma |
-| 13 | Renovate + `pnpm audit` haftalık | CI |
+| 13 | Renovate + `bun audit` haftalık | CI |
 | 14 | Periyodik penetrasyon sınaması | Yıllık |
 
 ## 5. ÖNERİLEN İLERİ ÖNLEMLER (Evre 4+)

@@ -94,7 +94,7 @@ PUSULA gereksinim seti **birikimli** bir biçimde gelişmiştir. Her yeni sürü
 | Teknoloji: React Hook Form + Zod |  |  | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Teknoloji: TanStack Table |  |  | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Teknoloji: Sonner Bildirim |  |  | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Sunucu: Node.js + Prisma + PostgreSQL | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Sunucu: Bun (Node.js uyumlu) + Prisma + PostgreSQL | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Depolama Soyutlaması (Yerel/MinIO/S3) | ✓ | ✓ | ✓ |  |  |  | ✓ |
 | Önce Mobil + İlerlemeli Web Uygulaması | ✓ | ✓ | ✓ |  |  |  | ✓ |
 | Rol Tabanlı Erişim (Kaymakam, Müdür, Memur) | ✓ | ✓ | ✓ |  |  | ✓ (genişledi) | ✓ |
@@ -217,7 +217,8 @@ PUSULA gereksinim seti **birikimli** bir biçimde gelişmiştir. Her yeni sürü
 | Doğrulama | **Zod** | S3 | Şema öncelikli; hem istemci (React Hook Form) hem sunucu hem TypeScript tip kaynağı. |
 | Çizelge | **TanStack Table** | S3 | Görselsiz, sıralama/süzme/sayfalama/sanallaştırma; ilerleme çubuğu ve rozet tümleşimi. |
 | Bildirim Kutusu | **Sonner** | S3 | Çağdaş, hafif, devinimli, erişilebilir. |
-| Sunucu Çalıştırıcısı | **Node.js** | S1 | Tam yığın JavaScript, ekip uyumu. |
+| Sunucu Çalıştırıcısı | **Bun** (Node.js uyumlu) | S1 (B-Ç18 ile güncellendi) | Tam yığın JavaScript/TypeScript; yerleşik test çalıştırıcı + paket yöneticisi + bundler. `npm`/`pnpm`/`yarn` YASAK. |
+| Paket Yöneticisi | **Bun** (`bun install`, `bun add`, `bun.lockb`) | B-Ç18 | 10-20 kat daha hızlı kurulum, lock dosyası binary, monorepo tooling gerekmez. |
 | Nesne-İlişkisel Eşleştirici | **Prisma** | S1 | Tip güvenli veritabanı erişimi, geçiş, **ara katman** (denetim için kritik). |
 | Veritabanı | **PostgreSQL** | S1 | İşlem güvenliği, JSON ikilisi, **tam metin arama**, ileride pgvector/eklentiler için açık kapı. |
 | Mobil | **Önce Mobil Duyarlı + İlerlemeli Web Uygulaması** | S1 | Yerel uygulama mağazası sürtünmesini ortadan kaldırır; ana ekrana ekleme, basit çevrimdışı önbellek. |
@@ -1825,7 +1826,7 @@ model GörevEtiketi {
 | Alan | Kapsam |
 |---|---|
 | **Ön Yüz** | Next.js App Router, React, Tailwind, Shadcn UI, TanStack Query/Table, React Hook Form + Zod, Sonner, better-auth, İlerlemeli Web Uygulaması. |
-| **Arka Uç** | Node.js, Prisma, PostgreSQL, Önce Arayüz REST uç noktaları, Olay Güdümlü. |
+| **Arka Uç** | **Bun** (Node.js uyumlu çalıştırıcı + paket yöneticisi), Prisma, PostgreSQL, Önce Arayüz REST uç noktaları, Olay Güdümlü. |
 | **Kimlik Doğrulama** | better-auth (oturum, seçimlik iki adımlı/tekli oturum ileri evre). |
 | **Depolama** | Soyutlanmış (Yerel/MinIO/S3). |
 | **Roller** | YÖNETİCİ, BİRİM_MÜDÜRÜ, PERSONEL + ince taneli izinler. |
@@ -2235,7 +2236,7 @@ Kullanıcı profilde güvenilir cihazları görür ve istediğini iptal edebilir
 | **B-6** | Yedekleme | **STANDART** | Kurtarma Noktası Hedefi: 24 saat. Kurtarma Süresi Hedefi: 4 saat. Günlük tam + saatlik artımlı yedek. |
 | **B-7** | Sınama yaklaşımı | **STANDART** | Vitest (birim + tümleşim), Playwright (uçtan uca kritik akışlar), Prisma sınama veritabanı, kapsam hedefi yüzde 70+. |
 | **B-8** | Sürekli Tümleşim/Dağıtım | **GITHUB ACTIONS** | İş akışları: lint → tip kontrol → birim sınama → uçtan uca sınama → derleme → dağıtım. |
-| **B-9** | Depo yapısı | **TEK DEPO (MONOREPO)** | `apps/web`, `apps/api`, `packages/shared` (paylaşılan tipler, Zod şemaları, yardımcılar). Turborepo veya pnpm çalışma alanı kullanımı. |
+| **B-9** | Depo yapısı | **TEK NEXT.JS PROJESİ (B-Ç18)** | Monorepo (apps/* + packages/*) **KALDIRILDI**. Yerine: tek Next.js + özellik bazlı + mikro bileşen. **Bun** paket yöneticisi (Turborepo + pnpm YASAK). |
 | **B-10** | Gizli yönetimi | **`.env`** | Doppler/Vault yok. `.env.example` depoda; gerçek `.env` dağıtım sağlayıcısının ortam değişkenleri panelinde. |
 
 ### E.3. C Bölümü — Yol Sırası (Kilitlendi)

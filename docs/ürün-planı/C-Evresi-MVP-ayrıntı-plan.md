@@ -813,7 +813,7 @@ Daha agresif kesintiyle (Audit görüntüleme yok, MinIO yok, sadece yerel) ek 3
 | ElastiCache Redis | Aynı uygulama sunucusunda Docker Redis | İlk evre, ayrı sunucu sonra |
 | S3 | **MinIO** kendi sunucuda (3 disk RAID veya ayrı sunucu) | |
 | S3 Glacier | Yedek diski → ayrı bölge sunucu (C-Q7 yerel) | |
-| EventBridge + Lambda | systemd timer + Node CLI betikleri | |
+| EventBridge + Lambda | systemd timer + **Bun** CLI betikleri (`bun run scripts/...`) | |
 | CloudWatch | **Sentry** (C-Q5 sade, C-Q6 harici) + opsiyonel Grafana | |
 | Secrets Manager | `.env` dosyası (B-10) | Sunucuda `chmod 600` |
 | Mail | **C-Q6: HARİCİ** — Mailgun / SES / SendGrid | TR yerel sunucudan dış API çağrısı |
@@ -857,7 +857,7 @@ srv-pusula (8 vCPU, 16 GB RAM, 320 GB NVMe SSD)
 |---|---|
 | İşletim sistemi (Linux) | 1.5 GB |
 | nginx | 200 MB |
-| Next.js (Node) | 2 GB |
+| Next.js (Bun çalıştırıcı) | 2 GB |
 | PostgreSQL | 6 GB (shared_buffers + effective_cache_size) |
 | Redis | 1 GB (maxmemory) |
 | MinIO | 2 GB |
