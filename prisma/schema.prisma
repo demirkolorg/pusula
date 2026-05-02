@@ -1,0 +1,252 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────
+
+enum Rol {
+  YONETICI
+  BIRIM_MUDURU
+  PERSONEL
+}
+
+enum GorevDurumu {
+  YAPILACAK
+  SURUYOR
+  ONAY_BEKLIYOR
+  ONAYLANDI
+  DUZELTME
+  IPTAL
+}
+
+enum OncelikDuzeyi {
+  DUSUK
+  ORTA
+  YUKSEK
+  KRITIK
+}
+
+// ─── Better-Auth: User ────────────────────────────────────────────────────
+// better-auth, prisma.user ile konuşur — @@map ile DB tablosu kullanicilar
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Alan genişletmeleri
+  rol           Rol       @default(PERSONEL)
+  birimId       String?
+  aktif         Boolean   @default(true)
+  silinmeTarihi DateTime?
+
+  sessions               Session[]
+  accounts               Account[]
+  birim                  Birim?                   @relation(fields: [birimId], references: [id])
+  olusturduguGorevler    Gorev[]                  @relation("GorevOlusturan")
+  atananGorevler         Gorev[]                  @relation("GorevAtanan")
+  yorumlar               Yorum[]
+  etkinlikler            EtkinlikGunlugu[]
+  izinIstisnalari        KullaniciIzinIstisnasi[] @relation("IzinIstisnalari")
+  olusturulanIstisnalar  KullaniciIzinIstisnasi[] @relation("OlusturulanIzinIstisnalari")
+
+  @@map("kullanicilar")
+}
+
+// ─── Better-Auth: Session ─────────────────────────────────────────────────
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("oturumlar")
+}
+
+// ─── Better-Auth: Account ─────────────────────────────────────────────────
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("hesaplar")
+}
+
+// ─── Better-Auth: Verification ────────────────────────────────────────────
+
+model Verification {
+  id         String    @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@map("dogrulamalar")
+}
+
+// ─── Birim ────────────────────────────────────────────────────────────────
+
+model Birim {
+  id              String    @id @default(cuid())
+  ad              String    @unique
+  aciklama        String?
+  mudurId         String?
+  ustBirimId      String?
+  olusturmaTarihi DateTime  @default(now())
+  silinmeTarihi   DateTime?
+
+  kullanicilar    User[]
+  projeler        Proje[]
+  ustBirim        Birim?    @relation("BirimHiyerarsisi", fields: [ustBirimId], references: [id])
+  altBirimler     Birim[]   @relation("BirimHiyerarsisi")
+
+  @@map("birimler")
+}
+
+// ─── Proje ────────────────────────────────────────────────────────────────
+
+model Proje {
+  id               String    @id @default(cuid())
+  ad               String
+  aciklama         String?
+  birimId          String
+  olusturanId      String
+  baslangicTarihi  DateTime?
+  bitisTarihi      DateTime?
+  olusturmaTarihi  DateTime  @default(now())
+  guncellemeTarihi DateTime  @updatedAt
+  silinmeTarihi    DateTime?
+
+  birim            Birim     @relation(fields: [birimId], references: [id])
+  gorevler         Gorev[]
+
+  @@map("projeler")
+}
+
+// ─── Görev ────────────────────────────────────────────────────────────────
+
+model Gorev {
+  id               String        @id @default(cuid())
+  baslik           String
+  aciklama         String?
+  durum            GorevDurumu   @default(YAPILACAK)
+  oncelik          OncelikDuzeyi @default(ORTA)
+  projeId          String
+  atananId         String?
+  olusturanId      String
+  ustGorevId       String?
+  baslangicTarihi  DateTime?
+  bitisTarihi      DateTime?
+  olusturmaTarihi  DateTime      @default(now())
+  guncellemeTarihi DateTime      @updatedAt
+  silinmeTarihi    DateTime?
+
+  proje            Proje         @relation(fields: [projeId], references: [id])
+  atanan           User?         @relation("GorevAtanan", fields: [atananId], references: [id])
+  olusturan        User          @relation("GorevOlusturan", fields: [olusturanId], references: [id])
+  ustGorev         Gorev?        @relation("AltGorevler", fields: [ustGorevId], references: [id])
+  altGorevler      Gorev[]       @relation("AltGorevler")
+  yorumlar         Yorum[]
+  dosyalar         Dosya[]
+
+  @@map("gorevler")
+}
+
+// ─── Yorum ────────────────────────────────────────────────────────────────
+
+model Yorum {
+  id              String    @id @default(cuid())
+  icerik          String
+  gorevId         String
+  yazarId         String
+  olusturmaTarihi DateTime  @default(now())
+  guncellemeTarihi DateTime @updatedAt
+  silinmeTarihi   DateTime?
+
+  gorev           Gorev     @relation(fields: [gorevId], references: [id])
+  yazar           User      @relation(fields: [yazarId], references: [id])
+
+  @@map("yorumlar")
+}
+
+// ─── Dosya ────────────────────────────────────────────────────────────────
+
+model Dosya {
+  id              String    @id @default(cuid())
+  dosyaAdi        String
+  dosyaYolu       String
+  icerikTuru      String
+  boyutBayt       Int
+  gorevId         String
+  yukleyenId      String
+  olusturmaTarihi DateTime  @default(now())
+  silinmeTarihi   DateTime?
+
+  gorev           Gorev     @relation(fields: [gorevId], references: [id])
+
+  @@map("dosyalar")
+}
+
+// ─── Etkinlik Günlüğü (Değiştirilemez — yalnızca INSERT) ─────────────────
+
+model EtkinlikGunlugu {
+  id            String    @id @default(cuid())
+  model         String
+  modelKimlik   String
+  eylem         String
+  eskiDeger     Json?
+  yeniDeger     Json?
+  eyleyenId     String?
+  tarih         DateTime  @default(now())
+
+  eyleyen       User?     @relation(fields: [eyleyenId], references: [id])
+
+  @@map("etkinlik_gunlugu")
+}
+
+// ─── Kullanıcı İzin İstisnası ─────────────────────────────────────────────
+// verildi=true → rol iznine ek olarak ver, false → rol iznini geri al
+
+model KullaniciIzinIstisnasi {
+  id           String   @id @default(cuid())
+  kullaniciId  String
+  izinAnahtari String
+  verildi      Boolean
+  aciklama     String?
+  olusturanId  String
+  olusturmaTarihi DateTime @default(now())
+
+  kullanici    User     @relation("IzinIstisnalari", fields: [kullaniciId], references: [id], onDelete: Cascade)
+  olusturan    User     @relation("OlusturulanIzinIstisnalari", fields: [olusturanId], references: [id])
+
+  @@unique([kullaniciId, izinAnahtari])
+  @@map("kullanici_izin_istisnalari")
+}
