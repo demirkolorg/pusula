@@ -26,9 +26,15 @@ interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
   toolbar?: ReactNode
+  onRowClick?: (row: TData) => void
 }
 
-export function DataTable<TData, TValue>({ columns, data, toolbar }: DataTableProps<TData, TValue>) {
+export function DataTable<TData, TValue>({
+  columns,
+  data,
+  toolbar,
+  onRowClick,
+}: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 
@@ -64,7 +70,17 @@ export function DataTable<TData, TValue>({ columns, data, toolbar }: DataTablePr
           <TableBody>
             {table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow
+                  key={row.id}
+                  className={onRowClick ? 'cursor-pointer' : undefined}
+                  onClick={(e) => {
+                    if (!onRowClick) return
+                    // İçindeki etkileşimli öğeler tıklanırsa satır tıklamasını tetikleme
+                    const hedef = e.target as HTMLElement
+                    if (hedef.closest('button, a, [role="menuitem"], input, [data-no-row-click]')) return
+                    onRowClick(row.original)
+                  }}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}

@@ -24,6 +24,14 @@ enum GorevDurumu {
   IPTAL
 }
 
+enum DerkenarTipi {
+  KARAR
+  UYARI
+  ENGEL
+  BILGI
+  NOT
+}
+
 enum OncelikDuzeyi {
   DUSUK
   ORTA
@@ -55,6 +63,7 @@ model User {
   olusturduguGorevler    Gorev[]                  @relation("GorevOlusturan")
   atananGorevler         Gorev[]                  @relation("GorevAtanan")
   yorumlar               Yorum[]
+  derkenarlar            Derkenar[]
   etkinlikler            EtkinlikGunlugu[]
   izinIstisnalari        KullaniciIzinIstisnasi[] @relation("IzinIstisnalari")
   olusturulanIstisnalar  KullaniciIzinIstisnasi[] @relation("OlusturulanIzinIstisnalari")
@@ -176,6 +185,7 @@ model Gorev {
   altGorevler      Gorev[]       @relation("AltGorevler")
   yorumlar         Yorum[]
   dosyalar         Dosya[]
+  derkenarlar      Derkenar[]
 
   @@map("gorevler")
 }
@@ -213,6 +223,31 @@ model Dosya {
   gorev           Gorev     @relation(fields: [gorevId], references: [id])
 
   @@map("dosyalar")
+}
+
+// ─── Derkenar ─────────────────────────────────────────────────────────────
+// Görev üzerine eklenen yapısal not (KARAR/UYARI/ENGEL/BILGI/NOT)
+
+model Derkenar {
+  id               String        @id @default(cuid())
+  tip              DerkenarTipi
+  baslik           String?
+  icerik           String
+  gorevId          String
+  yazarId          String
+  sabitlendi       Boolean       @default(false)
+  cozuldu          Boolean       @default(false)        // ENGEL için
+  cozulmeTarihi    DateTime?
+  surum            Int           @default(1)
+  olusturmaTarihi  DateTime      @default(now())
+  guncellemeTarihi DateTime      @updatedAt
+  silinmeTarihi    DateTime?
+
+  gorev            Gorev         @relation(fields: [gorevId], references: [id])
+  yazar            User          @relation(fields: [yazarId], references: [id])
+
+  @@index([gorevId])
+  @@map("derkenarlar")
 }
 
 // ─── Etkinlik Günlüğü (Değiştirilemez — yalnızca INSERT) ─────────────────

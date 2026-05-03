@@ -1,0 +1,53 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { headers } from 'next/headers'
+import { auth } from '@/lib/auth'
+import { izinGerekli, IzinHatasi } from '@/lib/permissions'
+import { onayServisi } from '@/app/(dashboard)/gorevler/onay-services'
+import { gorevServisi } from '@/app/(dashboard)/gorevler/services'
+import { prisma } from '@/lib/prisma'
+import { auditYaz } from '@/lib/audit/yazici'
+import type { Rol } from '@/types/enums'
+
+async function oturumAl() {
+  const oturum = await auth.api.getSession({ headers: await headers() })
+  if (!oturum) return null
+  const tam = await prisma.user.findUnique({
+    where: { id: oturum.user.id },
+    select: { id: true, rol: true, birimId: true },
+  })
+  return tam ? { id: tam.id, rol: tam.rol as Rol, birimId: tam.birimId } : null
+}
+
+type Params = { params: Promise<{ kimlik: string }> }
+
+export async function POST(_istek: NextRequest, { params }: Params) {
+  const kullanici = await oturumAl()
+  if (!kullanici) return NextResponse.json({ hata: 'OTURUM_BULUNAMADI' }, { status: 401 })
+
+  await izinGerekli(kullanici, 'gorev.onayla')
+
+  const { kimlik } = await params
+  const gorev = await gorevServisi.tekGetir(kimlik)
+  if (!gorev) return NextResponse.json({ hata: 'BULUNAMADI' }, { status: 404 })
+
+  if (kullanici.rol !== 'YONETICI' && gorev.proje.birimId !== kullanici.birimId) {
+    return NextResponse.json({ hata: 'BU_KAYDA_ERISIM_YOK' }, { status: 403 })
+  }
+
+  try {
+    const sonuc = await onayServisi.onayla(kimlik, kullanici.id)
+    await auditYaz({
+      eyleyenId: kullanici.id,
+      model: 'Gorev',
+      modelKimlik: kimlik,
+      eylem: 'ONAYLA',
+      eskiDeger: { durum: 'ONAY_BEKLIYOR' },
+      yeniDeger: { durum: 'ONAYLANDI' },
+    })
+    return NextResponse.json({ basarili: true, veri: sonuc })
+  } catch (h) {
+    if (h instanceof IzinHatasi) return NextResponse.json({ hata: h.message }, { status: 403 })
+    if (h instanceof Error) return NextResponse.json({ hata: h.message }, { status: 422 })
+    return NextResponse.json({ hata: 'SUNUCU_HATASI' }, { status: 500 })
+  }
+}

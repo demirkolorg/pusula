@@ -16,6 +16,10 @@ export function middleware(istek: NextRequest) {
   // Oturum cookie kontrolü — cookiePrefix auth config ile eşleşmeli
   const oturum = getSessionCookie(istek, { cookiePrefix: 'pusula' })
   if (!oturum) {
+    // API rotaları için JSON 401, sayfalar için /giris yönlendirmesi
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ hata: 'OTURUM_BULUNAMADI' }, { status: 401 })
+    }
     const girisUrl = new URL('/giris', istek.url)
     girisUrl.searchParams.set('callbackUrl', pathname)
     return NextResponse.redirect(girisUrl)
