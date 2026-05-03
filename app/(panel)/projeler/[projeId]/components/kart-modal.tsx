@@ -42,6 +42,7 @@ import { useKartUyeleri } from "../uye/hooks";
 import { YorumListesi } from "../yorum/components/yorum-listesi";
 import { KontrolListesiPaneli } from "../kontrol-listesi/components/kontrol-listesi-paneli";
 import { useKontrolListesiOlustur, tempId as klTempId } from "../kontrol-listesi/hooks";
+import { IliskiPopover } from "../iliski/components/iliski-popover";
 
 type Props = {
   kartId: string | null;
@@ -244,7 +245,15 @@ function KartModalIcerik({ kartId, projeId, kapat }: { kartId: string; projeId: 
             />
             <KontrolListesiHizliEkle kartId={bulunan.kart.id} />
             <SidebarBtn icon={PaperclipIcon} label="Eklenti" yakinda />
-            <SidebarBtn icon={LinkIcon} label="İlişkili Kart" yakinda />
+            <IliskiPopover
+              kartId={bulunan.kart.id}
+              projeId={projeId}
+              trigger={
+                <Button variant="ghost" className="justify-start">
+                  <LinkIcon className="size-4" /> İlişkili Kart
+                </Button>
+              }
+            />
           </div>
 
           <p className="text-muted-foreground mt-2 text-xs font-medium uppercase tracking-wide">
