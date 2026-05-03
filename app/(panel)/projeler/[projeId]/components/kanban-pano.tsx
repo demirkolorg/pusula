@@ -42,7 +42,7 @@ import {
   useListeSirala,
   useProjeDetay,
 } from "../hooks/detay-sorgulari";
-import { KartCekmece } from "./kart-cekmece";
+import { KartModal } from "./kart-modal";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   hedefTipi,
@@ -590,7 +590,7 @@ export function KanbanPano({ projeId, ilkVeri, yetkiler }: Props) {
         </DragOverlay>
       </DndContext>
 
-      <KartCekmece
+      <KartModal
         kartId={acikKartId}
         kapat={() => setAcikKartId(null)}
         projeId={projeId}

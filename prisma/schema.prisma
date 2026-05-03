@@ -274,11 +274,15 @@ model Kullanici {
   olusturma_zamani  DateTime            @default(now())
   guncelleme_zamani DateTime            @updatedAt
 
-  kurum          Kurum          @relation(fields: [kurum_id], references: [id])
-  roller         KullaniciRol[]
-  proje_uyelik   ProjeUyesi[]
-  kart_uyelik    KartUyesi[]
-  olusturduklari Proje[]        @relation("ProjeOlusturan")
+  kurum               Kurum            @relation(fields: [kurum_id], references: [id])
+  roller              KullaniciRol[]
+  proje_uyelik        ProjeUyesi[]
+  kart_uyelik         KartUyesi[]
+  olusturduklari      Proje[]          @relation("ProjeOlusturan")
+  yorumlar            Yorum[]          @relation("YorumYazan")
+  eklentiler          Eklenti[]        @relation("EklentiYukleyen")
+  tamamlanan_maddeler KontrolMaddesi[] @relation("KontrolTamamlayan")
+  atanan_maddeler     KontrolMaddesi[] @relation("KontrolAtanan")
 
   @@index([kurum_id])
   @@index([email])
@@ -522,12 +526,15 @@ model Kart {
   olusturma_zamani  DateTime  @default(now())
   guncelleme_zamani DateTime  @updatedAt
 
-  liste          Liste             @relation(fields: [liste_id], references: [id], onDelete: Cascade)
-  uyeler         KartUyesi[]
-  etiketler      KartEtiket[]
-  iliski_a       KartIliskisi[]    @relation("KartA")
-  iliski_b       KartIliskisi[]    @relation("KartB")
-  hedef_kurumlar KartHedefKurumu[]
+  liste             Liste             @relation(fields: [liste_id], references: [id], onDelete: Cascade)
+  uyeler            KartUyesi[]
+  etiketler         KartEtiket[]
+  iliski_a          KartIliskisi[]    @relation("KartA")
+  iliski_b          KartIliskisi[]    @relation("KartB")
+  hedef_kurumlar    KartHedefKurumu[]
+  yorumlar          Yorum[]
+  eklentiler        Eklenti[]
+  kontrol_listeleri KontrolListesi[]
 
   @@index([liste_id, sira])
   @@index([liste_id, silindi_mi, arsiv_mi])
@@ -596,4 +603,88 @@ model KartIliskisi {
 
   @@unique([kart_a_id, kart_b_id, tip])
   @@index([kart_b_id, tip])
+}
+
+// ============================================================
+// Yorum · Eklenti · Kontrol Listesi (S4)
+// Plan: docs/plan.md Bölüm 5 (Kart Detay - Trello features)
+// Kurallar: SKILL.md Kural 70 (XSS / DOMPurify), 72 (Upload mime+boyut),
+// 90 (5 katman), 107 (optimistic), 138 (granular permissions).
+// ============================================================
+
+model Yorum {
+  id                String    @id @default(uuid()) @db.Uuid
+  kart_id           String    @db.Uuid
+  yazan_id          String    @db.Uuid
+  // Markdown — server'da DOMPurify ile sanitize edilip render edilir.
+  // @mention metnin içinde "@uuid" formatında kalır; parse ile Bildirim üretilir.
+  icerik            String
+  duzenlendi_mi     Boolean   @default(false)
+  silindi_mi        Boolean   @default(false)
+  silinme_zamani    DateTime?
+  yanit_yorum_id    String?   @db.Uuid
+  olusturma_zamani  DateTime  @default(now())
+  guncelleme_zamani DateTime  @updatedAt
+
+  kart        Kart      @relation(fields: [kart_id], references: [id], onDelete: Cascade)
+  yazan       Kullanici @relation("YorumYazan", fields: [yazan_id], references: [id])
+  yanit_yorum Yorum?    @relation("YorumYanit", fields: [yanit_yorum_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  yanitlar    Yorum[]   @relation("YorumYanit")
+
+  @@index([kart_id, silindi_mi, olusturma_zamani(sort: Desc)])
+  @@index([yazan_id])
+}
+
+model Eklenti {
+  id                String    @id @default(uuid()) @db.Uuid
+  kart_id           String    @db.Uuid
+  yukleyen_id       String    @db.Uuid
+  ad                String // orijinal dosya adı
+  mime              String
+  boyut             Int // bytes — Kural 72: limit server'da kontrol edilir
+  depolama_yolu     String // MinIO key — presigned URL ile servis edilir
+  silindi_mi        Boolean   @default(false)
+  silinme_zamani    DateTime?
+  olusturma_zamani  DateTime  @default(now())
+  guncelleme_zamani DateTime  @updatedAt
+
+  kart     Kart      @relation(fields: [kart_id], references: [id], onDelete: Cascade)
+  yukleyen Kullanici @relation("EklentiYukleyen", fields: [yukleyen_id], references: [id])
+
+  @@index([kart_id, silindi_mi, olusturma_zamani(sort: Desc)])
+}
+
+model KontrolListesi {
+  id                String   @id @default(uuid()) @db.Uuid
+  kart_id           String   @db.Uuid
+  ad                String
+  sira              String // LexoRank — kart içi liste sırası
+  olusturma_zamani  DateTime @default(now())
+  guncelleme_zamani DateTime @updatedAt
+
+  kart     Kart             @relation(fields: [kart_id], references: [id], onDelete: Cascade)
+  maddeler KontrolMaddesi[]
+
+  @@index([kart_id, sira])
+}
+
+model KontrolMaddesi {
+  id                 String    @id @default(uuid()) @db.Uuid
+  kontrol_listesi_id String    @db.Uuid
+  metin              String
+  tamamlandi_mi      Boolean   @default(false)
+  tamamlama_zamani   DateTime?
+  tamamlayan_id      String?   @db.Uuid
+  atanan_id          String?   @db.Uuid
+  bitis              DateTime?
+  sira               String // LexoRank — liste içi madde sırası
+  olusturma_zamani   DateTime  @default(now())
+  guncelleme_zamani  DateTime  @updatedAt
+
+  kontrol_listesi KontrolListesi @relation(fields: [kontrol_listesi_id], references: [id], onDelete: Cascade)
+  tamamlayan      Kullanici?     @relation("KontrolTamamlayan", fields: [tamamlayan_id], references: [id])
+  atanan          Kullanici?     @relation("KontrolAtanan", fields: [atanan_id], references: [id])
+
+  @@index([kontrol_listesi_id, sira])
+  @@index([atanan_id])
 }
