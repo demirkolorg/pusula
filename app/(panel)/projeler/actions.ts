@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { eylem, EylemHatasi } from "@/lib/action-wrapper";
 import { yetkiZorunlu, IZIN_KODLARI } from "@/lib/permissions";
+import { yetkiZorunluProje } from "@/lib/yetki";
 import { HATA_KODU } from "@/lib/sonuc";
 import {
   projeArsivSemasi,
@@ -66,6 +67,7 @@ export const projeGuncelleEylem = eylem({
   girdi: projeGuncelleSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_DUZENLE);
+    await yetkiZorunluProje(ctx.oturum?.kullaniciId, "proje:edit", girdi.id);
     const kurumId = kurumIdAl(ctx);
     await projeGuncelle(kurumId, girdi);
     revalidatePath("/projeler");
@@ -78,6 +80,7 @@ export const projeArsivleEylem = eylem({
   girdi: projeArsivSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_DUZENLE);
+    await yetkiZorunluProje(ctx.oturum?.kullaniciId, "proje:edit", girdi.id);
     const kurumId = kurumIdAl(ctx);
     await projeArsivle(kurumId, girdi);
     revalidatePath("/projeler");
@@ -90,6 +93,7 @@ export const projeSilEylem = eylem({
   girdi: projeSilSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_SIL);
+    await yetkiZorunluProje(ctx.oturum?.kullaniciId, "proje:delete", girdi.id);
     const kurumId = kurumIdAl(ctx);
     await projeSil(kurumId, girdi.id);
     revalidatePath("/projeler");
@@ -102,6 +106,7 @@ export const projeGeriYukleEylem = eylem({
   girdi: projeGeriYukleSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_SIL);
+    await yetkiZorunluProje(ctx.oturum?.kullaniciId, "proje:delete", girdi.id);
     const kurumId = kurumIdAl(ctx);
     await projeGeriYukle(kurumId, girdi.id);
     revalidatePath("/projeler");
@@ -114,6 +119,7 @@ export const projeSiralaEylem = eylem({
   girdi: projeSiraSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_DUZENLE);
+    await yetkiZorunluProje(ctx.oturum?.kullaniciId, "proje:edit", girdi.id);
     const kurumId = kurumIdAl(ctx);
     return projeyeSiraVer(kurumId, girdi);
   },

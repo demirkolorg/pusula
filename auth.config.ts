@@ -1,7 +1,22 @@
 import type { NextAuthConfig } from "next-auth";
 
 const guvenli = process.env.NODE_ENV === "production";
+
+// Kontrol Kural 69 + ADR-0004: SameSite=Strict cookie zorunlu.
+// `lax`'tan `strict`'e geçiş: cross-site link tıklamalarında oturum cookie'si
+// gönderilmez → CSRF saldırı yüzeyi büyük ölçüde kapatıldı.
+// Kullanıcı dış siteden link ile geldiğinde tekrar giriş gerekmez (NextAuth
+// callbackUrl pattern'i bunu zaten handle eder).
 const cookieOpts = {
+  httpOnly: true,
+  sameSite: "strict" as const,
+  path: "/",
+  secure: guvenli,
+};
+
+// callbackUrl için lax: kullanıcının başka siteden tıklayıp dönüşünde
+// callbackUrl'yi kaybetmesin (UX gereği).
+const callbackCookieOpts = {
   httpOnly: true,
   sameSite: "lax" as const,
   path: "/",
@@ -20,7 +35,7 @@ export const authConfig = {
     },
     callbackUrl: {
       name: `${guvenli ? "__Secure-" : ""}pusula-callback-url`,
-      options: { sameSite: "lax", path: "/", secure: guvenli },
+      options: callbackCookieOpts,
     },
     csrfToken: {
       name: `${guvenli ? "__Host-" : ""}pusula-csrf-token`,

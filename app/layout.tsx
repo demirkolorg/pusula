@@ -40,7 +40,8 @@ export default function RootLayout({
           <QueryProvider>
             <TooltipProvider>{children}</TooltipProvider>
           </QueryProvider>
-          <Toaster richColors closeButton position="top-right" />
+          {/* position prop verilmezse Toaster kendisi mobile/desktop'a göre seçer */}
+          <Toaster richColors closeButton />
         </ThemeProvider>
       </body>
     </html>

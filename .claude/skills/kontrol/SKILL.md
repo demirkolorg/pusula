@@ -1,6 +1,6 @@
 ---
 name: kontrol
-description: Pusula (kaymakamlık görev yönetimi) projesinin tüm geliştirme süreci kuralları. Modül geliştirme, kod yazma, test, commit, deploy adımlarında uyulması zorunlu 144 kural. Bu skill her kod yazımı/düzenlemesi/PR öncesinde devreye girer ve kuralları enforce eder.
+description: Pusula (kaymakamlık görev yönetimi) projesinin tüm geliştirme süreci kuralları. Modül geliştirme, kod yazma, test, commit, deploy adımlarında uyulması zorunlu 147 kural. Bu skill her kod yazımı/düzenlemesi/PR öncesinde devreye girer ve kuralları enforce eder.
 ---
 
 # Kontrol — Pusula Geliştirme Kuralları
@@ -593,6 +593,41 @@ description: Pusula (kaymakamlık görev yönetimi) projesinin tüm geliştirme 
    - Animasyon: `cancelAnimationFrame` cleanup
 
    **Pattern:** State'e `iptal` flag'i veya `AbortSignal` ile alt seviye operasyonlar erken çıkış. Kullanıcı her zaman vazgeçebilmeli.
+
+## V. Mimari Audit Sonrası Eklenen Kurallar (2026-05-04)
+
+> Dış mühendis incelemesi (`docs/issues/2026-05-04-mimari-audit.md`) sonucunda eklendi. ADR-0002 ve sonrası ile birlikte bağlantılıdır.
+
+### V.1 — Major Version Upgrade Senkronizasyonu
+
+145. **Major version upgrade sonrası 24 saat içinde plan + README + ADR güncel** — `next`, `prisma`, `react`, `nextauth`, `tailwind` gibi temel kütüphaneler **major** atladığında (örn. Next 15 → 16) aşağıdakiler ZORUNLU:
+   - `docs/plan.md`: Karar Özeti tablosu güncellenir (sürüm yazılı yerlerde)
+   - `README.md`: Stack başlığı güncellenir
+   - `docs/adr/NNNN-<lib>-<version>-migration.md` ADR yazılır (breaking change'ler + migration adımları)
+   - `CHANGELOG.md`'de "Değişen" altına satır eklenir
+
+   **Sebep:** Plan + gerçek ayrışması yeni geliştiricileri yanıltır, hatalı varsayımlara yol açar (audit 2026-05-04 madde 1).
+
+### V.2 — Resource-Level RBAC Zorunlu
+
+146. **Server action içinde global izin kontrolü TEK BAŞINA YETERSİZ** — `yetkiZorunlu(kullaniciId, IZIN_KODLARI.X)` kullanıcının "bu tip işlemi yapabileceğini" söyler ama **hangi kaynak üzerinde** olduğunu söylemez. Ek olarak kaynak bazlı kontrol ZORUNLU:
+   ```ts
+   await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);    // global
+   await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.id);   // resource-level
+   ```
+   `lib/yetki.ts` üzerinden `canProje`/`canListe`/`canKart` policy katmanı kullanılır. ProjeUyesi.seviye → action eşlemesi ile her işlem doğrulanır. Makam katmanı (SUPER_ADMIN/KAYMAKAM) kurum içi tüm projelere otomatik erişir.
+
+   **Sebep:** Aksi halde aynı kurumdaki personel üye olmadığı projelerin verisine erişebilir → KVKK ihlali (audit 2026-05-04 madde 4).
+
+### V.3 — Public POST Endpoint Güvenlik Hattı
+
+147. **Public POST API endpoint'i auth + rate limit + origin allowlist OLMADAN deploy edilemez** — `/api/log/hata`, `/api/upload`, `/api/webhook` gibi endpoint'ler için:
+   - **Auth zorunlu:** anonim çağrı kabul yok (kullanıcı oturumu veya API key)
+   - **Rate limit:** `lib/rate-limit.ts`'in token bucket'ı (default: 30/dk/IP, hassas endpoint'lerde daha düşük)
+   - **Origin allowlist:** `proxy.ts` seviyesinde `Origin` header karşılaştırması (`process.env.NEXT_PUBLIC_APP_URL`)
+   - **Webhook'lar için ek:** HMAC signature doğrulama
+
+   **Sebep:** Public POST endpoint = DoS ve veri şişirme yüzeyi (audit 2026-05-04 madde 3). `/api/log/hata` örneği: saldırgan dakikada 10000 fake hata POST'larsa DB sular.
 
 ---
 

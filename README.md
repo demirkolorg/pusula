@@ -1,36 +1,117 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Pusula
 
-## Getting Started
+Kaymakamlık görev yönetim sistemi. Trello tarzı kanban + liste görünümü, RBAC, audit log, optimistic UI.
 
-First, run the development server:
+> **Stack:** Next.js 16 (App Router) · React 19 · Bun · Prisma 6 · Postgres · NextAuth · shadcn/ui · TanStack Query/Table · dnd-kit · Vitest · Playwright
+
+## Gereksinimler
+
+- **Node.js 22 LTS** (`.nvmrc`)
+- **Bun 1.3+** (zorunlu — `npm`/`yarn`/`pnpm` YASAK, kontrol Kural 1)
+- **Docker** (Postgres + MinIO için)
+- Windows/macOS/Linux
+
+## Hızlı Başlangıç
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# 1. Bağımlılıkları kur
+bun install
+
+# 2. Docker servisleri ayağa kaldır (Postgres + MinIO)
+bun run db:up
+
+# 3. Veritabanı migration + seed
+bun run db:migrate
+bun run db:seed
+
+# 4. Geliştirme sunucusu (port 2500)
+bun run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+→ http://localhost:2500
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Demo Kullanıcılar
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Seed sonrası:
+- **Süper Admin** — `admin@pusula.local` / `Pusula2026!`
+- **Kaymakam** — `kaymakam@pusula.local` / `Pusula2026!`
 
-## Learn More
+## Komutlar
 
-To learn more about Next.js, take a look at the following resources:
+| Komut | İşlevi |
+|-------|--------|
+| `bun run dev` | Geliştirme sunucusu (port 2500) |
+| `bun run build` | Production build |
+| `bun run start` | Production sunucusu |
+| `bun run lint` | ESLint |
+| `bun run test` | Vitest unit + integration |
+| `bun run test:watch` | Vitest watch modu |
+| `bun run test:coverage` | Coverage raporu |
+| `bun run e2e` | Playwright E2E (3 viewport) |
+| `bun run e2e:ui` | Playwright UI modu |
+| `bun run db:up` / `db:down` | Docker servisleri |
+| `bun run db:migrate` | Prisma migration (dev) |
+| `bun run db:seed` | Seed data (faker-tr) |
+| `bun run db:reset` | DB sıfırla + seed |
+| `bun run db:studio` | Prisma Studio |
+| `bun run db:generate` | Prisma client regenerate |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Mimari
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **App Router** (`app/(panel)/`, `app/(auth)/`)
+- **Server Actions** default — REST sadece dış sistem callback (kontrol Kural 48)
+- **Türkçe identifier'lar** (klasör/route/DB tablo); JS/TS değişken İngilizce (kontrol Kural 6)
+- **Optimistic UI** her server-state mutation için (`lib/optimistic.ts`, kontrol Kural 107-116)
+- **Resource-level RBAC** (`lib/yetki.ts`, kontrol Kural 146)
+- **Çekirdek audit + hata logu** (`lib/audit-middleware.ts`, `lib/hata-kayit.ts`)
 
-## Deploy on Vercel
+Detay: [`docs/plan.md`](docs/plan.md)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Geliştirme Kuralları
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Tüm kod yazımı, refactoring, PR öncesi `.claude/skills/kontrol/SKILL.md` kuralları enforce edilir (147 kural). Kategoriler:
+
+| Bölüm | Konu |
+|-------|------|
+| A | Paket & araç (Bun zorunlu) |
+| B | Dil & lokalleştirme (Türkçe) |
+| C | Mobile-first |
+| D | Komponent & UI (shadcn) |
+| E | Klasör & dosya yapısı |
+| F | TypeScript (strict) |
+| G | DB & Prisma |
+| H | Server Actions / API |
+| I | Realtime (Socket.io) |
+| J | Audit & hata logu |
+| K | Bildirim (Sonner) |
+| L | Güvenlik |
+| M | Test (TDD) |
+| N | Git & commit |
+| O | Modül akışı |
+| P | Performans |
+| Q | Dokümantasyon |
+| R | CI/CD |
+| S | Optimistic UI |
+| T | Drag-drop mimarisi |
+| U | Genel mimari ilkeler |
+
+## Mimari Kararlar (ADR)
+
+`docs/adr/` altında:
+- [0001 — Kurum + Birim birleştirme](docs/adr/0001-kurum-birim-birlestirme.md)
+- [0002 — Mimari audit (2026-05-04)](docs/adr/0002-mimari-audit-2026-05-04.md)
+- [0003 — Next 16 proxy migration](docs/adr/0003-next16-proxy-migration.md)
+- [0004 — Güvenlik omurgası](docs/adr/0004-guvenlik-omurgasi.md)
+- [0005 — Resource-level RBAC](docs/adr/0005-resource-level-rbac.md)
+
+## Test
+
+```bash
+bun run test:db:setup  # ilk kez — pusula_test DB oluştur
+bun run test           # tüm testler (151+ test)
+bun run e2e            # Playwright (3 viewport: mobile, tablet, desktop)
+```
+
+## Lisans
+
+İçeride kullanım — kaymakamlıklara özgü deployment.

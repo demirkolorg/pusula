@@ -193,8 +193,9 @@ export function KurumFormSheet({ acik, kapat, baslangic, basaridaTetikle }: Prop
   const kategoriDegistir = (yeniKategori: KurumKategorisi) => {
     form.setValue("kategori", yeniKategori);
     const tipler = KURUM_KATEGORI_TIPLER[yeniKategori] ?? [];
-    if (tipler.length > 0 && !tipler.includes(tipDeger)) {
-      form.setValue("tip", tipler[0]);
+    const ilkTip = tipler[0];
+    if (ilkTip && !tipler.includes(tipDeger)) {
+      form.setValue("tip", ilkTip);
     }
   };
 

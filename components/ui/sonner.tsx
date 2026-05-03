@@ -3,13 +3,20 @@
 import { useTheme } from "next-themes"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
+import { useMobil } from "@/hooks/use-breakpoint"
 
-const Toaster = ({ ...props }: ToasterProps) => {
+const Toaster = ({ position, ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme()
+  const mobil = useMobil()
+
+  // Plan 1.5/E: mobil = top-center, desktop = top-right
+  const calculatedPosition: ToasterProps["position"] =
+    position ?? (mobil ? "top-center" : "top-right")
 
   return (
     <Sonner
       theme={theme as ToasterProps["theme"]}
+      position={calculatedPosition}
       className="toaster group"
       icons={{
         success: (

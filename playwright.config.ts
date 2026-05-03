@@ -36,7 +36,8 @@ export default defineConfig({
       },
     },
     {
-      name: "tablet-chromium",
+      // iPad Mini WebKit motorunda — `tablet-chromium` ismi yanıltıcıydı.
+      name: "tablet-webkit",
       use: {
         ...devices["iPad Mini"],
         viewport: { width: 768, height: 1024 },

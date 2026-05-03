@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  ci:
+    name: typecheck + lint + test + build
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pusula
+          POSTGRES_PASSWORD: pusula
+          POSTGRES_DB: pusula_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.9
+
+      - name: Setup Node (Prisma + ESLint için)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Prisma generate
+        run: bunx prisma generate
+        env:
+          DATABASE_URL: postgresql://pusula:pusula@localhost:5432/pusula_test
+          TEST_DATABASE_URL: postgresql://pusula:pusula@localhost:5432/pusula_test
+
+      - name: TypeScript check
+        run: bunx tsc --noEmit
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Test (Vitest)
+        run: bun run test
+        env:
+          DATABASE_URL: postgresql://pusula:pusula@localhost:5432/pusula_test
+          TEST_DATABASE_URL: postgresql://pusula:pusula@localhost:5432/pusula_test
+          NEXTAUTH_SECRET: test-secret-for-ci
+          NEXTAUTH_URL: http://localhost:2500
+
+      - name: Build
+        run: bun run build
+        env:
+          DATABASE_URL: postgresql://pusula:pusula@localhost:5432/pusula_test
+          NEXTAUTH_SECRET: test-secret-for-ci
+          NEXTAUTH_URL: http://localhost:2500
+          NEXT_PUBLIC_APP_URL: http://localhost:2500

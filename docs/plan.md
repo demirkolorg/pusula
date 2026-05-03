@@ -11,7 +11,7 @@
 |------|-------|
 | Proje | Sıfırdan yeni Next.js |
 | Tenant | Single-tenant (kuruma özel deployment) |
-| Stack | Next.js 15 (App Router) + Postgres + Prisma + NextAuth + shadcn/ui |
+| Stack | Next.js 16 (App Router) + Postgres + Prisma + NextAuth + shadcn/ui |
 | Drag-drop | dnd-kit |
 | Tablo | **TanStack Table (headless)** + shadcn DataTable wrapper |
 | Server state | **TanStack Query** |

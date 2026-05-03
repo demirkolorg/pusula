@@ -5,6 +5,12 @@ import { db } from "@/lib/db";
 import { auth } from "@/auth";
 import { ISTEK_BASLIK } from "@/lib/request-context";
 import { logger } from "@/lib/logger";
+import { logHataLimiter } from "@/lib/rate-limit";
+
+// ADR-0004 + Kontrol Kural 51, 73, 147:
+// - Auth zorunlu (anonim hata kabul YOK — log spam yüzeyi kapanır)
+// - Rate limit: 30 / dk / IP
+// - Origin allowlist proxy.ts seviyesinde uygulanır
 
 const govdeSemasi = z.object({
   seviye: z.enum(["DEBUG", "INFO", "WARN", "ERROR", "FATAL"]).default("ERROR"),
@@ -18,6 +24,28 @@ const govdeSemasi = z.object({
 
 export async function POST(istek: NextRequest) {
   try {
+    // 1) Auth zorunlu — anonim çağrı kabul yok
+    const oturum = await auth();
+    if (!oturum?.user) {
+      return NextResponse.json(
+        { basarili: false, hata: "Giriş gerekli" },
+        { status: 401 },
+      );
+    }
+
+    const ip =
+      istek.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      istek.headers.get("x-real-ip") ??
+      "unknown";
+
+    // 2) Rate limit: IP başına dakikada 30 kayıt
+    if (!logHataLimiter.tryConsume(ip)) {
+      return NextResponse.json(
+        { basarili: false, hata: "Çok fazla istek" },
+        { status: 429 },
+      );
+    }
+
     const govdeRaw = await istek.json();
     const dogrulama = govdeSemasi.safeParse(govdeRaw);
     if (!dogrulama.success) {
@@ -27,12 +55,7 @@ export async function POST(istek: NextRequest) {
       );
     }
     const g = dogrulama.data;
-    const oturum = await auth();
     const requestId = istek.headers.get(ISTEK_BASLIK) ?? null;
-    const ip =
-      istek.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-      istek.headers.get("x-real-ip") ??
-      null;
 
     await db.hataLogu.create({
       data: {
@@ -40,8 +63,8 @@ export async function POST(istek: NextRequest) {
         seviye: g.seviye,
         taraf: g.taraf,
         request_id: requestId,
-        kullanici_id: (oturum?.user as { id?: string } | undefined)?.id ?? null,
-        ip,
+        kullanici_id: (oturum.user as { id?: string }).id ?? null,
+        ip: ip === "unknown" ? null : ip,
         user_agent: istek.headers.get("user-agent"),
         url: g.url ?? null,
         hata_tipi: g.hata_tipi ?? null,

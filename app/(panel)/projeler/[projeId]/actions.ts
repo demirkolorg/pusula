@@ -4,6 +4,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { eylem, EylemHatasi } from "@/lib/action-wrapper";
 import { yetkiZorunlu, IZIN_KODLARI } from "@/lib/permissions";
+import {
+  yetkiZorunluProje,
+  yetkiZorunluListe,
+  yetkiZorunluKart,
+} from "@/lib/yetki";
 import { HATA_KODU } from "@/lib/sonuc";
 import {
   kartGeriYukleSemasi,
@@ -59,6 +64,7 @@ export const projeDetayEylem = eylem({
   girdi: projeDetaySemasi,
   calistir: async (girdi, ctx) => {
     const kurumId = kurumIdAl(ctx);
+    await yetkiZorunluProje(ctx.oturum?.kullaniciId, "proje:read", girdi.proje_id);
     return projeDetayiniGetir(kurumId, girdi.proje_id);
   },
 });
@@ -68,6 +74,7 @@ export const projeKartlarEylem = eylem({
   girdi: projeDetaySemasi,
   calistir: async (girdi, ctx) => {
     const kurumId = kurumIdAl(ctx);
+    await yetkiZorunluProje(ctx.oturum?.kullaniciId, "proje:read", girdi.proje_id);
     return projedeTumKartlar(kurumId, girdi.proje_id);
   },
 });
@@ -81,6 +88,7 @@ export const listeOlusturEylem = eylem({
   girdi: listeOlusturSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.LISTE_OLUSTUR);
+    await yetkiZorunluProje(ctx.oturum?.kullaniciId, "proje:edit", girdi.proje_id);
     const kurumId = kurumIdAl(ctx);
     const yeni = await listeOlustur(kurumId, girdi);
     revalidatePath(`/projeler/${girdi.proje_id}`);
@@ -93,6 +101,7 @@ export const listeGuncelleEylem = eylem({
   girdi: listeGuncelleSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.LISTE_DUZENLE);
+    await yetkiZorunluListe(ctx.oturum?.kullaniciId, "liste:edit", girdi.id);
     const kurumId = kurumIdAl(ctx);
     await listeGuncelle(kurumId, girdi);
     return { id: girdi.id };
@@ -104,6 +113,7 @@ export const listeSilEylem = eylem({
   girdi: listeSilSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.LISTE_SIL);
+    await yetkiZorunluListe(ctx.oturum?.kullaniciId, "liste:delete", girdi.id);
     const kurumId = kurumIdAl(ctx);
     await listeSil(kurumId, girdi.id);
     return { id: girdi.id };
@@ -115,6 +125,7 @@ export const listeSiralaEylem = eylem({
   girdi: listeSiraSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.LISTE_DUZENLE);
+    await yetkiZorunluListe(ctx.oturum?.kullaniciId, "liste:edit", girdi.id);
     const kurumId = kurumIdAl(ctx);
     return listeyeSiraVer(kurumId, girdi);
   },
@@ -129,6 +140,7 @@ export const kartOlusturEylem = eylem({
   girdi: kartOlusturSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_OLUSTUR);
+    await yetkiZorunluListe(ctx.oturum?.kullaniciId, "liste:create", girdi.liste_id);
     const kurumId = kurumIdAl(ctx);
     const kullaniciId = kullaniciIdAl(ctx);
     return kartOlusturSrv(kurumId, kullaniciId, girdi);
@@ -140,6 +152,7 @@ export const kartGuncelleEylem = eylem({
   girdi: kartGuncelleSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
+    await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.id);
     const kurumId = kurumIdAl(ctx);
     await kartGuncelleSrv(kurumId, girdi);
     return { id: girdi.id };
@@ -151,6 +164,7 @@ export const kartSilEylem = eylem({
   girdi: kartSilSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_SIL);
+    await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:delete", girdi.id);
     const kurumId = kurumIdAl(ctx);
     await kartSil(kurumId, girdi.id);
     return { id: girdi.id };
@@ -162,6 +176,7 @@ export const kartGeriYukleEylem = eylem({
   girdi: kartGeriYukleSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_SIL);
+    await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.id);
     const kurumId = kurumIdAl(ctx);
     await kartGeriYukle(kurumId, girdi.id);
     return { id: girdi.id };
@@ -173,6 +188,8 @@ export const kartTasiEylem = eylem({
   girdi: kartTasiSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_TASI);
+    await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:tasi", girdi.id);
+    await yetkiZorunluListe(ctx.oturum?.kullaniciId, "liste:edit", girdi.hedef_liste_id);
     const kurumId = kurumIdAl(ctx);
     return kartiTasi(kurumId, girdi);
   },

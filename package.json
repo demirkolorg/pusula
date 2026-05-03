@@ -2,6 +2,11 @@
   "name": "pusula",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22.0.0",
+    "bun": ">=1.3.0"
+  },
+  "packageManager": "bun@1.3.9",
   "scripts": {
     "dev": "next dev -p 2500",
     "build": "next build",
