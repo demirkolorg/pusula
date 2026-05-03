@@ -40,6 +40,8 @@ import { UyePopover } from "../uye/components/uye-popover";
 import { UyeAvatar } from "../uye/components/uye-avatar";
 import { useKartUyeleri } from "../uye/hooks";
 import { YorumListesi } from "../yorum/components/yorum-listesi";
+import { KontrolListesiPaneli } from "../kontrol-listesi/components/kontrol-listesi-paneli";
+import { useKontrolListesiOlustur, tempId as klTempId } from "../kontrol-listesi/hooks";
 
 type Props = {
   kartId: string | null;
@@ -211,6 +213,8 @@ function KartModalIcerik({ kartId, projeId, kapat }: { kartId: string; projeId: 
 
           <KartHedefKurumlar kartId={bulunan.kart.id} />
 
+          <KontrolListesiPaneli kartId={bulunan.kart.id} />
+
           <YorumListesi kartId={bulunan.kart.id} />
         </div>
 
@@ -238,7 +242,7 @@ function KartModalIcerik({ kartId, projeId, kapat }: { kartId: string; projeId: 
                 </Button>
               }
             />
-            <SidebarBtn icon={CheckSquareIcon} label="Kontrol Listesi" yakinda />
+            <KontrolListesiHizliEkle kartId={bulunan.kart.id} />
             <SidebarBtn icon={PaperclipIcon} label="Eklenti" yakinda />
             <SidebarBtn icon={LinkIcon} label="İlişkili Kart" yakinda />
           </div>
@@ -300,6 +304,25 @@ function KartUyeRozetleri({ kartId }: { kartId: string }) {
         />
       ))}
     </div>
+  );
+}
+
+function KontrolListesiHizliEkle({ kartId }: { kartId: string }) {
+  const olustur = useKontrolListesiOlustur(kartId);
+  return (
+    <Button
+      variant="ghost"
+      className="justify-start"
+      onClick={() =>
+        olustur.mutate({
+          id_taslak: klTempId(),
+          kart_id: kartId,
+          ad: "Kontrol Listesi",
+        })
+      }
+    >
+      <CheckSquareIcon className="size-4" /> Kontrol Listesi
+    </Button>
   );
 }
 
