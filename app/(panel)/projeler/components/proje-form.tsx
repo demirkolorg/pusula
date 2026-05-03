@@ -9,13 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 import { toast } from "@/lib/toast";
 import { tempId } from "@/lib/temp-id";
 import { cn } from "@/lib/utils";
@@ -116,16 +116,18 @@ export function ProjeFormSheet({ acik, kapat, baslangic, filtre, arama }: Props)
   const yukleniyor = olustur.isPending || guncelle.isPending;
 
   return (
-    <Sheet open={acik} onOpenChange={(a) => !a && kapat()}>
-      <SheetContent className="w-full sm:max-w-md">
-        <SheetHeader>
-          <SheetTitle>{baslangic ? "Projeyi Düzenle" : "Yeni Proje"}</SheetTitle>
-          <SheetDescription>
+    <ResponsiveDialog open={acik} onOpenChange={(a) => !a && kapat()}>
+      <ResponsiveDialogContent className="w-full sm:max-w-md">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>
+            {baslangic ? "Projeyi Düzenle" : "Yeni Proje"}
+          </ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>
             {baslangic
               ? "Proje bilgilerini güncelleyin."
               : "Yeni proje oluşturup ilk listeleri ekleyin."}
-          </SheetDescription>
-        </SheetHeader>
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
 
         <form onSubmit={gonder} className="grid gap-4 px-4 py-2">
           <div className="grid gap-2">
@@ -189,15 +191,15 @@ export function ProjeFormSheet({ acik, kapat, baslangic, filtre, arama }: Props)
           </div>
         </form>
 
-        <SheetFooter>
+        <ResponsiveDialogFooter>
           <Button type="button" variant="outline" onClick={kapat}>
             İptal
           </Button>
           <Button onClick={gonder} disabled={yukleniyor}>
             {baslangic ? "Kaydet" : "Oluştur"}
           </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        </ResponsiveDialogFooter>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

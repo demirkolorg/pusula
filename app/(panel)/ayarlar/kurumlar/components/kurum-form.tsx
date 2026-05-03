@@ -9,13 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 import {
   Select,
   SelectContent,
@@ -209,15 +209,17 @@ export function KurumFormSheet({ acik, kapat, baslangic, basaridaTetikle }: Prop
   const aktifTipler = KURUM_KATEGORI_TIPLER[kategoriDeger] ?? [];
 
   return (
-    <Sheet open={acik} onOpenChange={(o) => (o ? null : kapat())}>
-      <SheetContent className="flex w-full flex-col gap-4 p-0 sm:max-w-md">
-        <SheetHeader className="border-b p-4">
-          <SheetTitle>{duzenleme ? "Kurumu Düzenle" : "Yeni Kurum"}</SheetTitle>
-          <SheetDescription>
+    <ResponsiveDialog open={acik} onOpenChange={(o) => (o ? null : kapat())}>
+      <ResponsiveDialogContent className="flex w-full flex-col gap-4 p-0 sm:max-w-md">
+        <ResponsiveDialogHeader className="border-b p-4">
+          <ResponsiveDialogTitle>
+            {duzenleme ? "Kurumu Düzenle" : "Yeni Kurum"}
+          </ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>
             Kurumun kategorisini ve tipini seçin. Tekil tiplerde ad opsiyoneldir;
             çoklu tiplerde (eczane, okul, cami vb.) ad zorunludur.
-          </SheetDescription>
-        </SheetHeader>
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
 
         <form
           onSubmit={gonder}
@@ -320,7 +322,7 @@ export function KurumFormSheet({ acik, kapat, baslangic, basaridaTetikle }: Prop
           )}
         </form>
 
-        <SheetFooter className="border-t p-4">
+        <ResponsiveDialogFooter className="border-t p-4">
           <Button type="button" variant="outline" onClick={kapat}>
             Vazgeç
           </Button>
@@ -335,8 +337,8 @@ export function KurumFormSheet({ acik, kapat, baslangic, basaridaTetikle }: Prop
               "Kaydet"
             )}
           </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        </ResponsiveDialogFooter>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

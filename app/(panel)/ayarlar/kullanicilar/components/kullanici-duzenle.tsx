@@ -11,13 +11,13 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 import {
   Select,
   SelectContent,
@@ -143,14 +143,14 @@ export function KullaniciDuzenleSheet({ kayit, kapat, basaridaTetikle }: Props) 
   };
 
   return (
-    <Sheet open={acik} onOpenChange={(o) => (o ? null : kapat())}>
-      <SheetContent className="flex w-full flex-col gap-4 p-0 sm:max-w-md">
-        <SheetHeader className="border-b p-4">
-          <SheetTitle>Kullanıcıyı Düzenle</SheetTitle>
-          <SheetDescription>
+    <ResponsiveDialog open={acik} onOpenChange={(o) => (o ? null : kapat())}>
+      <ResponsiveDialogContent className="flex w-full flex-col gap-4 p-0 sm:max-w-md">
+        <ResponsiveDialogHeader className="border-b p-4">
+          <ResponsiveDialogTitle>Kullanıcıyı Düzenle</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>
             Kişisel bilgiler, kurum ataması ve roller.
-          </SheetDescription>
-        </SheetHeader>
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
 
         <form
           onSubmit={gonder}
@@ -260,7 +260,7 @@ export function KullaniciDuzenleSheet({ kayit, kapat, basaridaTetikle }: Props) 
           </div>
         </form>
 
-        <SheetFooter className="border-t p-4">
+        <ResponsiveDialogFooter className="border-t p-4">
           <Button type="button" variant="outline" onClick={kapat}>
             Vazgeç
           </Button>
@@ -277,8 +277,8 @@ export function KullaniciDuzenleSheet({ kayit, kapat, basaridaTetikle }: Props) 
               "Güncelle"
             )}
           </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        </ResponsiveDialogFooter>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

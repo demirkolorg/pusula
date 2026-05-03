@@ -9,13 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 import {
   Select,
   SelectContent,
@@ -98,15 +98,15 @@ export function DavetGonderSheet({ acik, kapat, basaridaTetikle }: Props) {
   const kurumDeger = form.watch("kurum_id");
 
   return (
-    <Sheet open={acik} onOpenChange={(o) => (o ? null : kapat())}>
-      <SheetContent className="flex w-full flex-col gap-4 p-0 sm:max-w-md">
-        <SheetHeader className="border-b p-4">
-          <SheetTitle>Davet Gönder</SheetTitle>
-          <SheetDescription>
+    <ResponsiveDialog open={acik} onOpenChange={(o) => (o ? null : kapat())}>
+      <ResponsiveDialogContent className="flex w-full flex-col gap-4 p-0 sm:max-w-md">
+        <ResponsiveDialogHeader className="border-b p-4">
+          <ResponsiveDialogTitle>Davet Gönder</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>
             E-posta adresine davet bağlantısı gönderin. Bağlantı 7 gün
             geçerlidir.
-          </SheetDescription>
-        </SheetHeader>
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
 
         <form
           onSubmit={gonder}
@@ -185,7 +185,7 @@ export function DavetGonderSheet({ acik, kapat, basaridaTetikle }: Props) {
           </div>
         </form>
 
-        <SheetFooter className="border-t p-4">
+        <ResponsiveDialogFooter className="border-t p-4">
           <Button type="button" variant="outline" onClick={kapat}>
             Vazgeç
           </Button>
@@ -202,8 +202,8 @@ export function DavetGonderSheet({ acik, kapat, basaridaTetikle }: Props) {
               "Davet Gönder"
             )}
           </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        </ResponsiveDialogFooter>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }
