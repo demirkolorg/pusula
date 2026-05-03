@@ -36,6 +36,9 @@ import { KartHedefKurumlar } from "./kart-hedef-kurumlar";
 import { EtiketPopover } from "../etiket/components/etiket-popover";
 import { EtiketRozet } from "../etiket/components/etiket-rozet";
 import { useEtiketler, useKartEtiketleri } from "../etiket/hooks";
+import { UyePopover } from "../uye/components/uye-popover";
+import { UyeAvatar } from "../uye/components/uye-avatar";
+import { useKartUyeleri } from "../uye/hooks";
 
 type Props = {
   kartId: string | null;
@@ -170,6 +173,7 @@ function KartModalIcerik({ kartId, projeId, kapat }: { kartId: string; projeId: 
           className="!h-auto border-0 bg-transparent !px-0 !py-1 text-base font-semibold shadow-none focus-visible:ring-0 sm:text-lg"
         />
         <KartEtiketRozetleri kartId={bulunan.kart.id} projeId={projeId} />
+        <KartUyeRozetleri kartId={bulunan.kart.id} />
         <ResponsiveDialogDescription className="sr-only">
           Kart detayları — başlık, açıklama, hedef kurumlar ve diğer alanlar.
         </ResponsiveDialogDescription>
@@ -224,7 +228,15 @@ function KartModalIcerik({ kartId, projeId, kapat }: { kartId: string; projeId: 
                 </Button>
               }
             />
-            <SidebarBtn icon={UsersIcon} label="Üyeler" yakinda />
+            <UyePopover
+              kartId={bulunan.kart.id}
+              projeId={projeId}
+              trigger={
+                <Button variant="ghost" className="justify-start">
+                  <UsersIcon className="size-4" /> Üyeler
+                </Button>
+              }
+            />
             <SidebarBtn icon={CheckSquareIcon} label="Kontrol Listesi" yakinda />
             <SidebarBtn icon={PaperclipIcon} label="Eklenti" yakinda />
             <SidebarBtn icon={LinkIcon} label="İlişkili Kart" yakinda />
@@ -268,6 +280,23 @@ function KartEtiketRozetleri({
     <div className="mt-1 flex flex-wrap gap-1">
       {seciliEtiketler.map((e) => (
         <EtiketRozet key={e.id} etiket={e} />
+      ))}
+    </div>
+  );
+}
+
+function KartUyeRozetleri({ kartId }: { kartId: string }) {
+  const sorgu = useKartUyeleri(kartId);
+  if (!sorgu.data || sorgu.data.length === 0) return null;
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-1">
+      {sorgu.data.map((u) => (
+        <UyeAvatar
+          key={u.kullanici_id}
+          ad={u.ad}
+          soyad={u.soyad}
+          title={`${u.ad} ${u.soyad}`.trim()}
+        />
       ))}
     </div>
   );

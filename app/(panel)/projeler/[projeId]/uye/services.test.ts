@@ -1,0 +1,228 @@
+import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from "vitest";
+import { PrismaClient } from "@prisma/client";
+
+vi.mock("@/auth", () => ({
+  auth: vi.fn(async () => null),
+  signIn: vi.fn(),
+  signOut: vi.fn(),
+  handlers: {},
+}));
+
+import {
+  kartaUyeEkle,
+  kartaUyeKaldir,
+  kartinUyeleri,
+  projeAdayKullanicilariniAra,
+  projeUyeleriniListele,
+  projeUyesiSeviyeGuncelle,
+  projeyeUyeEkle,
+  projeyeUyeKaldir,
+} from "./services";
+import {
+  ortamKur,
+  projeOlusturFiks,
+  listeOlusturFiks,
+  kartOlusturFiks,
+  type Ortam,
+} from "@/tests/fixtures/proje";
+import { truncateAll } from "@/tests/db/setup";
+
+const adminDb = new PrismaClient({
+  datasources: {
+    db: { url: process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL },
+  },
+});
+
+let ortam: Ortam;
+let proje: { id: string };
+
+// projeOlusturFiks raw create (ProjeUyesi otomatik eklenmez). Bizde
+// her test için sahip-ADMIN bir proje gerekli — helper ile setup.
+async function sahipliProjeOlustur(
+  kurumId: string,
+  sahipId: string,
+): Promise<{ id: string }> {
+  const p = await projeOlusturFiks(adminDb, {
+    kurumId,
+    olusturanId: sahipId,
+  });
+  await adminDb.projeUyesi.create({
+    data: { proje_id: p.id, kullanici_id: sahipId, seviye: "ADMIN" },
+  });
+  return { id: p.id };
+}
+
+beforeAll(async () => {
+  await adminDb.$connect();
+});
+
+afterAll(async () => {
+  await adminDb.$disconnect();
+});
+
+beforeEach(async () => {
+  await truncateAll(adminDb);
+  ortam = await ortamKur(adminDb);
+  proje = await sahipliProjeOlustur(ortam.kurum.id, ortam.superAdmin.id);
+});
+
+// =====================================================================
+// Proje üye yönetimi
+// =====================================================================
+
+describe("projeUyeleriniListele", () => {
+  it("projedeki üyeleri kullanıcı bilgileriyle döner", async () => {
+    await projeyeUyeEkle(ortam.kurum.id, {
+      proje_id: proje.id,
+      kullanici_id: ortam.personel.id,
+      seviye: "NORMAL",
+    });
+
+    const liste = await projeUyeleriniListele(ortam.kurum.id, proje.id);
+    expect(liste).toHaveLength(2);
+    expect(liste.find((u) => u.kullanici_id === ortam.superAdmin.id)?.seviye).toBe("ADMIN");
+    const personelUye = liste.find((u) => u.kullanici_id === ortam.personel.id);
+    expect(personelUye?.seviye).toBe("NORMAL");
+    expect(personelUye?.email).toBe(ortam.personel.email);
+  });
+});
+
+describe("projeyeUyeEkle", () => {
+  it("aynı kullanıcı iki kez eklenince GECERSIZ_GIRDI hatası", async () => {
+    await projeyeUyeEkle(ortam.kurum.id, {
+      proje_id: proje.id,
+      kullanici_id: ortam.personel.id,
+      seviye: "NORMAL",
+    });
+    await expect(
+      projeyeUyeEkle(ortam.kurum.id, {
+        proje_id: proje.id,
+        kullanici_id: ortam.personel.id,
+        seviye: "NORMAL",
+      }),
+    ).rejects.toMatchObject({ kod: "GECERSIZ_GIRDI" });
+  });
+
+  it("başka kurumun kullanıcısı eklenemez", async () => {
+    await expect(
+      projeyeUyeEkle(ortam.kurum.id, {
+        proje_id: proje.id,
+        kullanici_id: ortam.digerKullanici.id,
+        seviye: "NORMAL",
+      }),
+    ).rejects.toMatchObject({ kod: "BULUNAMADI" });
+  });
+});
+
+describe("projeyeUyeKaldir", () => {
+  it("son ADMIN çıkarılamaz", async () => {
+    await expect(
+      projeyeUyeKaldir(ortam.kurum.id, proje.id, ortam.superAdmin.id),
+    ).rejects.toMatchObject({ kod: "GECERSIZ_GIRDI" });
+  });
+
+  it("üye kaldırılınca kart üyelikleri de silinir", async () => {
+    const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
+    const kart = await kartOlusturFiks(adminDb, { listeId: liste.id });
+    await projeyeUyeEkle(ortam.kurum.id, {
+      proje_id: proje.id,
+      kullanici_id: ortam.personel.id,
+      seviye: "NORMAL",
+    });
+    await kartaUyeEkle(ortam.kurum.id, kart.id, ortam.personel.id);
+
+    await projeyeUyeKaldir(ortam.kurum.id, proje.id, ortam.personel.id);
+
+    const kartUyeleri = await kartinUyeleri(ortam.kurum.id, kart.id);
+    expect(kartUyeleri).toEqual([]);
+    const projeUyeleri = await projeUyeleriniListele(ortam.kurum.id, proje.id);
+    expect(projeUyeleri.find((u) => u.kullanici_id === ortam.personel.id)).toBeUndefined();
+  });
+});
+
+describe("projeUyesiSeviyeGuncelle", () => {
+  it("son ADMIN'i NORMAL'e düşüremez", async () => {
+    await expect(
+      projeUyesiSeviyeGuncelle(ortam.kurum.id, {
+        proje_id: proje.id,
+        kullanici_id: ortam.superAdmin.id,
+        seviye: "NORMAL",
+      }),
+    ).rejects.toMatchObject({ kod: "GECERSIZ_GIRDI" });
+  });
+
+  it("ikinci ADMIN olunca ilk admin NORMAL'e düşürülebilir", async () => {
+    await projeyeUyeEkle(ortam.kurum.id, {
+      proje_id: proje.id,
+      kullanici_id: ortam.personel.id,
+      seviye: "ADMIN",
+    });
+    await projeUyesiSeviyeGuncelle(ortam.kurum.id, {
+      proje_id: proje.id,
+      kullanici_id: ortam.superAdmin.id,
+      seviye: "NORMAL",
+    });
+    const liste = await projeUyeleriniListele(ortam.kurum.id, proje.id);
+    expect(liste.find((u) => u.kullanici_id === ortam.superAdmin.id)?.seviye).toBe("NORMAL");
+  });
+});
+
+describe("projeAdayKullanicilariniAra", () => {
+  it("proje üyesi olmayanları döner, üyeleri filtreler", async () => {
+    const adaylar = await projeAdayKullanicilariniAra(ortam.kurum.id, {
+      proje_id: proje.id,
+    });
+    expect(adaylar.find((a) => a.id === ortam.superAdmin.id)).toBeUndefined();
+    expect(adaylar.find((a) => a.id === ortam.personel.id)).toBeDefined();
+    expect(adaylar.find((a) => a.id === ortam.digerKullanici.id)).toBeUndefined();
+  });
+});
+
+// =====================================================================
+// Karta üye atama
+// =====================================================================
+
+describe("kartaUyeEkle", () => {
+  it("proje üyesi olmayan kullanıcı karta atanamaz", async () => {
+    const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
+    const kart = await kartOlusturFiks(adminDb, { listeId: liste.id });
+    await expect(
+      kartaUyeEkle(ortam.kurum.id, kart.id, ortam.personel.id),
+    ).rejects.toMatchObject({ kod: "GECERSIZ_GIRDI" });
+  });
+
+  it("proje üyesi karta atanabilir, idempotent", async () => {
+    const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
+    const kart = await kartOlusturFiks(adminDb, { listeId: liste.id });
+    await projeyeUyeEkle(ortam.kurum.id, {
+      proje_id: proje.id,
+      kullanici_id: ortam.personel.id,
+      seviye: "NORMAL",
+    });
+
+    await kartaUyeEkle(ortam.kurum.id, kart.id, ortam.personel.id);
+    await kartaUyeEkle(ortam.kurum.id, kart.id, ortam.personel.id);
+
+    const uyeler = await kartinUyeleri(ortam.kurum.id, kart.id);
+    expect(uyeler.map((u) => u.kullanici_id)).toEqual([ortam.personel.id]);
+  });
+});
+
+describe("kartaUyeKaldir", () => {
+  it("üyeyi karttan çıkarır, var olmayan idempotent", async () => {
+    const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
+    const kart = await kartOlusturFiks(adminDb, { listeId: liste.id });
+    await projeyeUyeEkle(ortam.kurum.id, {
+      proje_id: proje.id,
+      kullanici_id: ortam.personel.id,
+      seviye: "NORMAL",
+    });
+    await kartaUyeEkle(ortam.kurum.id, kart.id, ortam.personel.id);
+
+    await kartaUyeKaldir(ortam.kurum.id, kart.id, ortam.personel.id);
+    await kartaUyeKaldir(ortam.kurum.id, kart.id, ortam.personel.id);
+
+    const uyeler = await kartinUyeleri(ortam.kurum.id, kart.id);
+    expect(uyeler).toEqual([]);
+  });
+});

@@ -142,7 +142,7 @@ describe("etiketGuncelle", () => {
       kurumId: ortam.digerKurum.id,
     });
     const e = await adminDb.etiket.create({
-      data: { proje_id: yabanci.id, ad: "Z", renk: "#000000" },
+      data: { proje_id: yabanci.id, ad: "Z", renk: "#171717" },
     });
     await expect(
       etiketGuncelle(ortam.kurum.id, { id: e.id, ad: "Yeni" }),
@@ -203,7 +203,7 @@ describe("kartaEtiketEkle", () => {
     const eB = await etiketOlustur(ortam.kurum.id, {
       proje_id: projeB.id,
       ad: "Yanlis",
-      renk: "#000000",
+      renk: "#171717",
     });
 
     await expect(
