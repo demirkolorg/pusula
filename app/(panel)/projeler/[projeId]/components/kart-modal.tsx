@@ -39,6 +39,7 @@ import { useEtiketler, useKartEtiketleri } from "../etiket/hooks";
 import { UyePopover } from "../uye/components/uye-popover";
 import { UyeAvatar } from "../uye/components/uye-avatar";
 import { useKartUyeleri } from "../uye/hooks";
+import { YorumListesi } from "../yorum/components/yorum-listesi";
 
 type Props = {
   kartId: string | null;
@@ -210,7 +211,7 @@ function KartModalIcerik({ kartId, projeId, kapat }: { kartId: string; projeId: 
 
           <KartHedefKurumlar kartId={bulunan.kart.id} />
 
-          {/* S4'te eklenecek: Yorumlar timeline'ı */}
+          <YorumListesi kartId={bulunan.kart.id} />
         </div>
 
         {/* Sağ sidebar: Trello "Add to card" panel — S4 modülleri buraya bağlanacak */}
