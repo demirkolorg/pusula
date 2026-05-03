@@ -1,0 +1,599 @@
+// Pusula — Kaymakamlık Görev Yönetimi
+// Plan: docs/plan.md (Bölüm 3 — Prisma Schema)
+// Kurallar: .claude/skills/kontrol/SKILL.md
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// Kurum (ilçedeki tüm kurumların envanteri — düz liste)
+// ============================================================
+
+enum KurumKategorisi {
+  MULKI_IDARE
+  YEREL_YONETIM
+  EMNIYET_ASAYIS
+  ADALET
+  EGITIM
+  SAGLIK
+  MALIYE_VERGI
+  TAPU_KADASTRO
+  NUFUS_VATANDASLIK
+  SOSYAL_HIZMETLER
+  TARIM_ORMAN_HAYVANCILIK
+  ULASTIRMA_ALTYAPI
+  CEVRE_SEHIRCILIK_IMAR
+  AFET_ACIL_DURUM
+  KULTUR_SPOR_GENCLIK
+  DIN_HIZMETLERI
+  TICARET_SANAYI
+  ISTIHDAM
+  BANKA_FINANS
+  ASKERLIK
+  GUMRUK
+  SIVIL_TOPLUM
+  BASIN_MEDYA
+}
+
+enum KurumTipi {
+  // MULKI_IDARE
+  KAYMAKAMLIK
+  YAZI_ISLERI_MUDURLUGU
+  ILCE_IDARE_KURULU
+  HUKUK_ISLERI
+  BASIN_HALKLA_ILISKILER
+
+  // YEREL_YONETIM
+  BELEDIYE_BASKANLIGI
+  BELDE_BELEDIYESI
+  KOYLERE_HIZMET_GOTURME_BIRLIGI
+  MAHALLE_MUHTARLIGI
+  KOY_MUHTARLIGI
+
+  // EMNIYET_ASAYIS
+  ILCE_EMNIYET_MUDURLUGU
+  POLIS_MERKEZI
+  ILCE_JANDARMA_KOMUTANLIGI
+  JANDARMA_KARAKOLU
+  SAHIL_GUVENLIK_KOMUTANLIGI
+
+  // ADALET
+  ADLIYE
+  CUMHURIYET_BASSAVCILIGI
+  ASLIYE_HUKUK_MAHKEMESI
+  SULH_HUKUK_MAHKEMESI
+  ASLIYE_CEZA_MAHKEMESI
+  SULH_CEZA_MAHKEMESI
+  ICRA_MUDURLUGU
+  NOTERLIK
+  BARO_TEMSILCILIGI
+  CEZAEVI
+  DENETIMLI_SERBESTLIK
+  ADLI_TIP
+
+  // EGITIM
+  ILCE_MILLI_EGITIM_MUDURLUGU
+  HALK_EGITIM_MERKEZI
+  MESLEKI_EGITIM_MERKEZI
+  REHBERLIK_ARASTIRMA_MERKEZI
+  ANAOKULU
+  ILKOKUL
+  ORTAOKUL
+  LISE
+  ANADOLU_LISESI
+  FEN_LISESI
+  IMAM_HATIP_LISESI
+  MESLEK_LISESI
+  OZEL_EGITIM_OKULU
+  OGRETMENEVI
+  KYK_YURDU
+  OZEL_YURT
+  UNIVERSITE
+  MESLEK_YUKSEKOKULU
+
+  // SAGLIK
+  ILCE_SAGLIK_MUDURLUGU
+  DEVLET_HASTANESI
+  AGIZ_DIS_SAGLIGI_MERKEZI
+  TOPLUM_SAGLIGI_MERKEZI
+  AILE_SAGLIGI_MERKEZI
+  ACIL_SAGLIK_ISTASYONU
+  VEREM_SAVAS_DISPANSERI
+  HALK_SAGLIGI_LABORATUVARI
+  OZEL_HASTANE
+  TIP_MERKEZI
+  ECZANE
+
+  // MALIYE_VERGI
+  ILCE_MAL_MUDURLUGU
+  DEFTERDARLIK
+  VERGI_DAIRESI
+  SGK_ILCE_MUDURLUGU
+  HAZINE_MALIYE
+
+  // TAPU_KADASTRO
+  TAPU_MUDURLUGU
+  KADASTRO_MUDURLUGU
+
+  // NUFUS_VATANDASLIK
+  ILCE_NUFUS_MUDURLUGU
+  ILCE_SECIM_KURULU
+  GOC_IDARESI
+
+  // SOSYAL_HIZMETLER
+  SOSYAL_YARDIMLASMA_DAYANISMA_VAKFI
+  AILE_SOSYAL_HIZMETLER_ILCE_MUDURLUGU
+  COCUK_EVI
+  SEVGI_EVI
+  HUZUREVI
+  YASLI_BAKIM_MERKEZI
+  ENGELLI_BAKIM_MERKEZI
+  SIDDET_ONLEME_IZLEME_MERKEZI
+  KADIN_KONUKEVI
+
+  // TARIM_ORMAN_HAYVANCILIK
+  ILCE_TARIM_ORMAN_MUDURLUGU
+  ORMAN_ISLETME_SEFLIGI
+  SU_URUNLERI_SUBESI
+  VETERINER_HEKIMLIGI
+  SULAMA_BIRLIGI
+  ZIRAAT_ODASI
+
+  // ULASTIRMA_ALTYAPI
+  KARAYOLLARI_SUBE_SEFLIGI
+  PTT_MUDURLUGU
+  DSI_SUBESI
+  TEDAS
+  ELEKTRIK_DAGITIM
+  BOTAS
+  DOGALGAZ_DAGITIM
+  TELEKOM
+
+  // CEVRE_SEHIRCILIK_IMAR
+  CEVRE_SEHIRCILIK_ILCE_MUDURLUGU
+  MILLI_EMLAK_SEFLIGI
+  METEOROLOJI_ISTASYONU
+
+  // AFET_ACIL_DURUM
+  AFAD_ILCE_BIRIMI
+  ITFAIYE
+  KIZILAY_SUBESI
+  ARAMA_KURTARMA_BIRIMI
+
+  // KULTUR_SPOR_GENCLIK
+  ILCE_KULTUR_MUDURLUGU
+  ILCE_GENCLIK_SPOR_MUDURLUGU
+  HALK_KUTUPHANESI
+  MUZE
+  GENCLIK_MERKEZI
+  SPOR_TESISI
+  STADYUM
+
+  // DIN_HIZMETLERI
+  ILCE_MUFTULUGU
+  CAMI
+  KURAN_KURSU
+
+  // TICARET_SANAYI
+  TICARET_SANAYI_ODASI
+  ESNAF_SANATKARLAR_ODASI
+  TICARET_BORSASI
+  OSB_MUDURLUGU
+  KOSGEB_TEMSILCILIGI
+
+  // ISTIHDAM
+  ISKUR_ILCE_HIZMET_MERKEZI
+
+  // BANKA_FINANS
+  ZIRAAT_BANKASI
+  HALKBANK
+  VAKIFBANK
+  OZEL_BANKA
+  PTT_BANK
+  KATILIM_BANKASI
+
+  // ASKERLIK
+  ASKERLIK_SUBESI
+
+  // GUMRUK
+  GUMRUK_MUDURLUGU
+  GUMRUK_MUHAFAZA
+
+  // SIVIL_TOPLUM
+  DERNEK
+  VAKIF
+  SENDIKA
+  MESLEK_ODASI
+
+  // BASIN_MEDYA
+  YEREL_GAZETE
+  YEREL_RADYO
+  YEREL_TV
+  HABER_AJANSI
+}
+
+model Kurum {
+  id                String          @id @default(uuid()) @db.Uuid
+  ad                String?
+  kisa_ad           String?
+  kategori          KurumKategorisi
+  tip               KurumTipi
+  il                String?
+  ilce              String?
+  logo_url          String?
+  aktif             Boolean         @default(true)
+  silindi_mi        Boolean         @default(false)
+  silinme_zamani    DateTime?
+  olusturma_zamani  DateTime        @default(now())
+  guncelleme_zamani DateTime        @updatedAt
+
+  kullanicilar  Kullanici[]
+  projeler      Proje[]
+  kart_hedefler KartHedefKurumu[]
+
+  @@index([kategori])
+  @@index([tip])
+  @@index([silindi_mi])
+}
+
+// ============================================================
+// Kullanıcı & RBAC
+// ============================================================
+
+enum KullaniciOnayDurumu {
+  BEKLIYOR
+  ONAYLANDI
+  REDDEDILDI
+}
+
+model Kullanici {
+  id                String              @id @default(uuid()) @db.Uuid
+  kurum_id          String              @db.Uuid
+  email             String              @unique
+  parola_hash       String
+  ad                String
+  soyad             String
+  tc_kimlik_no      String?             @unique
+  telefon           String?
+  unvan             String?
+  aktif             Boolean             @default(true)
+  onay_durumu       KullaniciOnayDurumu @default(BEKLIYOR)
+  onaylayan_id      String?             @db.Uuid
+  onay_zamani       DateTime?
+  red_sebebi        String?
+  email_dogrulandi  DateTime?
+  son_giris_zamani  DateTime?
+  silindi_mi        Boolean             @default(false)
+  silinme_zamani    DateTime?
+  olusturma_zamani  DateTime            @default(now())
+  guncelleme_zamani DateTime            @updatedAt
+
+  kurum          Kurum          @relation(fields: [kurum_id], references: [id])
+  roller         KullaniciRol[]
+  proje_uyelik   ProjeUyesi[]
+  kart_uyelik    KartUyesi[]
+  olusturduklari Proje[]        @relation("ProjeOlusturan")
+
+  @@index([kurum_id])
+  @@index([email])
+  @@index([onay_durumu])
+  @@index([silindi_mi])
+}
+
+model Rol {
+  id                String   @id @default(uuid()) @db.Uuid
+  kod               String   @unique
+  ad                String
+  aciklama          String?
+  sistem_rolu       Boolean  @default(false)
+  olusturma_zamani  DateTime @default(now())
+  guncelleme_zamani DateTime @updatedAt
+
+  kullanicilar KullaniciRol[]
+  izinler      RolIzin[]
+}
+
+model Izin {
+  id               String   @id @default(uuid()) @db.Uuid
+  kod              String   @unique
+  ad               String
+  aciklama         String?
+  kategori         String
+  olusturma_zamani DateTime @default(now())
+
+  roller RolIzin[]
+
+  @@index([kategori])
+}
+
+model RolIzin {
+  rol_id  String @db.Uuid
+  izin_id String @db.Uuid
+
+  rol  Rol  @relation(fields: [rol_id], references: [id], onDelete: Cascade)
+  izin Izin @relation(fields: [izin_id], references: [id], onDelete: Cascade)
+
+  @@id([rol_id, izin_id])
+  @@index([izin_id])
+}
+
+model KullaniciRol {
+  kullanici_id String   @db.Uuid
+  rol_id       String   @db.Uuid
+  atama_zamani DateTime @default(now())
+  atayan_id    String?  @db.Uuid
+
+  kullanici Kullanici @relation(fields: [kullanici_id], references: [id], onDelete: Cascade)
+  rol       Rol       @relation(fields: [rol_id], references: [id], onDelete: Cascade)
+
+  @@id([kullanici_id, rol_id])
+  @@index([rol_id])
+}
+
+// ============================================================
+// Audit Log (Skill 1.5/B — Çekirdek düzeyinde değişiklik izleme)
+// ============================================================
+
+model AktiviteLogu {
+  id           BigInt   @id @default(autoincrement())
+  zaman        DateTime @default(now())
+  kullanici_id String?  @db.Uuid
+  oturum_id    String?
+  ip           String?
+  user_agent   String?
+  request_id   String?
+  http_metod   String?
+  http_yol     String?
+  islem        String
+  kaynak_tip   String
+  kaynak_id    String?
+  eski_veri    Json?
+  yeni_veri    Json?
+  diff         Json?
+  meta         Json?
+  sebep        String?
+
+  @@index([kaynak_tip, kaynak_id, zaman(sort: Desc)])
+  @@index([kullanici_id, zaman(sort: Desc)])
+  @@index([zaman(sort: Desc)])
+  @@index([islem])
+  @@map("aktivite_logu")
+}
+
+// ============================================================
+// Hata Logu (Skill 1.5/C — Çekirdek düzeyinde error tracking)
+// ============================================================
+
+model HataLogu {
+  id               BigInt   @id @default(autoincrement())
+  zaman            DateTime @default(now())
+  seviye           String
+  taraf            String
+  request_id       String?
+  kullanici_id     String?  @db.Uuid
+  oturum_id        String?
+  ip               String?
+  user_agent       String?
+  url              String?
+  hata_tipi        String?
+  mesaj            String
+  stack            String?
+  http_metod       String?
+  http_durum       Int?
+  istek_govdesi    Json?
+  istek_basliklari Json?
+  ekstra           Json?
+  cozuldu_mu       Boolean  @default(false)
+  cozum_notu       String?
+
+  @@index([zaman(sort: Desc)])
+  @@index([seviye, zaman(sort: Desc)])
+  @@index([cozuldu_mu, zaman(sort: Desc)])
+  @@index([request_id])
+  @@map("hata_logu")
+}
+
+// ============================================================
+// Davet & Parola Sıfırlama Token'ları
+// ============================================================
+
+model DavetTokeni {
+  id               String    @id @default(uuid()) @db.Uuid
+  token            String    @unique
+  email            String
+  rol_id           String?   @db.Uuid
+  kurum_id         String?   @db.Uuid
+  davet_eden_id    String    @db.Uuid
+  son_kullanma     DateTime
+  kullanildi_mi    Boolean   @default(false)
+  kullanim_zamani  DateTime?
+  olusturma_zamani DateTime  @default(now())
+
+  @@index([token])
+  @@index([email])
+}
+
+model SifirlamaTokeni {
+  id               String   @id @default(uuid()) @db.Uuid
+  token            String   @unique
+  kullanici_id     String   @db.Uuid
+  son_kullanma     DateTime
+  kullanildi_mi    Boolean  @default(false)
+  olusturma_zamani DateTime @default(now())
+
+  @@index([token])
+  @@index([kullanici_id])
+}
+
+// ============================================================
+// Proje · Liste · Kart (S3)
+// Plan: docs/plan.md Bölüm 2 (domain) + Bölüm 7 (S3)
+// ============================================================
+
+enum ProjeUyeSeviye {
+  ADMIN
+  NORMAL
+  IZLEYICI
+}
+
+enum KartIliskiTipi {
+  BLOCKS
+  RELATES
+  DUPLICATES
+}
+
+model Proje {
+  id                String    @id @default(uuid()) @db.Uuid
+  kurum_id          String    @db.Uuid
+  ad                String
+  aciklama          String?
+  kapak_renk        String? // tema token'ı: "primary" | "secondary" | "tertiary"
+  kapak_dosya_id    String?   @db.Uuid
+  yildizli_mi       Boolean   @default(false)
+  arsiv_mi          Boolean   @default(false)
+  arsiv_zamani      DateTime?
+  silindi_mi        Boolean   @default(false)
+  silinme_zamani    DateTime?
+  sira              String // LexoRank — proje listesinde sıralama
+  olusturan_id      String?   @db.Uuid
+  olusturma_zamani  DateTime  @default(now())
+  guncelleme_zamani DateTime  @updatedAt
+
+  kurum     Kurum        @relation(fields: [kurum_id], references: [id])
+  olusturan Kullanici?   @relation("ProjeOlusturan", fields: [olusturan_id], references: [id])
+  uyeler    ProjeUyesi[]
+  listeler  Liste[]
+  etiketler Etiket[]
+
+  @@index([kurum_id, silindi_mi, arsiv_mi])
+  @@index([kurum_id, sira])
+}
+
+model ProjeUyesi {
+  proje_id       String         @db.Uuid
+  kullanici_id   String         @db.Uuid
+  seviye         ProjeUyeSeviye @default(NORMAL)
+  eklenme_zamani DateTime       @default(now())
+
+  proje     Proje     @relation(fields: [proje_id], references: [id], onDelete: Cascade)
+  kullanici Kullanici @relation(fields: [kullanici_id], references: [id], onDelete: Cascade)
+
+  @@id([proje_id, kullanici_id])
+  @@index([kullanici_id])
+}
+
+model Liste {
+  id                String   @id @default(uuid()) @db.Uuid
+  proje_id          String   @db.Uuid
+  ad                String
+  sira              String // LexoRank — proje içi liste sırası
+  arsiv_mi          Boolean  @default(false)
+  wip_limit         Int?
+  olusturma_zamani  DateTime @default(now())
+  guncelleme_zamani DateTime @updatedAt
+
+  proje   Proje  @relation(fields: [proje_id], references: [id], onDelete: Cascade)
+  kartlar Kart[]
+
+  @@index([proje_id, sira])
+  @@index([proje_id, arsiv_mi])
+}
+
+model Kart {
+  id                String    @id @default(uuid()) @db.Uuid
+  liste_id          String    @db.Uuid
+  baslik            String
+  aciklama          String?
+  sira              String // LexoRank — liste içi kart sırası
+  kapak_renk        String?
+  kapak_dosya_id    String?   @db.Uuid
+  baslangic         DateTime?
+  bitis             DateTime?
+  arsiv_mi          Boolean   @default(false)
+  silindi_mi        Boolean   @default(false)
+  silinme_zamani    DateTime?
+  olusturan_id      String?   @db.Uuid
+  olusturma_zamani  DateTime  @default(now())
+  guncelleme_zamani DateTime  @updatedAt
+
+  liste          Liste             @relation(fields: [liste_id], references: [id], onDelete: Cascade)
+  uyeler         KartUyesi[]
+  etiketler      KartEtiket[]
+  iliski_a       KartIliskisi[]    @relation("KartA")
+  iliski_b       KartIliskisi[]    @relation("KartB")
+  hedef_kurumlar KartHedefKurumu[]
+
+  @@index([liste_id, sira])
+  @@index([liste_id, silindi_mi, arsiv_mi])
+  @@index([bitis])
+}
+
+model KartHedefKurumu {
+  kart_id        String   @db.Uuid
+  kurum_id       String   @db.Uuid
+  eklenme_zamani DateTime @default(now())
+
+  kart  Kart  @relation(fields: [kart_id], references: [id], onDelete: Cascade)
+  kurum Kurum @relation(fields: [kurum_id], references: [id])
+
+  @@id([kart_id, kurum_id])
+  @@index([kurum_id])
+}
+
+model Etiket {
+  id               String   @id @default(uuid()) @db.Uuid
+  proje_id         String   @db.Uuid
+  ad               String
+  renk             String // hex
+  olusturma_zamani DateTime @default(now())
+
+  proje       Proje        @relation(fields: [proje_id], references: [id], onDelete: Cascade)
+  kart_baglar KartEtiket[]
+
+  @@unique([proje_id, ad])
+  @@index([proje_id])
+}
+
+model KartEtiket {
+  kart_id   String @db.Uuid
+  etiket_id String @db.Uuid
+
+  kart   Kart   @relation(fields: [kart_id], references: [id], onDelete: Cascade)
+  etiket Etiket @relation(fields: [etiket_id], references: [id], onDelete: Cascade)
+
+  @@id([kart_id, etiket_id])
+  @@index([etiket_id])
+}
+
+model KartUyesi {
+  kart_id        String   @db.Uuid
+  kullanici_id   String   @db.Uuid
+  eklenme_zamani DateTime @default(now())
+
+  kart      Kart      @relation(fields: [kart_id], references: [id], onDelete: Cascade)
+  kullanici Kullanici @relation(fields: [kullanici_id], references: [id], onDelete: Cascade)
+
+  @@id([kart_id, kullanici_id])
+  @@index([kullanici_id])
+}
+
+model KartIliskisi {
+  id               String         @id @default(uuid()) @db.Uuid
+  kart_a_id        String         @db.Uuid
+  kart_b_id        String         @db.Uuid
+  tip              KartIliskiTipi
+  olusturma_zamani DateTime       @default(now())
+  olusturan_id     String?        @db.Uuid
+
+  kart_a Kart @relation("KartA", fields: [kart_a_id], references: [id], onDelete: Cascade)
+  kart_b Kart @relation("KartB", fields: [kart_b_id], references: [id], onDelete: Cascade)
+
+  @@unique([kart_a_id, kart_b_id, tip])
+  @@index([kart_b_id, tip])
+}
