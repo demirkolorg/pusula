@@ -12,6 +12,7 @@ import {
   PaperclipIcon,
   UsersIcon,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -19,7 +20,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { toast } from "@/lib/toast";
+import { SOCKET } from "@/lib/socket-events";
+import { useSocket, useSocketEvent } from "@/hooks/use-socket";
 import {
+  bildirimListeKey,
+  bildirimOkunmamisKey,
   useBildirimler,
   useBildirimOkuduIsaretle,
   useOkunmamisSayisi,
@@ -74,6 +80,32 @@ export function BildirimDropdown() {
   const [acik, setAcik] = React.useState(false);
   const sayiQ = useOkunmamisSayisi();
   const sayi = sayiQ.data ?? 0;
+  const istemci = useQueryClient();
+
+  // Socket bağlantısını başlat ve realtime bildirim dinle.
+  useSocket();
+  useSocketEvent<{
+    id: string;
+    tip: BildirimTipi;
+    baslik: string;
+    ozet: string | null;
+    kart_id: string | null;
+    proje_id: string | null;
+  }>(
+    SOCKET.BILDIRIM_YENI,
+    (zarf) => {
+      // Cache invalidate — listede ve sayıda anında güncellesin
+      istemci.invalidateQueries({ queryKey: bildirimOkunmamisKey });
+      istemci.invalidateQueries({ queryKey: bildirimListeKey("hepsi") });
+      istemci.invalidateQueries({ queryKey: bildirimListeKey("okunmamis") });
+      // Anlık toast bilgi (geçici) — kullanıcı dropdown'u açmadan da farkına varsın
+      toast.bilgi(zarf.veri.baslik, {
+        aciklama: zarf.veri.ozet ?? undefined,
+      });
+    },
+    // Bildirim üreten ≠ alıcı (services dedupe ediyor); self-filter kapalı.
+    { selfFilter: false },
+  );
 
   return (
     <Popover open={acik} onOpenChange={setAcik}>

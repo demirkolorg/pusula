@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
 import { EylemHatasi } from "@/lib/action-wrapper";
 import { HATA_KODU } from "@/lib/sonuc";
+import { yayinla } from "@/lib/realtime";
+import { SOCKET, room } from "@/lib/socket-events";
 import type {
   ProjeAdayKullanicilar,
   ProjeyeUyeEkle,
@@ -292,6 +294,10 @@ export async function kartaUyeEkle(
     create: { kart_id: kartId, kullanici_id: kullaniciId },
     update: {},
   });
+  yayinla(SOCKET.UYE_KART_EKLE, room.kart(kartId), {
+    kart_id: kartId,
+    kullanici_id: kullaniciId,
+  }).catch(() => {});
 }
 
 export async function kartaUyeKaldir(
@@ -309,4 +315,8 @@ export async function kartaUyeKaldir(
     .catch(() => {
       // Idempotent
     });
+  yayinla(SOCKET.UYE_KART_KALDIR, room.kart(kartId), {
+    kart_id: kartId,
+    kullanici_id: kullaniciId,
+  }).catch(() => {});
 }

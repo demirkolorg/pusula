@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
 import { EylemHatasi } from "@/lib/action-wrapper";
 import { HATA_KODU } from "@/lib/sonuc";
+import { yayinla } from "@/lib/realtime";
+import { SOCKET, room } from "@/lib/socket-events";
 import type {
   EtiketGuncelle,
   EtiketOlustur,
@@ -164,6 +166,10 @@ export async function kartaEtiketEkle(
     create: { kart_id: kartId, etiket_id: etiketId },
     update: {},
   });
+  yayinla(SOCKET.ETIKET_KART_EKLE, room.kart(kartId), {
+    kart_id: kartId,
+    etiket_id: etiketId,
+  }).catch(() => {});
 }
 
 export async function kartaEtiketKaldir(
@@ -179,6 +185,10 @@ export async function kartaEtiketKaldir(
     .catch(() => {
       // Zaten yoksa sessiz; idempotent çıkış
     });
+  yayinla(SOCKET.ETIKET_KART_KALDIR, room.kart(kartId), {
+    kart_id: kartId,
+    etiket_id: etiketId,
+  }).catch(() => {});
 }
 
 // Karttaki etiket id'lerini getir (UI'da seçili durumu göstermek için)

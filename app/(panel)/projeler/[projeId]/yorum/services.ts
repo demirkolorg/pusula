@@ -5,6 +5,8 @@ import {
   tetikleYorumEklendi,
   tetikleYorumMention,
 } from "@/app/(panel)/bildirimler/tetikleyiciler";
+import { yayinla } from "@/lib/realtime";
+import { SOCKET, room } from "@/lib/socket-events";
 import type {
   YorumGuncelle,
   YorumOlustur,
@@ -154,6 +156,12 @@ export async function yorumOlustur(
     /* Bildirim hatası yorum işlemini bozmaz */
   });
 
+  // Realtime — kart room'una yorum:olustur yayınla
+  yayinla(SOCKET.YORUM_OLUSTUR, room.kart(girdi.kart_id), {
+    kart_id: girdi.kart_id,
+    yorum: y,
+  }).catch(() => {});
+
   return y;
 }
 
@@ -174,6 +182,10 @@ export async function yorumGuncelle(
     where: { id: girdi.id },
     data: { icerik: girdi.icerik, duzenlendi_mi: true },
   });
+  yayinla(SOCKET.YORUM_GUNCELLE, room.kart(y.kart_id), {
+    kart_id: y.kart_id,
+    yorum_id: girdi.id,
+  }).catch(() => {});
 }
 
 // Silme: yazan veya proje ADMIN silebilir.
@@ -202,4 +214,8 @@ export async function yorumSil(
     where: { id: yorumId },
     data: { silindi_mi: true, silinme_zamani: new Date() },
   });
+  yayinla(SOCKET.YORUM_SIL, room.kart(y.kart_id), {
+    kart_id: y.kart_id,
+    yorum_id: yorumId,
+  }).catch(() => {});
 }

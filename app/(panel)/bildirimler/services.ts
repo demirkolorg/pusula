@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
 import { EylemHatasi } from "@/lib/action-wrapper";
 import { HATA_KODU } from "@/lib/sonuc";
+import { yayinla } from "@/lib/realtime";
+import { SOCKET, room } from "@/lib/socket-events";
 import type {
   BildirimleriListele,
   BildirimOkuduIsaretle,
@@ -161,8 +163,24 @@ export async function bildirimUret(
       db.bildirim.create({ data: d, select: { id: true, alici_id: true } }),
     ),
   );
-  return sonuclar.map((s) => ({
+  const map = sonuclar.map((s) => ({
     id: s.id.toString(),
     alici_id: s.alici_id,
   }));
+
+  // Realtime broadcast — her alıcının kendi room'una bildirim:yeni yayınla.
+  // Echo filtresi: bildirim üreten kullanıcı kendine bildirim almadığı için
+  // (üreten dışlanır), echo problemi yok. Yine de zarf ureten_id taşır.
+  for (const r of map) {
+    yayinla(SOCKET.BILDIRIM_YENI, room.kullanici(r.alici_id), {
+      id: r.id,
+      tip: girdi.tip,
+      baslik: girdi.baslik,
+      ozet: girdi.ozet ?? null,
+      kart_id: girdi.kart_id ?? null,
+      proje_id: girdi.proje_id ?? null,
+    }).catch(() => {});
+  }
+
+  return map;
 }
