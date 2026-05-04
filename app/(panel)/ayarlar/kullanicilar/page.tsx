@@ -21,7 +21,7 @@ export default async function KullanicilarSayfasi() {
       <div>
         <h1 className="text-2xl font-semibold">Kullanıcılar</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Kurum personelini ve rollerini yönetin.
+          Birim personelini ve rollerini yönetin.
         </p>
       </div>
       <KullanicilarIstemci

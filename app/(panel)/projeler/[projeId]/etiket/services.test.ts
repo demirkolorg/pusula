@@ -55,38 +55,38 @@ beforeEach(async () => {
 
 describe("etiketleriListele", () => {
   it("projedeki etiketleri olusturma sirasinda doner", async () => {
-    const proje = await projeOlusturFiks(adminDb, { kurumId: ortam.kurum.id });
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
 
-    const e1 = await etiketOlustur(ortam.kurum.id, {
+    const e1 = await etiketOlustur(ortam.birim.id, {
       proje_id: proje.id,
       ad: "Acil",
       renk: "#ef4444",
     });
-    const e2 = await etiketOlustur(ortam.kurum.id, {
+    const e2 = await etiketOlustur(ortam.birim.id, {
       proje_id: proje.id,
       ad: "Bilgi",
       renk: "#3b82f6",
     });
 
-    const liste = await etiketleriListele(ortam.kurum.id, proje.id);
+    const liste = await etiketleriListele(ortam.birim.id, proje.id);
     expect(liste.map((x) => x.id)).toEqual([e1.id, e2.id]);
     expect(liste[0]!.ad).toBe("Acil");
     expect(liste[1]!.renk).toBe("#3b82f6");
   });
 
-  // Cross-tenant testi ADR-0007 tek-kurum geçişiyle kaldırıldı (kurum izolasyonu yok).
+  // Eski birim izolasyonu testi paylaşım modeliyle kapsam dışı kaldı.
 });
 
 describe("etiketOlustur", () => {
   it("ayni projede ayni adli etiket reddedilir (P2002)", async () => {
-    const proje = await projeOlusturFiks(adminDb, { kurumId: ortam.kurum.id });
-    await etiketOlustur(ortam.kurum.id, {
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+    await etiketOlustur(ortam.birim.id, {
       proje_id: proje.id,
       ad: "Acil",
       renk: "#ef4444",
     });
     await expect(
-      etiketOlustur(ortam.kurum.id, {
+      etiketOlustur(ortam.birim.id, {
         proje_id: proje.id,
         ad: "Acil",
         renk: "#22c55e",
@@ -95,15 +95,15 @@ describe("etiketOlustur", () => {
   });
 
   it("farkli projelerde ayni adli etiket olabilir", async () => {
-    const p1 = await projeOlusturFiks(adminDb, { kurumId: ortam.kurum.id });
-    const p2 = await projeOlusturFiks(adminDb, { kurumId: ortam.kurum.id });
-    await etiketOlustur(ortam.kurum.id, {
+    const p1 = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+    const p2 = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+    await etiketOlustur(ortam.birim.id, {
       proje_id: p1.id,
       ad: "Acil",
       renk: "#ef4444",
     });
     await expect(
-      etiketOlustur(ortam.kurum.id, {
+      etiketOlustur(ortam.birim.id, {
         proje_id: p2.id,
         ad: "Acil",
         renk: "#ef4444",
@@ -114,39 +114,39 @@ describe("etiketOlustur", () => {
 
 describe("etiketGuncelle", () => {
   it("ad ve rengi gunceller", async () => {
-    const proje = await projeOlusturFiks(adminDb, { kurumId: ortam.kurum.id });
-    const e = await etiketOlustur(ortam.kurum.id, {
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+    const e = await etiketOlustur(ortam.birim.id, {
       proje_id: proje.id,
       ad: "X",
       renk: "#22c55e",
     });
-    await etiketGuncelle(ortam.kurum.id, {
+    await etiketGuncelle(ortam.birim.id, {
       id: e.id,
       ad: "Y",
       renk: "#ef4444",
     });
-    const liste = await etiketleriListele(ortam.kurum.id, proje.id);
+    const liste = await etiketleriListele(ortam.birim.id, proje.id);
     expect(liste[0]).toMatchObject({ ad: "Y", renk: "#ef4444" });
   });
 
-  // Cross-tenant testi ADR-0007 tek-kurum geçişiyle kaldırıldı (kurum izolasyonu yok).
+  // Eski birim izolasyonu testi paylaşım modeliyle kapsam dışı kaldı.
 });
 
 describe("etiketSil", () => {
   it("etiketi siler ve KartEtiket baglarini cascade ile dusurur", async () => {
-    const proje = await projeOlusturFiks(adminDb, { kurumId: ortam.kurum.id });
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
     const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
     const kart = await kartOlusturFiks(adminDb, { listeId: liste.id });
-    const e = await etiketOlustur(ortam.kurum.id, {
+    const e = await etiketOlustur(ortam.birim.id, {
       proje_id: proje.id,
       ad: "Acil",
       renk: "#ef4444",
     });
-    await kartaEtiketEkle(ortam.kurum.id, kart.id, e.id);
+    await kartaEtiketEkle(ortam.birim.id, kart.id, e.id);
 
-    await etiketSil(ortam.kurum.id, e.id);
+    await etiketSil(ortam.birim.id, e.id);
 
-    const kalanlar = await etiketleriListele(ortam.kurum.id, proje.id);
+    const kalanlar = await etiketleriListele(ortam.birim.id, proje.id);
     expect(kalanlar).toEqual([]);
     const baglar = await adminDb.kartEtiket.findMany({
       where: { kart_id: kart.id },
@@ -161,55 +161,55 @@ describe("etiketSil", () => {
 
 describe("kartaEtiketEkle", () => {
   it("karta etiket ekler ve idempotent calisir", async () => {
-    const proje = await projeOlusturFiks(adminDb, { kurumId: ortam.kurum.id });
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
     const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
     const kart = await kartOlusturFiks(adminDb, { listeId: liste.id });
-    const e = await etiketOlustur(ortam.kurum.id, {
+    const e = await etiketOlustur(ortam.birim.id, {
       proje_id: proje.id,
       ad: "X",
       renk: "#22c55e",
     });
 
-    await kartaEtiketEkle(ortam.kurum.id, kart.id, e.id);
-    await kartaEtiketEkle(ortam.kurum.id, kart.id, e.id); // ikinci kez — patlamaz
+    await kartaEtiketEkle(ortam.birim.id, kart.id, e.id);
+    await kartaEtiketEkle(ortam.birim.id, kart.id, e.id); // ikinci kez — patlamaz
 
-    const ids = await kartinEtiketleri(ortam.kurum.id, kart.id);
+    const ids = await kartinEtiketleri(ortam.birim.id, kart.id);
     expect(ids).toEqual([e.id]);
   });
 
   it("baska projedeki etiketi karta eklemek YETKISIZ verir", async () => {
-    const projeA = await projeOlusturFiks(adminDb, { kurumId: ortam.kurum.id });
-    const projeB = await projeOlusturFiks(adminDb, { kurumId: ortam.kurum.id });
+    const projeA = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+    const projeB = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
     const liste = await listeOlusturFiks(adminDb, { projeId: projeA.id });
     const kart = await kartOlusturFiks(adminDb, { listeId: liste.id });
-    const eB = await etiketOlustur(ortam.kurum.id, {
+    const eB = await etiketOlustur(ortam.birim.id, {
       proje_id: projeB.id,
       ad: "Yanlis",
       renk: "#171717",
     });
 
     await expect(
-      kartaEtiketEkle(ortam.kurum.id, kart.id, eB.id),
+      kartaEtiketEkle(ortam.birim.id, kart.id, eB.id),
     ).rejects.toMatchObject({ kod: "YETKISIZ" });
   });
 });
 
 describe("kartaEtiketKaldir", () => {
   it("karttan etiketi cikarir, var olmayan baglanti idempotent", async () => {
-    const proje = await projeOlusturFiks(adminDb, { kurumId: ortam.kurum.id });
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
     const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
     const kart = await kartOlusturFiks(adminDb, { listeId: liste.id });
-    const e = await etiketOlustur(ortam.kurum.id, {
+    const e = await etiketOlustur(ortam.birim.id, {
       proje_id: proje.id,
       ad: "X",
       renk: "#22c55e",
     });
-    await kartaEtiketEkle(ortam.kurum.id, kart.id, e.id);
+    await kartaEtiketEkle(ortam.birim.id, kart.id, e.id);
 
-    await kartaEtiketKaldir(ortam.kurum.id, kart.id, e.id);
-    await kartaEtiketKaldir(ortam.kurum.id, kart.id, e.id); // ikinci kez — patlamaz
+    await kartaEtiketKaldir(ortam.birim.id, kart.id, e.id);
+    await kartaEtiketKaldir(ortam.birim.id, kart.id, e.id); // ikinci kez — patlamaz
 
-    const ids = await kartinEtiketleri(ortam.kurum.id, kart.id);
+    const ids = await kartinEtiketleri(ortam.birim.id, kart.id);
     expect(ids).toEqual([]);
   });
 });

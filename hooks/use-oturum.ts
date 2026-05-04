@@ -7,7 +7,7 @@ export type OturumKullanicisi = {
   ad: string;
   soyad: string;
   email: string;
-  kurum_id: string;
+  birim_id: string | null;
 };
 
 export const OTURUM_KEY = ["oturum-kullanicisi"] as const;

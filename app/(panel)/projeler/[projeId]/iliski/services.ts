@@ -29,10 +29,10 @@ export type IliskiOzeti = {
 // =====================================================================
 
 async function kartiBulVeProjeAl(
-  _kurumId: string,
+  _birimId: string,
   kartId: string,
 ): Promise<{ proje_id: string; liste_id: string }> {
-  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
+  // Tek-birim (ADR-0007) — birim kontrolü düştü.
   const k = await db.kart.findUnique({
     where: { id: kartId },
     select: {
@@ -51,10 +51,10 @@ async function kartiBulVeProjeAl(
 // =====================================================================
 
 export async function kartinIliskileri(
-  kurumId: string,
+  birimId: string,
   kartId: string,
 ): Promise<IliskiOzeti[]> {
-  await kartiBulVeProjeAl(kurumId, kartId);
+  await kartiBulVeProjeAl(birimId, kartId);
 
   const select = {
     id: true,
@@ -123,7 +123,7 @@ export async function kartinIliskileri(
 // =====================================================================
 
 export async function iliskiOlustur(
-  kurumId: string,
+  birimId: string,
   girdi: IliskiOlustur,
 ): Promise<{ id: string }> {
   if (girdi.kart_a_id === girdi.kart_b_id) {
@@ -132,8 +132,8 @@ export async function iliskiOlustur(
       HATA_KODU.GECERSIZ_GIRDI,
     );
   }
-  const { proje_id: aProje } = await kartiBulVeProjeAl(kurumId, girdi.kart_a_id);
-  const { proje_id: bProje } = await kartiBulVeProjeAl(kurumId, girdi.kart_b_id);
+  const { proje_id: aProje } = await kartiBulVeProjeAl(birimId, girdi.kart_a_id);
+  const { proje_id: bProje } = await kartiBulVeProjeAl(birimId, girdi.kart_b_id);
   if (aProje !== bProje) {
     throw new EylemHatasi(
       "İlişkilendirilen kartlar aynı projede olmalı.",
@@ -180,10 +180,10 @@ export async function iliskiOlustur(
 }
 
 export async function iliskiSil(
-  _kurumId: string,
+  _birimId: string,
   iliskiId: string,
 ): Promise<void> {
-  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
+  // Tek-birim (ADR-0007) — birim kontrolü düştü.
   const r = await db.kartIliskisi.findUnique({
     where: { id: iliskiId },
     select: {
@@ -208,10 +208,10 @@ export async function iliskiSil(
 // =====================================================================
 
 export async function projedeKartiAra(
-  _kurumId: string,
+  _birimId: string,
   girdi: ProjeKartiAra,
 ): Promise<Array<{ id: string; baslik: string; liste_ad: string }>> {
-  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
+  // Tek-birim (ADR-0007) — birim kontrolü düştü.
   const proje = await db.proje.findUnique({
     where: { id: girdi.proje_id },
     select: { id: true },

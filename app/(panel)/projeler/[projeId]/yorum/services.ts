@@ -29,10 +29,10 @@ export type YorumOzeti = {
 // =====================================================================
 
 async function kartiBulVeProjeAl(
-  _kurumId: string,
+  _birimId: string,
   kartId: string,
 ): Promise<{ proje_id: string }> {
-  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
+  // Tek-birim (ADR-0007) — birim kontrolü düştü.
   const k = await db.kart.findUnique({
     where: { id: kartId },
     select: {
@@ -46,10 +46,10 @@ async function kartiBulVeProjeAl(
 }
 
 async function yorumuBul(
-  _kurumId: string,
+  _birimId: string,
   yorumId: string,
 ): Promise<{ kart_id: string; yazan_id: string; proje_id: string }> {
-  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
+  // Tek-birim (ADR-0007) — birim kontrolü düştü.
   const y = await db.yorum.findUnique({
     where: { id: yorumId },
     select: {
@@ -76,10 +76,10 @@ async function yorumuBul(
 // =====================================================================
 
 export async function kartYorumlariniListele(
-  kurumId: string,
+  birimId: string,
   kartId: string,
 ): Promise<YorumOzeti[]> {
-  await kartiBulVeProjeAl(kurumId, kartId);
+  await kartiBulVeProjeAl(birimId, kartId);
   const yorumlar = await db.yorum.findMany({
     where: { kart_id: kartId, silindi_mi: false },
     orderBy: { olusturma_zamani: "asc" },
@@ -99,11 +99,11 @@ export async function kartYorumlariniListele(
 }
 
 export async function yorumOlustur(
-  kurumId: string,
+  birimId: string,
   yazanId: string,
   girdi: YorumOlustur,
 ): Promise<YorumOzeti> {
-  await kartiBulVeProjeAl(kurumId, girdi.kart_id);
+  await kartiBulVeProjeAl(birimId, girdi.kart_id);
 
   // yanit_yorum aynı karta ait mi?
   if (girdi.yanit_yorum_id) {
@@ -168,11 +168,11 @@ export async function yorumOlustur(
 }
 
 export async function yorumGuncelle(
-  kurumId: string,
+  birimId: string,
   yazanId: string,
   girdi: YorumGuncelle,
 ): Promise<void> {
-  const y = await yorumuBul(kurumId, girdi.id);
+  const y = await yorumuBul(birimId, girdi.id);
   // Sadece yazan kendi yorumunu düzenler.
   if (y.yazan_id !== yazanId) {
     throw new EylemHatasi(
@@ -192,11 +192,11 @@ export async function yorumGuncelle(
 
 // Silme: yazan veya proje ADMIN silebilir.
 export async function yorumSil(
-  kurumId: string,
+  birimId: string,
   silenId: string,
   yorumId: string,
 ): Promise<void> {
-  const y = await yorumuBul(kurumId, yorumId);
+  const y = await yorumuBul(birimId, yorumId);
   if (y.yazan_id !== silenId) {
     // Silen ADMIN mi kontrol et
     const uye = await db.projeUyesi.findUnique({

@@ -30,7 +30,7 @@ export type AktiviteOzeti = {
     | "yorum"
     | "eklenti"
     | "iliski"
-    | "hedef-kurum"
+    | "hedef-birim"
     | "diger";
   islem: "CREATE" | "UPDATE" | "DELETE";
   // TR-formatlı ana mesaj — örn "kart başlığını değiştirdi"
@@ -38,7 +38,7 @@ export type AktiviteOzeti = {
   // Opsiyonel ikincil bilgi (ad, eski/yeni değer kısa özeti)
   detay: string | null;
   // Kaynak modelin id'si — composite PK olan tablolarda null
-  // (KartEtiket, KartUyesi, KartHedefKurumu). Tümü sekmesinde inline yorum/ek
+  // (KartEtiket, KartUyesi, KartBirimi). Tümü sekmesinde inline yorum/ek
   // eşleştirmesi için kullanılır.
   kaynak_id: string | null;
   // UPDATE event'lerinde alan-bazlı diff (eski → yeni). UI 2. satırda gösterir.
@@ -52,10 +52,10 @@ export type AktiviteOzeti = {
 // =====================================================================
 
 async function kartiBulVeProjeAl(
-  _kurumId: string,
+  _birimId: string,
   kartId: string,
 ): Promise<{ proje_id: string }> {
-  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
+  // Tek-birim (ADR-0007) — birim kontrolü düştü.
   const k = await db.kart.findUnique({
     where: { id: kartId },
     select: {
@@ -81,16 +81,16 @@ const KART_ID_ICEREN_TIPLER = [
   "Yorum",
   "Eklenti",
   "KontrolListesi",
-  "KartHedefKurumu",
+  "KartBirimi",
   "KartUyesi",
   "KartEtiket",
 ] as const;
 
 export async function kartAktiviteleriniListele(
-  kurumId: string,
+  birimId: string,
   girdi: KartAktiviteleriListele,
 ): Promise<AktiviteOzeti[]> {
-  await kartiBulVeProjeAl(kurumId, girdi.kart_id);
+  await kartiBulVeProjeAl(birimId, girdi.kart_id);
 
   // KontrolMaddesi karta dolaylı bağlı (kontrol_listesi_id üzerinden) —
   // önce kart'ın kontrol listesi id'lerini topla.
@@ -189,10 +189,10 @@ export async function kartAktiviteleriniListele(
     : [];
   const kullaniciMap = new Map(kullanicilar.map((k) => [k.id, k]));
 
-  // Etiket / kullanıcı / kurum / liste id'lerini join için topla
+  // Etiket / kullanıcı / birim / liste id'lerini join için topla
   const etiketIdler = new Set<string>();
   const atananIdler = new Set<string>();
-  const kurumIdler = new Set<string>();
+  const birimIdler = new Set<string>();
   const listeIdler = new Set<string>();
   const eklentiIdler = new Set<string>();
   for (const a of ham) {
@@ -210,11 +210,11 @@ export async function kartAktiviteleriniListele(
       if (uPost) atananIdler.add(uPost);
       if (uPre) atananIdler.add(uPre);
     }
-    if (a.kaynak_tip === "KartHedefKurumu") {
-      const kPost = (a.yeni_veri as { kurum_id?: string } | null)?.kurum_id;
-      const kPre = (a.eski_veri as { kurum_id?: string } | null)?.kurum_id;
-      if (kPost) kurumIdler.add(kPost);
-      if (kPre) kurumIdler.add(kPre);
+    if (a.kaynak_tip === "KartBirimi") {
+      const kPost = (a.yeni_veri as { birim_id?: string } | null)?.birim_id;
+      const kPre = (a.eski_veri as { birim_id?: string } | null)?.birim_id;
+      if (kPost) birimIdler.add(kPost);
+      if (kPre) birimIdler.add(kPre);
     }
     // Diff içinden id alanlarını topla (kart taşıma, atan değişimi, kapak)
     const diff = a.diff as Record<string, { eski: unknown; yeni: unknown }> | null;
@@ -232,7 +232,7 @@ export async function kartAktiviteleriniListele(
     }
   }
 
-  const [etiketler, atananlar, kurumlar, listeler, eklentiAdlar] = await Promise.all([
+  const [etiketler, atananlar, birimler, listeler, eklentiAdlar] = await Promise.all([
     etiketIdler.size > 0
       ? db.etiket.findMany({
           where: { id: { in: Array.from(etiketIdler) } },
@@ -245,9 +245,9 @@ export async function kartAktiviteleriniListele(
           select: { id: true, ad: true, soyad: true },
         })
       : Promise.resolve([]),
-    kurumIdler.size > 0
-      ? db.kurum.findMany({
-          where: { id: { in: Array.from(kurumIdler) } },
+    birimIdler.size > 0
+      ? db.birim.findMany({
+          where: { id: { in: Array.from(birimIdler) } },
           select: { id: true, ad: true, kisa_ad: true, tip: true },
         })
       : Promise.resolve([]),
@@ -266,8 +266,8 @@ export async function kartAktiviteleriniListele(
   ]);
   const etiketMap = new Map(etiketler.map((e) => [e.id, e]));
   const atananMap = new Map(atananlar.map((u) => [u.id, u]));
-  const kurumMap = new Map(
-    kurumlar.map((k) => [k.id, kurumGoruntu(k)] as const),
+  const birimMap = new Map(
+    birimler.map((k) => [k.id, birimGoruntu(k)] as const),
   );
   const listeMap = new Map(listeler.map((l) => [l.id, l.ad] as const));
   const eklentiAdMap = new Map(
@@ -280,11 +280,11 @@ export async function kartAktiviteleriniListele(
     liste: listeMap,
     kullanici: new Map(atananlar.map((u) => [u.id, `${u.ad} ${u.soyad}`])),
     eklenti: eklentiAdMap,
-    kurum: kurumMap,
+    birim: birimMap,
   };
 
   return ham.map((a) =>
-    aktiviteOzetle(a, kullaniciMap, etiketMap, atananMap, kurumMap, idMaplar),
+    aktiviteOzetle(a, kullaniciMap, etiketMap, atananMap, birimMap, idMaplar),
   );
 }
 
@@ -292,10 +292,10 @@ type IdMaplar = {
   liste: Map<string, string>;
   kullanici: Map<string, string>;
   eklenti: Map<string, string>;
-  kurum: Map<string, string>;
+  birim: Map<string, string>;
 };
 
-function kurumGoruntu(k: {
+function birimGoruntu(k: {
   ad: string | null;
   kisa_ad: string | null;
   tip: string;
@@ -344,7 +344,7 @@ function aktiviteOzetle(
   kullaniciMap: Map<string, { id: string; ad: string; soyad: string }>,
   etiketMap: Map<string, { id: string; ad: string; renk: string }>,
   atananMap: Map<string, { id: string; ad: string; soyad: string }>,
-  kurumMap: Map<string, string>,
+  birimMap: Map<string, string>,
   idMaplar: IdMaplar,
 ): AktiviteOzeti {
   const islem = (a.islem === "CREATE" || a.islem === "UPDATE" || a.islem === "DELETE"
@@ -384,8 +384,8 @@ function aktiviteOzetle(
       return { ...ortak, ...kartUyesiMesaji(a, islem, atananMap) };
     case "KartIliskisi":
       return { ...ortak, ...kartIliskisiMesaji(a, islem) };
-    case "KartHedefKurumu":
-      return { ...ortak, ...hedefKurumMesaji(a, islem, kurumMap) };
+    case "KartBirimi":
+      return { ...ortak, ...hedefBirimMesaji(a, islem, birimMap) };
     default:
       return {
         ...ortak,
@@ -589,7 +589,7 @@ function kontrolMaddesiMesaji(
   return { kategori: "kontrol-maddesi", mesaj: "kontrol maddesini güncelledi", detay: metin };
 }
 
-// Why: Composite-PK ilişki tablolarında (KartUyesi/KartEtiket/KartHedefKurumu)
+// Why: Composite-PK ilişki tablolarında (KartUyesi/KartEtiket/KartBirimi)
 // idempotent ekleme için `upsert` kullanılıyor. Audit middleware geçmişte
 // upsert'i UPDATE olarak loglardı; bu yüzden yeni ekleme bile "kaldırıldı"
 // görünüyordu. Bu fonksiyonlar artık islem yerine veri varlığına bakar:
@@ -651,20 +651,20 @@ function kartIliskisiMesaji(
   return { kategori: "iliski", mesaj: "kart ilişkisini kaldırdı", detay: tipAd };
 }
 
-function hedefKurumMesaji(
+function hedefBirimMesaji(
   a: HamAktivite,
   islem: AktiviteOzeti["islem"],
-  kurumMap: Map<string, string>,
+  birimMap: Map<string, string>,
 ): Pick<AktiviteOzeti, "kategori" | "mesaj" | "detay"> {
-  const yeniId = jsonAlan<string>(a.yeni_veri, "kurum_id");
-  const eskiId = jsonAlan<string>(a.eski_veri, "kurum_id");
-  const kurumId = yeniId ?? eskiId ?? null;
-  const ad = kurumId ? kurumMap.get(kurumId) ?? null : null;
+  const yeniId = jsonAlan<string>(a.yeni_veri, "birim_id");
+  const eskiId = jsonAlan<string>(a.eski_veri, "birim_id");
+  const birimId = yeniId ?? eskiId ?? null;
+  const ad = birimId ? birimMap.get(birimId) ?? null : null;
   const eklendi = yeniId ? true : islem === "CREATE";
   if (eklendi) {
-    return { kategori: "hedef-kurum", mesaj: "hedef kurum ekledi", detay: ad };
+    return { kategori: "hedef-birim", mesaj: "birim ekledi", detay: ad };
   }
-  return { kategori: "hedef-kurum", mesaj: "hedef kurumu kaldırdı", detay: ad };
+  return { kategori: "hedef-birim", mesaj: "birimu kaldırdı", detay: ad };
 }
 
 function kisalt(s: string, n: number): string {
@@ -775,8 +775,8 @@ function degerFormatla(
   if (alan === "kapak_dosya_id" && typeof v === "string") {
     return idMaplar.eklenti.get(v) ?? "(görsel)";
   }
-  if (alan === "kurum_id" && typeof v === "string") {
-    return idMaplar.kurum.get(v) ?? "(kurum)";
+  if (alan === "birim_id" && typeof v === "string") {
+    return idMaplar.birim.get(v) ?? "(birim)";
   }
 
   // Boolean

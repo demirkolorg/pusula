@@ -17,7 +17,7 @@ export async function GET() {
 
   const k = await db.kullanici.findUnique({
     where: { id },
-    select: { id: true, ad: true, soyad: true, email: true, kurum_id: true },
+    select: { id: true, ad: true, soyad: true, email: true, birim_id: true },
   });
   if (!k) return NextResponse.json({ kullanici: null }, { status: 200 });
 

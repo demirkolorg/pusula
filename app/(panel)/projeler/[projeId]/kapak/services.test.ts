@@ -27,8 +27,8 @@ const adminDb = new PrismaClient({
 let ortam: Ortam;
 let kart: { id: string };
 
-async function sahipliProjeOlustur(kurumId: string, sahipId: string) {
-  const p = await projeOlusturFiks(adminDb, { kurumId, olusturanId: sahipId });
+async function sahipliProjeOlustur(birimId: string, sahipId: string) {
+  const p = await projeOlusturFiks(adminDb, { birimId, olusturanId: sahipId });
   await adminDb.projeUyesi.create({
     data: { proje_id: p.id, kullanici_id: sahipId, seviye: "ADMIN" },
   });
@@ -65,7 +65,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await truncateAll(adminDb);
   ortam = await ortamKur(adminDb);
-  const proje = await sahipliProjeOlustur(ortam.kurum.id, ortam.superAdmin.id);
+  const proje = await sahipliProjeOlustur(ortam.birim.id, ortam.superAdmin.id);
   const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
   kart = await kartOlusturFiks(adminDb, { listeId: liste.id });
 });
@@ -82,7 +82,7 @@ describe("kapagiAyarla", () => {
       yukleyenId: ortam.superAdmin.id,
       mime: "image/png",
     });
-    await kapagiAyarla(ortam.kurum.id, kart.id, e.id);
+    await kapagiAyarla(ortam.birim.id, kart.id, e.id);
 
     const k = await adminDb.kart.findUnique({
       where: { id: kart.id },
@@ -99,7 +99,7 @@ describe("kapagiAyarla", () => {
       mime: "application/pdf",
     });
     await expect(
-      kapagiAyarla(ortam.kurum.id, kart.id, e.id),
+      kapagiAyarla(ortam.birim.id, kart.id, e.id),
     ).rejects.toMatchObject({ kod: "GECERSIZ_GIRDI" });
   });
 
@@ -119,7 +119,7 @@ describe("kapagiAyarla", () => {
       mime: "image/png",
     });
     await expect(
-      kapagiAyarla(ortam.kurum.id, kart.id, e.id),
+      kapagiAyarla(ortam.birim.id, kart.id, e.id),
     ).rejects.toMatchObject({ kod: "GECERSIZ_GIRDI" });
   });
 
@@ -134,11 +134,11 @@ describe("kapagiAyarla", () => {
       data: { silindi_mi: true, silinme_zamani: new Date() },
     });
     await expect(
-      kapagiAyarla(ortam.kurum.id, kart.id, e.id),
+      kapagiAyarla(ortam.birim.id, kart.id, e.id),
     ).rejects.toMatchObject({ kod: "BULUNAMADI" });
   });
 
-  // Cross-tenant testi ADR-0007 tek-kurum geçişiyle kaldırıldı (kurum izolasyonu yok).
+  // Eski birim izolasyonu testi paylaşım modeliyle kapsam dışı kaldı.
 });
 
 describe("kapagiKaldir", () => {
@@ -148,13 +148,13 @@ describe("kapagiKaldir", () => {
       yukleyenId: ortam.superAdmin.id,
       mime: "image/png",
     });
-    await kapagiAyarla(ortam.kurum.id, kart.id, e.id);
+    await kapagiAyarla(ortam.birim.id, kart.id, e.id);
     // Kapak rengi yeniden set
     await adminDb.kart.update({
       where: { id: kart.id },
       data: { kapak_renk: "primary" },
     });
-    await kapagiKaldir(ortam.kurum.id, kart.id);
+    await kapagiKaldir(ortam.birim.id, kart.id);
     const k = await adminDb.kart.findUnique({
       where: { id: kart.id },
       select: { kapak_dosya_id: true, kapak_renk: true },

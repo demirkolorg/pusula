@@ -1,18 +1,12 @@
-// Resource-level RBAC — kontrol Kural 146 (ADR-0005).
+// Resource-level RBAC.
 //
-// Global izinler (`pano:create`, `kart:edit` gibi) bir kullanıcının "bu tip
-// işlemi yapabileceğini" söyler ama HANGİ kaynak üzerinde olduğunu söylemez.
-// Bu modül `ProjeUyesi` ve Makam katmanı (SUPER_ADMIN/KAYMAKAM) bilgisini
-// kullanarak kaynak bazlı yetki cevabı verir.
+// Kaynak gorunurlugu birim paylasimi ve dogrudan uye atamasi uzerinden
+// kurulur. Makam rolleri tum kaynaklari gorur.
 
 import { db } from "./db";
 import { EylemHatasi } from "./action-wrapper";
 import { HATA_KODU } from "./sonuc";
 import { kullaniciIzinleriniAl } from "./permissions";
-
-// =====================================================================
-// Aksiyon tipleri
-// =====================================================================
 
 export type ProjeAksiyon =
   | "proje:read"
@@ -24,7 +18,6 @@ export type ListeAksiyon = "liste:read" | "liste:create" | "liste:edit" | "liste
 
 export type KartAksiyon = "kart:read" | "kart:edit" | "kart:delete" | "kart:tasi" | "kart:create";
 
-// ProjeUyesi.seviye → izinli aksiyonlar
 const SEVIYE_IZINLERI: Record<
   "ADMIN" | "NORMAL" | "IZLEYICI",
   Set<ProjeAksiyon | ListeAksiyon | KartAksiyon>
@@ -39,115 +32,182 @@ const SEVIYE_IZINLERI: Record<
     "liste:read", "liste:create", "liste:edit",
     "kart:read", "kart:create", "kart:edit", "kart:tasi",
   ]),
-  IZLEYICI: new Set([
-    "proje:read", "liste:read", "kart:read",
-  ]),
+  IZLEYICI: new Set(["proje:read", "liste:read", "kart:read"]),
 };
 
-// =====================================================================
-// İç yardımcılar
-// =====================================================================
+type ErisimBilgisi = {
+  birimId: string | null;
+  makam: boolean;
+};
 
-async function makamKatmaniMi(kullaniciId: string): Promise<boolean> {
-  const izinler = await kullaniciIzinleriniAl(kullaniciId);
-  return izinler.has("*");
+export async function kullaniciErisimBilgisi(
+  kullaniciId: string,
+): Promise<ErisimBilgisi> {
+  const [kullanici, izinler] = await Promise.all([
+    db.kullanici.findUnique({
+      where: { id: kullaniciId },
+      select: { birim_id: true },
+    }),
+    kullaniciIzinleriniAl(kullaniciId),
+  ]);
+
+  return {
+    birimId: kullanici?.birim_id ?? null,
+    makam: izinler.has("*"),
+  };
 }
-
-async function kullaniciKurumId(kullaniciId: string): Promise<string | null> {
-  const k = await db.kullanici.findUnique({
-    where: { id: kullaniciId },
-    select: { kurum_id: true },
-  });
-  return k?.kurum_id ?? null;
-}
-
-// =====================================================================
-// canProje
-// =====================================================================
 
 export async function canProje(
   kullaniciId: string,
   aksiyon: ProjeAksiyon,
   projeId: string,
 ): Promise<boolean> {
+  const erisim = await kullaniciErisimBilgisi(kullaniciId);
+  const birimWhere = erisim.birimId
+    ? { birim_id: erisim.birimId }
+    : { birim_id: { in: [] } };
   const proje = await db.proje.findUnique({
     where: { id: projeId },
     select: {
-      kurum_id: true,
       silindi_mi: true,
       uyeler: {
         where: { kullanici_id: kullaniciId },
         select: { seviye: true },
       },
+      birimler: {
+        where: birimWhere,
+        select: { birim_id: true },
+        take: 1,
+      },
+      listeler: {
+        where: {
+          OR: [
+            { uyeler: { some: { kullanici_id: kullaniciId } } },
+            { birimler: { some: birimWhere } },
+            {
+              kartlar: {
+                some: { uyeler: { some: { kullanici_id: kullaniciId } } },
+              },
+            },
+            {
+              kartlar: {
+                some: { birimler: { some: birimWhere } },
+              },
+            },
+          ],
+        },
+        select: { id: true },
+        take: 1,
+      },
     },
   });
+
   if (!proje) return false;
   if (proje.silindi_mi && aksiyon !== "proje:read") return false;
+  if (erisim.makam) return true;
 
-  // Makam katmanı (SUPER_ADMIN/KAYMAKAM) — kurumun tamamına erişir
-  if (await makamKatmaniMi(kullaniciId)) {
-    const kurumId = await kullaniciKurumId(kullaniciId);
-    if (kurumId === proje.kurum_id) return true;
-  }
-
-  // ProjeUyesi seviyesi
   const uye = proje.uyeler[0];
-  if (!uye) return false;
-  return SEVIYE_IZINLERI[uye.seviye].has(aksiyon);
-}
+  if (uye && SEVIYE_IZINLERI[uye.seviye].has(aksiyon)) return true;
 
-// =====================================================================
-// canListe
-// =====================================================================
+  return (
+    aksiyon === "proje:read" &&
+    (proje.birimler.length > 0 || proje.listeler.length > 0)
+  );
+}
 
 export async function canListe(
   kullaniciId: string,
   aksiyon: ListeAksiyon,
   listeId: string,
 ): Promise<boolean> {
+  const erisim = await kullaniciErisimBilgisi(kullaniciId);
+  const birimWhere = erisim.birimId
+    ? { birim_id: erisim.birimId }
+    : { birim_id: { in: [] } };
   const liste = await db.liste.findUnique({
     where: { id: listeId },
-    select: { proje_id: true },
+    select: {
+      proje_id: true,
+      uyeler: {
+        where: { kullanici_id: kullaniciId },
+        select: { kullanici_id: true },
+        take: 1,
+      },
+      birimler: {
+        where: birimWhere,
+        select: { birim_id: true },
+        take: 1,
+      },
+      kartlar: {
+        where: {
+          OR: [
+            { uyeler: { some: { kullanici_id: kullaniciId } } },
+            { birimler: { some: birimWhere } },
+          ],
+        },
+        select: { id: true },
+        take: 1,
+      },
+    },
   });
-  if (!liste) return false;
-  // Liste yetkileri = projenin yetki haritasından türetilir
-  // (proje admin → liste tüm; normal → liste read+create+edit; izleyici → read)
-  const projeAksiyon: ProjeAksiyon =
-    aksiyon === "liste:read" ? "proje:read" : "proje:edit";
-  // create/edit/delete için proje:edit yetkisi yeterli sayılır;
-  // proje admin'i tek başına proje:delete bekleyen yere de erişir.
-  if (aksiyon === "liste:delete") {
-    return canProje(kullaniciId, "proje:edit", liste.proje_id);
-  }
-  return canProje(kullaniciId, projeAksiyon, liste.proje_id);
-}
 
-// =====================================================================
-// canKart
-// =====================================================================
+  if (!liste) return false;
+  if (erisim.makam) return true;
+
+  if (aksiyon === "liste:read") {
+    if (liste.uyeler.length > 0 || liste.birimler.length > 0) return true;
+    // Saf model: alt karta dogrudan atama varsa liste kabugu gorunur
+    if (liste.kartlar.length > 0) return true;
+    return false;
+  }
+
+  return canProje(kullaniciId, "proje:edit", liste.proje_id);
+}
 
 export async function canKart(
   kullaniciId: string,
   aksiyon: KartAksiyon,
   kartId: string,
 ): Promise<boolean> {
+  const erisim = await kullaniciErisimBilgisi(kullaniciId);
+  const birimWhere = erisim.birimId
+    ? { birim_id: erisim.birimId }
+    : { birim_id: { in: [] } };
   const kart = await db.kart.findUnique({
     where: { id: kartId },
     select: {
       silindi_mi: true,
-      liste: { select: { proje_id: true } },
+      liste_id: true,
+      uyeler: {
+        where: { kullanici_id: kullaniciId },
+        select: { kullanici_id: true },
+        take: 1,
+      },
+      birimler: {
+        where: birimWhere,
+        select: { birim_id: true },
+        take: 1,
+      },
     },
   });
+
   if (!kart) return false;
   if (kart.silindi_mi && aksiyon !== "kart:read") return false;
-  const projeAksiyon: ProjeAksiyon =
-    aksiyon === "kart:read" ? "proje:read" : "proje:edit";
-  return canProje(kullaniciId, projeAksiyon, kart.liste.proje_id);
-}
+  if (erisim.makam) return true;
 
-// =====================================================================
-// Yetki zorunlu (throw)
-// =====================================================================
+  if (aksiyon === "kart:read") {
+    // Saf model: kart sadece dogrudan atananlara gorunur
+    if (kart.uyeler.length > 0 || kart.birimler.length > 0) return true;
+    return false;
+  }
+
+  const liste = await db.liste.findUnique({
+    where: { id: kart.liste_id },
+    select: { proje_id: true },
+  });
+  if (!liste) return false;
+  return canProje(kullaniciId, "proje:edit", liste.proje_id);
+}
 
 export async function yetkiZorunluProje(
   kullaniciId: string | null | undefined,

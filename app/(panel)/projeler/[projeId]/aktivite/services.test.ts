@@ -28,8 +28,8 @@ let ortam: Ortam;
 let kart: { id: string };
 let projeId: string;
 
-async function sahipliProjeOlustur(kurumId: string, sahipId: string) {
-  const p = await projeOlusturFiks(adminDb, { kurumId, olusturanId: sahipId });
+async function sahipliProjeOlustur(birimId: string, sahipId: string) {
+  const p = await projeOlusturFiks(adminDb, { birimId, olusturanId: sahipId });
   await adminDb.projeUyesi.create({
     data: { proje_id: p.id, kullanici_id: sahipId, seviye: "ADMIN" },
   });
@@ -70,7 +70,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await truncateAll(adminDb);
   ortam = await ortamKur(adminDb);
-  const proje = await sahipliProjeOlustur(ortam.kurum.id, ortam.superAdmin.id);
+  const proje = await sahipliProjeOlustur(ortam.birim.id, ortam.superAdmin.id);
   projeId = proje.id;
   const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
   kart = await kartOlusturFiks(adminDb, { listeId: liste.id });
@@ -80,7 +80,7 @@ beforeEach(async () => {
 // Erişim
 // =====================================================================
 
-// Erişim describe bloğu ADR-0007 tek-kurum geçişiyle kaldırıldı (kurum izolasyonu yok).
+// Erişim describe bloğu ADR-0007 tek-birim geçişiyle kaldırıldı (birim izolasyonu yok).
 
 // =====================================================================
 // Kart kendisi
@@ -95,7 +95,7 @@ describe("Kart aktiviteleri", () => {
       kaynakId: kart.id,
       yeniVeri: { id: kart.id, baslik: "Kart Başlığı", liste_id: "x" },
     });
-    const r = await kartAktiviteleriniListele(ortam.kurum.id, {
+    const r = await kartAktiviteleriniListele(ortam.birim.id, {
       kart_id: kart.id,
       limit: 50,
     });
@@ -116,7 +116,7 @@ describe("Kart aktiviteleri", () => {
       kaynakId: kart.id,
       diff: { silindi_mi: { eski: false, yeni: true } },
     });
-    const r = await kartAktiviteleriniListele(ortam.kurum.id, {
+    const r = await kartAktiviteleriniListele(ortam.birim.id, {
       kart_id: kart.id,
       limit: 50,
     });
@@ -131,7 +131,7 @@ describe("Kart aktiviteleri", () => {
       kaynakId: kart.id,
       diff: { baslik: { eski: "X", yeni: "Y" } },
     });
-    const r = await kartAktiviteleriniListele(ortam.kurum.id, {
+    const r = await kartAktiviteleriniListele(ortam.birim.id, {
       kart_id: kart.id,
       limit: 50,
     });
@@ -155,7 +155,7 @@ describe("Yorum aktiviteleri", () => {
         icerik: "Bu uzun bir yorumdur.",
       },
     });
-    const r = await kartAktiviteleriniListele(ortam.kurum.id, {
+    const r = await kartAktiviteleriniListele(ortam.birim.id, {
       kart_id: kart.id,
       limit: 50,
     });
@@ -174,7 +174,7 @@ describe("Yorum aktiviteleri", () => {
       yeniVeri: { kart_id: kart.id },
       diff: { silindi_mi: { eski: false, yeni: true } },
     });
-    const r = await kartAktiviteleriniListele(ortam.kurum.id, {
+    const r = await kartAktiviteleriniListele(ortam.birim.id, {
       kart_id: kart.id,
       limit: 50,
     });
@@ -190,7 +190,7 @@ describe("Eklenti aktiviteleri", () => {
       kaynakTip: "Eklenti",
       yeniVeri: { kart_id: kart.id, ad: "rapor.pdf" },
     });
-    const r = await kartAktiviteleriniListele(ortam.kurum.id, {
+    const r = await kartAktiviteleriniListele(ortam.birim.id, {
       kart_id: kart.id,
       limit: 50,
     });
@@ -214,7 +214,7 @@ describe("Kontrol Listesi aktiviteleri", () => {
       kaynakTip: "KontrolListesi",
       yeniVeri: { kart_id: kart.id, ad: "Görevler" },
     });
-    const r = await kartAktiviteleriniListele(ortam.kurum.id, {
+    const r = await kartAktiviteleriniListele(ortam.birim.id, {
       kart_id: kart.id,
       limit: 50,
     });
@@ -237,7 +237,7 @@ describe("Kontrol Listesi aktiviteleri", () => {
       yeniVeri: { kontrol_listesi_id: kl.id, metin: "Yap" },
       diff: { tamamlandi_mi: { eski: false, yeni: true } },
     });
-    const r = await kartAktiviteleriniListele(ortam.kurum.id, {
+    const r = await kartAktiviteleriniListele(ortam.birim.id, {
       kart_id: kart.id,
       limit: 50,
     });
@@ -264,7 +264,7 @@ describe("Etiket / Üye aktiviteleri", () => {
       kaynakTip: "KartEtiket",
       yeniVeri: { kart_id: kart.id, etiket_id: e.id },
     });
-    const r = await kartAktiviteleriniListele(ortam.kurum.id, {
+    const r = await kartAktiviteleriniListele(ortam.birim.id, {
       kart_id: kart.id,
       limit: 50,
     });
@@ -288,7 +288,7 @@ describe("Etiket / Üye aktiviteleri", () => {
       kaynakTip: "KartUyesi",
       yeniVeri: { kart_id: kart.id, kullanici_id: ortam.personel.id },
     });
-    const r = await kartAktiviteleriniListele(ortam.kurum.id, {
+    const r = await kartAktiviteleriniListele(ortam.birim.id, {
       kart_id: kart.id,
       limit: 50,
     });
@@ -317,7 +317,7 @@ describe("Etiket / Üye aktiviteleri", () => {
       kaynakTip: "KartUyesi",
       yeniVeri: { kart_id: kart.id, kullanici_id: ortam.personel.id },
     });
-    const r = await kartAktiviteleriniListele(ortam.kurum.id, {
+    const r = await kartAktiviteleriniListele(ortam.birim.id, {
       kart_id: kart.id,
       limit: 50,
     });
@@ -338,7 +338,7 @@ describe("Etiket / Üye aktiviteleri", () => {
       yeniVeri: { id: kart.id, silindi_mi: true },
       // diff null
     });
-    const r = await kartAktiviteleriniListele(ortam.kurum.id, {
+    const r = await kartAktiviteleriniListele(ortam.birim.id, {
       kart_id: kart.id,
       limit: 50,
     });
@@ -356,7 +356,7 @@ it("KontrolMaddesi UPDATE diff.sira → 'yeniden sıraladı' (drag-drop gürült
       yeniVeri: { kontrol_listesi_id: kl.id, metin: "yap" },
       diff: { sira: { eski: "M", yeni: "T" } },
     });
-    const r = await kartAktiviteleriniListele(ortam.kurum.id, {
+    const r = await kartAktiviteleriniListele(ortam.birim.id, {
       kart_id: kart.id,
       limit: 50,
     });
@@ -376,7 +376,7 @@ it("KontrolMaddesi UPDATE diff.sira → 'yeniden sıraladı' (drag-drop gürült
       yeniVeri: { kart_id: kart.id, ad: "Yeni" },
       diff: { ad: { eski: "Eski", yeni: "Yeni" } },
     });
-    const r = await kartAktiviteleriniListele(ortam.kurum.id, {
+    const r = await kartAktiviteleriniListele(ortam.birim.id, {
       kart_id: kart.id,
       limit: 50,
     });
@@ -400,7 +400,7 @@ it("KontrolMaddesi UPDATE diff.sira → 'yeniden sıraladı' (drag-drop gürült
       kaynakTip: "KartUyesi",
       eskiVeri: { kart_id: kart.id, kullanici_id: ortam.personel.id },
     });
-    const r = await kartAktiviteleriniListele(ortam.kurum.id, {
+    const r = await kartAktiviteleriniListele(ortam.birim.id, {
       kart_id: kart.id,
       limit: 50,
     });
@@ -420,7 +420,7 @@ it("KontrolMaddesi UPDATE diff.sira → 'yeniden sıraladı' (drag-drop gürült
       kaynakTip: "KartEtiket",
       yeniVeri: { kart_id: kart.id, etiket_id: e.id },
     });
-    const r = await kartAktiviteleriniListele(ortam.kurum.id, {
+    const r = await kartAktiviteleriniListele(ortam.birim.id, {
       kart_id: kart.id,
       limit: 50,
     });
@@ -451,7 +451,7 @@ describe("İzolasyon", () => {
       kaynakTip: "Yorum",
       yeniVeri: { kart_id: kart.id, icerik: "Bizim kart yorumu" },
     });
-    const r = await kartAktiviteleriniListele(ortam.kurum.id, {
+    const r = await kartAktiviteleriniListele(ortam.birim.id, {
       kart_id: kart.id,
       limit: 50,
     });
@@ -480,7 +480,7 @@ describe("Sıralama", () => {
       kaynakTip: "Yorum",
       yeniVeri: { kart_id: kart.id, icerik: "İkinci" },
     });
-    const r = await kartAktiviteleriniListele(ortam.kurum.id, {
+    const r = await kartAktiviteleriniListele(ortam.birim.id, {
       kart_id: kart.id,
       limit: 50,
     });

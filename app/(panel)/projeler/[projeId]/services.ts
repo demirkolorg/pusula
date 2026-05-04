@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { siraArasi, siraSonuna } from "@/lib/sira";
 import { EylemHatasi } from "@/lib/action-wrapper";
@@ -5,6 +6,7 @@ import { HATA_KODU } from "@/lib/sonuc";
 import { presignedDownload } from "@/lib/storage";
 import { yayinla } from "@/lib/realtime";
 import { SOCKET, room } from "@/lib/socket-events";
+import { kullaniciErisimBilgisi } from "@/lib/yetki";
 import type {
   KartGuncelle,
   KartOlustur,
@@ -62,15 +64,61 @@ export type ProjeDetayOzeti = {
   listeler: ListeOzeti[];
 };
 
+type KaynakErisimi = {
+  kullaniciId: string;
+  birimId: string | null;
+  makam: boolean;
+};
+
+async function kaynakErisimi(kullaniciId: string): Promise<KaynakErisimi> {
+  const erisim = await kullaniciErisimBilgisi(kullaniciId);
+  return { kullaniciId, birimId: erisim.birimId, makam: erisim.makam };
+}
+
+function listeGorunurlukWhere(
+  erisim: KaynakErisimi,
+): Prisma.ListeWhereInput {
+  if (erisim.makam) return { arsiv_mi: false };
+  // Saf model: liste sadece dogrudan atama (uye/birim) veya alt karta atama varsa gorunur
+  const kartKosullari: Prisma.KartWhereInput[] = [
+    { uyeler: { some: { kullanici_id: erisim.kullaniciId } } },
+  ];
+  if (erisim.birimId) {
+    kartKosullari.push({ birimler: { some: { birim_id: erisim.birimId } } });
+  }
+  const kosullar: Prisma.ListeWhereInput[] = [
+    { uyeler: { some: { kullanici_id: erisim.kullaniciId } } },
+    { kartlar: { some: { OR: kartKosullari } } },
+  ];
+  if (erisim.birimId) {
+    kosullar.push({ birimler: { some: { birim_id: erisim.birimId } } });
+  }
+  return { arsiv_mi: false, OR: kosullar };
+}
+
+function kartGorunurlukWhere(
+  erisim: KaynakErisimi,
+): Prisma.KartWhereInput {
+  if (erisim.makam) return { silindi_mi: false, arsiv_mi: false };
+  // Saf model: kart sadece dogrudan atama varsa gorunur
+  const kosullar: Prisma.KartWhereInput[] = [
+    { uyeler: { some: { kullanici_id: erisim.kullaniciId } } },
+  ];
+  if (erisim.birimId) {
+    kosullar.push({ birimler: { some: { birim_id: erisim.birimId } } });
+  }
+  return { silindi_mi: false, arsiv_mi: false, OR: kosullar };
+}
+
 // ============================================================
 // Yetkilendirme yardımcıları
 // ============================================================
 
 async function projeyeErisimDogrula(
-  _kurumId: string,
+  _birimId: string,
   projeId: string,
 ): Promise<void> {
-  // Tek-kurum (ADR-0007) — kurum eşleşme reddi düştü; varlık + soft-delete kontrolü.
+  // Tek-birim (ADR-0007) — birim eşleşme reddi düştü; varlık + soft-delete kontrolü.
   const p = await db.proje.findUnique({
     where: { id: projeId },
     select: { silindi_mi: true },
@@ -81,10 +129,10 @@ async function projeyeErisimDogrula(
 }
 
 async function listeyiBulVeProjeAl(
-  _kurumId: string,
+  _birimId: string,
   listeId: string,
 ): Promise<{ proje_id: string }> {
-  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
+  // Tek-birim (ADR-0007) — birim kontrolü düştü.
   const l = await db.liste.findUnique({
     where: { id: listeId },
     select: { proje_id: true },
@@ -96,10 +144,10 @@ async function listeyiBulVeProjeAl(
 }
 
 async function kartiBulVeProjeAl(
-  _kurumId: string,
+  _birimId: string,
   kartId: string,
 ): Promise<{ liste_id: string; proje_id: string }> {
-  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
+  // Tek-birim (ADR-0007) — birim kontrolü düştü.
   const k = await db.kart.findUnique({
     where: { id: kartId },
     select: {
@@ -118,10 +166,11 @@ async function kartiBulVeProjeAl(
 // ============================================================
 
 export async function projeDetayiniGetir(
-  kurumId: string,
+  kullaniciId: string,
   projeId: string,
 ): Promise<ProjeDetayOzeti> {
-  await projeyeErisimDogrula(kurumId, projeId);
+  await projeyeErisimDogrula(kullaniciId, projeId);
+  const erisim = await kaynakErisimi(kullaniciId);
 
   const proje = await db.proje.findUnique({
     where: { id: projeId },
@@ -134,7 +183,7 @@ export async function projeDetayiniGetir(
       arsiv_mi: true,
       silindi_mi: true,
       listeler: {
-        where: { arsiv_mi: false },
+        where: listeGorunurlukWhere(erisim),
         orderBy: { sira: "asc" },
         select: {
           id: true,
@@ -144,7 +193,7 @@ export async function projeDetayiniGetir(
           arsiv_mi: true,
           wip_limit: true,
           kartlar: {
-            where: { silindi_mi: false, arsiv_mi: false },
+            where: kartGorunurlukWhere(erisim),
             orderBy: { sira: "asc" },
             select: {
               id: true,
@@ -235,10 +284,11 @@ export async function projeDetayiniGetir(
 // ============================================================
 
 export async function listeOlustur(
-  kurumId: string,
+  kullaniciId: string,
   girdi: ListeOlustur,
 ): Promise<ListeOzeti> {
-  await projeyeErisimDogrula(kurumId, girdi.proje_id);
+  await projeyeErisimDogrula(kullaniciId, girdi.proje_id);
+  const erisim = await kaynakErisimi(kullaniciId);
 
   const son = await db.liste.findFirst({
     where: { proje_id: girdi.proje_id },
@@ -252,6 +302,10 @@ export async function listeOlustur(
       proje_id: girdi.proje_id,
       ad: girdi.ad.trim(),
       sira,
+      uyeler: { create: { kullanici_id: kullaniciId } },
+      birimler: erisim.birimId
+        ? { create: { birim_id: erisim.birimId } }
+        : undefined,
     },
     select: {
       id: true,
@@ -271,11 +325,11 @@ export async function listeOlustur(
 }
 
 export async function listeGuncelle(
-  kurumId: string,
+  birimId: string,
   girdi: ListeGuncelle,
 ): Promise<void> {
-  const { proje_id } = await listeyiBulVeProjeAl(kurumId, girdi.id);
-  await projeyeErisimDogrula(kurumId, proje_id);
+  const { proje_id } = await listeyiBulVeProjeAl(birimId, girdi.id);
+  await projeyeErisimDogrula(birimId, proje_id);
 
   const veri: Record<string, unknown> = {};
   if (girdi.ad !== undefined) veri.ad = girdi.ad.trim();
@@ -288,9 +342,9 @@ export async function listeGuncelle(
   }).catch(() => {});
 }
 
-export async function listeSil(kurumId: string, id: string): Promise<void> {
-  const { proje_id } = await listeyiBulVeProjeAl(kurumId, id);
-  await projeyeErisimDogrula(kurumId, proje_id);
+export async function listeSil(birimId: string, id: string): Promise<void> {
+  const { proje_id } = await listeyiBulVeProjeAl(birimId, id);
+  await projeyeErisimDogrula(birimId, proje_id);
   // Liste tamamen kaldırılır (kartlar onDelete: Cascade ile birlikte gider).
   // Çöp kutusu liste düzeyinde MVP dışında, ileride eklenebilir.
   await db.liste.delete({ where: { id } });
@@ -324,10 +378,10 @@ async function projeListeleriniRebalance(projeId: string): Promise<void> {
 }
 
 export async function listeyeSiraVer(
-  kurumId: string,
+  birimId: string,
   girdi: ListeSira,
 ): Promise<{ sira: string }> {
-  await projeyeErisimDogrula(kurumId, girdi.proje_id);
+  await projeyeErisimDogrula(birimId, girdi.proje_id);
 
   async function komsulariOku() {
     const [onceki, sonraki] = await Promise.all([
@@ -390,12 +444,12 @@ export async function listeyeSiraVer(
 // ============================================================
 
 export async function kartOlustur(
-  kurumId: string,
-  olusturanId: string,
+  kullaniciId: string,
   girdi: KartOlustur,
 ): Promise<ListeKartOzeti & { liste_id: string }> {
-  const { proje_id } = await listeyiBulVeProjeAl(kurumId, girdi.liste_id);
-  await projeyeErisimDogrula(kurumId, proje_id);
+  const { proje_id } = await listeyiBulVeProjeAl(kullaniciId, girdi.liste_id);
+  await projeyeErisimDogrula(kullaniciId, proje_id);
+  const erisim = await kaynakErisimi(kullaniciId);
 
   const son = await db.kart.findFirst({
     where: { liste_id: girdi.liste_id },
@@ -410,7 +464,11 @@ export async function kartOlustur(
       baslik: girdi.baslik.trim(),
       aciklama: girdi.aciklama?.trim() || null,
       sira,
-      olusturan_id: olusturanId,
+      olusturan_id: kullaniciId,
+      uyeler: { create: { kullanici_id: kullaniciId } },
+      birimler: erisim.birimId
+        ? { create: { birim_id: erisim.birimId } }
+        : undefined,
     },
     select: {
       id: true,
@@ -436,7 +494,7 @@ export async function kartOlustur(
     bitis: yeni.bitis,
     arsiv_mi: yeni.arsiv_mi,
     silindi_mi: yeni.silindi_mi,
-    uye_sayisi: 0,
+    uye_sayisi: 1,
     etiket_sayisi: 0,
   };
   yayinla(SOCKET.KART_OLUSTUR, room.proje(proje_id), {
@@ -447,11 +505,11 @@ export async function kartOlustur(
 }
 
 export async function kartGuncelle(
-  kurumId: string,
+  birimId: string,
   girdi: KartGuncelle,
 ): Promise<void> {
-  const { proje_id } = await kartiBulVeProjeAl(kurumId, girdi.id);
-  await projeyeErisimDogrula(kurumId, proje_id);
+  const { proje_id } = await kartiBulVeProjeAl(birimId, girdi.id);
+  await projeyeErisimDogrula(birimId, proje_id);
 
   const veri: Record<string, unknown> = {};
   if (girdi.baslik !== undefined) veri.baslik = girdi.baslik.trim();
@@ -468,9 +526,9 @@ export async function kartGuncelle(
   }).catch(() => {});
 }
 
-export async function kartSil(kurumId: string, id: string): Promise<void> {
-  const { proje_id } = await kartiBulVeProjeAl(kurumId, id);
-  await projeyeErisimDogrula(kurumId, proje_id);
+export async function kartSil(birimId: string, id: string): Promise<void> {
+  const { proje_id } = await kartiBulVeProjeAl(birimId, id);
+  await projeyeErisimDogrula(birimId, proje_id);
   await db.kart.update({
     where: { id },
     data: { silindi_mi: true, silinme_zamani: new Date() },
@@ -482,11 +540,11 @@ export async function kartSil(kurumId: string, id: string): Promise<void> {
 }
 
 export async function kartGeriYukle(
-  kurumId: string,
+  birimId: string,
   id: string,
 ): Promise<void> {
-  const { proje_id } = await kartiBulVeProjeAl(kurumId, id);
-  await projeyeErisimDogrula(kurumId, proje_id);
+  const { proje_id } = await kartiBulVeProjeAl(birimId, id);
+  await projeyeErisimDogrula(birimId, proje_id);
   await db.kart.update({
     where: { id },
     data: { silindi_mi: false, silinme_zamani: null },
@@ -525,12 +583,12 @@ async function listeKartlariniRebalance(listeId: string): Promise<void> {
 }
 
 export async function kartiTasi(
-  kurumId: string,
+  birimId: string,
   girdi: KartTasi,
 ): Promise<{ sira: string; liste_id: string }> {
-  const { proje_id: kaynakProjeId } = await kartiBulVeProjeAl(kurumId, girdi.id);
+  const { proje_id: kaynakProjeId } = await kartiBulVeProjeAl(birimId, girdi.id);
   const { proje_id: hedefProjeId } = await listeyiBulVeProjeAl(
-    kurumId,
+    birimId,
     girdi.hedef_liste_id,
   );
 
@@ -544,7 +602,7 @@ export async function kartiTasi(
     );
   }
 
-  await projeyeErisimDogrula(kurumId, hedefProjeId);
+  await projeyeErisimDogrula(birimId, hedefProjeId);
 
   // Komşu kartları oku ve doğrula
   async function komsulariOku() {
@@ -621,15 +679,16 @@ export type LisedeKart = ListeKartOzeti & {
 };
 
 export async function projedeTumKartlar(
-  kurumId: string,
+  kullaniciId: string,
   projeId: string,
 ): Promise<LisedeKart[]> {
-  await projeyeErisimDogrula(kurumId, projeId);
+  await projeyeErisimDogrula(kullaniciId, projeId);
+  const erisim = await kaynakErisimi(kullaniciId);
 
   const kartlar = await db.kart.findMany({
     where: {
-      silindi_mi: false,
-      liste: { proje_id: projeId, arsiv_mi: false },
+      ...kartGorunurlukWhere(erisim),
+      liste: { proje_id: projeId, ...listeGorunurlukWhere(erisim) },
     },
     orderBy: [{ liste: { sira: "asc" } }, { sira: "asc" }],
     select: {

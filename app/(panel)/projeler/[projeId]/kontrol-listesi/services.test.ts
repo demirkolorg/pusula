@@ -36,8 +36,8 @@ let ortam: Ortam;
 let kart: { id: string };
 let projeId: string;
 
-async function sahipliProjeOlustur(kurumId: string, sahipId: string) {
-  const p = await projeOlusturFiks(adminDb, { kurumId, olusturanId: sahipId });
+async function sahipliProjeOlustur(birimId: string, sahipId: string) {
+  const p = await projeOlusturFiks(adminDb, { birimId, olusturanId: sahipId });
   await adminDb.projeUyesi.create({
     data: { proje_id: p.id, kullanici_id: sahipId, seviye: "ADMIN" },
   });
@@ -55,7 +55,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await truncateAll(adminDb);
   ortam = await ortamKur(adminDb);
-  const proje = await sahipliProjeOlustur(ortam.kurum.id, ortam.superAdmin.id);
+  const proje = await sahipliProjeOlustur(ortam.birim.id, ortam.superAdmin.id);
   projeId = proje.id;
   const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
   kart = await kartOlusturFiks(adminDb, { listeId: liste.id });
@@ -67,36 +67,36 @@ beforeEach(async () => {
 
 describe("kontrolListesiOlustur + listele", () => {
   it("kart için kontrol listesi oluşturur, sıralı döner", async () => {
-    const kl1 = await kontrolListesiOlustur(ortam.kurum.id, {
+    const kl1 = await kontrolListesiOlustur(ortam.birim.id, {
       kart_id: kart.id,
       ad: "Liste 1",
     });
-    const kl2 = await kontrolListesiOlustur(ortam.kurum.id, {
+    const kl2 = await kontrolListesiOlustur(ortam.birim.id, {
       kart_id: kart.id,
       ad: "Liste 2",
     });
 
-    const liste = await kartKontrolListeleriniListele(ortam.kurum.id, kart.id);
+    const liste = await kartKontrolListeleriniListele(ortam.birim.id, kart.id);
     expect(liste).toHaveLength(2);
     expect(liste[0]!.id).toBe(kl1.id);
     expect(liste[1]!.id).toBe(kl2.id);
     expect(liste[0]!.maddeler).toEqual([]);
   });
 
-  // Cross-tenant testi ADR-0007 tek-kurum geçişiyle kaldırıldı (kurum izolasyonu yok).
+  // Eski birim izolasyonu testi paylaşım modeliyle kapsam dışı kaldı.
 });
 
 describe("kontrolListesiSil", () => {
   it("kontrol listesi silinince maddeler de cascade gider", async () => {
-    const kl = await kontrolListesiOlustur(ortam.kurum.id, {
+    const kl = await kontrolListesiOlustur(ortam.birim.id, {
       kart_id: kart.id,
       ad: "X",
     });
-    await maddeOlustur(ortam.kurum.id, {
+    await maddeOlustur(ortam.birim.id, {
       kontrol_listesi_id: kl.id,
       metin: "Madde 1",
     });
-    await kontrolListesiSil(ortam.kurum.id, kl.id);
+    await kontrolListesiSil(ortam.birim.id, kl.id);
     const maddeler = await adminDb.kontrolMaddesi.findMany({
       where: { kontrol_listesi_id: kl.id },
     });
@@ -106,12 +106,12 @@ describe("kontrolListesiSil", () => {
 
 describe("kontrolListesiGuncelle", () => {
   it("ad güncellenir", async () => {
-    const kl = await kontrolListesiOlustur(ortam.kurum.id, {
+    const kl = await kontrolListesiOlustur(ortam.birim.id, {
       kart_id: kart.id,
       ad: "Eski",
     });
-    await kontrolListesiGuncelle(ortam.kurum.id, { id: kl.id, ad: "Yeni" });
-    const liste = await kartKontrolListeleriniListele(ortam.kurum.id, kart.id);
+    await kontrolListesiGuncelle(ortam.birim.id, { id: kl.id, ad: "Yeni" });
+    const liste = await kartKontrolListeleriniListele(ortam.birim.id, kart.id);
     expect(liste[0]!.ad).toBe("Yeni");
   });
 });
@@ -122,43 +122,43 @@ describe("kontrolListesiGuncelle", () => {
 
 describe("maddeOlustur + guncelle (tamamla)", () => {
   it("madde tamamlanınca tamamlama_zamani ve tamamlayan_id set edilir", async () => {
-    const kl = await kontrolListesiOlustur(ortam.kurum.id, {
+    const kl = await kontrolListesiOlustur(ortam.birim.id, {
       kart_id: kart.id,
       ad: "X",
     });
-    const m = await maddeOlustur(ortam.kurum.id, {
+    const m = await maddeOlustur(ortam.birim.id, {
       kontrol_listesi_id: kl.id,
       metin: "Yap",
     });
     expect(m.tamamlandi_mi).toBe(false);
 
-    await maddeGuncelle(ortam.kurum.id, ortam.superAdmin.id, {
+    await maddeGuncelle(ortam.birim.id, ortam.superAdmin.id, {
       id: m.id,
       tamamlandi_mi: true,
     });
-    const liste = await kartKontrolListeleriniListele(ortam.kurum.id, kart.id);
+    const liste = await kartKontrolListeleriniListele(ortam.birim.id, kart.id);
     const guncel = liste[0]!.maddeler[0]!;
     expect(guncel.tamamlandi_mi).toBe(true);
     expect(guncel.tamamlama_zamani).toBeInstanceOf(Date);
     expect(guncel.tamamlayan_id).toBe(ortam.superAdmin.id);
 
     // Tekrar uncheck → null
-    await maddeGuncelle(ortam.kurum.id, ortam.superAdmin.id, {
+    await maddeGuncelle(ortam.birim.id, ortam.superAdmin.id, {
       id: m.id,
       tamamlandi_mi: false,
     });
-    const liste2 = await kartKontrolListeleriniListele(ortam.kurum.id, kart.id);
+    const liste2 = await kartKontrolListeleriniListele(ortam.birim.id, kart.id);
     expect(liste2[0]!.maddeler[0]!.tamamlandi_mi).toBe(false);
     expect(liste2[0]!.maddeler[0]!.tamamlayan_id).toBeNull();
   });
 
   it("proje üyesi olmayan kullanıcıya madde atanamaz", async () => {
-    const kl = await kontrolListesiOlustur(ortam.kurum.id, {
+    const kl = await kontrolListesiOlustur(ortam.birim.id, {
       kart_id: kart.id,
       ad: "X",
     });
     await expect(
-      maddeOlustur(ortam.kurum.id, {
+      maddeOlustur(ortam.birim.id, {
         kontrol_listesi_id: kl.id,
         metin: "Yap",
         atanan_id: ortam.personel.id, // proje üyesi değil
@@ -170,11 +170,11 @@ describe("maddeOlustur + guncelle (tamamla)", () => {
     await adminDb.projeUyesi.create({
       data: { proje_id: projeId, kullanici_id: ortam.personel.id, seviye: "NORMAL" },
     });
-    const kl = await kontrolListesiOlustur(ortam.kurum.id, {
+    const kl = await kontrolListesiOlustur(ortam.birim.id, {
       kart_id: kart.id,
       ad: "X",
     });
-    const m = await maddeOlustur(ortam.kurum.id, {
+    const m = await maddeOlustur(ortam.birim.id, {
       kontrol_listesi_id: kl.id,
       metin: "Yap",
       atanan_id: ortam.personel.id,
@@ -186,16 +186,16 @@ describe("maddeOlustur + guncelle (tamamla)", () => {
 
 describe("maddeSil", () => {
   it("maddeyi siler", async () => {
-    const kl = await kontrolListesiOlustur(ortam.kurum.id, {
+    const kl = await kontrolListesiOlustur(ortam.birim.id, {
       kart_id: kart.id,
       ad: "X",
     });
-    const m = await maddeOlustur(ortam.kurum.id, {
+    const m = await maddeOlustur(ortam.birim.id, {
       kontrol_listesi_id: kl.id,
       metin: "Yap",
     });
-    await maddeSil(ortam.kurum.id, m.id);
-    const liste = await kartKontrolListeleriniListele(ortam.kurum.id, kart.id);
+    await maddeSil(ortam.birim.id, m.id);
+    const liste = await kartKontrolListeleriniListele(ortam.birim.id, kart.id);
     expect(liste[0]!.maddeler).toEqual([]);
   });
 });

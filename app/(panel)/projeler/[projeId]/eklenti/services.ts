@@ -31,10 +31,10 @@ export type EklentiOzeti = {
 // =====================================================================
 
 async function kartiBulVeProjeAl(
-  _kurumId: string,
+  _birimId: string,
   kartId: string,
 ): Promise<{ proje_id: string }> {
-  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
+  // Tek-birim (ADR-0007) — birim kontrolü düştü.
   const k = await db.kart.findUnique({
     where: { id: kartId },
     select: {
@@ -48,10 +48,10 @@ async function kartiBulVeProjeAl(
 }
 
 async function eklentiyiBul(
-  _kurumId: string,
+  _birimId: string,
   eklentiId: string,
 ): Promise<{ kart_id: string; depolama_yolu: string; yukleyen_id: string }> {
-  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
+  // Tek-birim (ADR-0007) — birim kontrolü düştü.
   const e = await db.eklenti.findUnique({
     where: { id: eklentiId },
     select: {
@@ -76,10 +76,10 @@ async function eklentiyiBul(
 // =====================================================================
 
 export async function kartEklentileriniListele(
-  kurumId: string,
+  birimId: string,
   kartId: string,
 ): Promise<EklentiOzeti[]> {
-  await kartiBulVeProjeAl(kurumId, kartId);
+  await kartiBulVeProjeAl(birimId, kartId);
   return db.eklenti.findMany({
     where: { kart_id: kartId, silindi_mi: false },
     orderBy: { olusturma_zamani: "desc" },
@@ -102,10 +102,10 @@ export async function kartEklentileriniListele(
 // =====================================================================
 
 export async function yuklemeBaslat(
-  kurumId: string,
+  birimId: string,
   girdi: YuklemeBaslat,
 ): Promise<{ depolama_yolu: string; upload_url: string }> {
-  await kartiBulVeProjeAl(kurumId, girdi.kart_id);
+  await kartiBulVeProjeAl(birimId, girdi.kart_id);
 
   // Kural 72: mime + boyut whitelist
   if (!mimeIzinliMi(girdi.mime)) {
@@ -127,11 +127,11 @@ export async function yuklemeBaslat(
 }
 
 export async function yuklemeOnayla(
-  kurumId: string,
+  birimId: string,
   yukleyenId: string,
   girdi: YuklemeOnayla,
 ): Promise<EklentiOzeti> {
-  await kartiBulVeProjeAl(kurumId, girdi.kart_id);
+  await kartiBulVeProjeAl(birimId, girdi.kart_id);
 
   // Yol bizim ürettiğimiz prefix ile başlamalı (kullanıcı manipüle etmesin)
   if (!girdi.depolama_yolu.startsWith(`kartlar/${girdi.kart_id}/`)) {
@@ -180,10 +180,10 @@ export async function yuklemeOnayla(
 // =====================================================================
 
 export async function eklentiIndirURL(
-  kurumId: string,
+  birimId: string,
   eklentiId: string,
 ): Promise<{ url: string }> {
-  const e = await eklentiyiBul(kurumId, eklentiId);
+  const e = await eklentiyiBul(birimId, eklentiId);
   const url = await presignedDownload(e.depolama_yolu);
   return { url };
 }
@@ -193,11 +193,11 @@ export async function eklentiIndirURL(
 // =====================================================================
 
 export async function eklentiSil(
-  kurumId: string,
+  birimId: string,
   silenId: string,
   eklentiId: string,
 ): Promise<void> {
-  const e = await eklentiyiBul(kurumId, eklentiId);
+  const e = await eklentiyiBul(birimId, eklentiId);
 
   // Yetki: yükleyen kendisi VEYA proje ADMIN silebilir
   if (e.yukleyen_id !== silenId) {

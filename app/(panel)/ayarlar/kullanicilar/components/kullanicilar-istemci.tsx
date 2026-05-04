@@ -7,8 +7,8 @@ import { Mail, Pencil, Search, Trash2, UserPlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { KURUM_TIP_LABEL } from "@/lib/constants/kurum";
-import type { KurumTipi } from "@prisma/client";
+import { BIRIM_TIP_LABEL } from "@/lib/constants/birim";
+import type { BirimTipi } from "@prisma/client";
 import { DataTable } from "@/components/tablo/data-table";
 import {
   AlertDialog,
@@ -33,17 +33,18 @@ type Satir = {
   email: string;
   unvan: string | null;
   telefon: string | null;
-  kurum_id: string;
-  kurum_ad: string | null;
-  kurum_tip: string;
+  birim_id: string | null;
+  birim_ad: string | null;
+  birim_tip: string | null;
   aktif: boolean;
   son_giris_zamani: Date | null;
   roller: Rol[];
 };
 
-function kurumGorunenAdRow(s: Satir): string {
-  if (s.kurum_ad) return s.kurum_ad;
-  return KURUM_TIP_LABEL[s.kurum_tip as KurumTipi] ?? s.kurum_tip;
+function birimGorunenAdRow(s: Satir): string {
+  if (s.birim_ad) return s.birim_ad;
+  if (!s.birim_tip) return "Makam";
+  return BIRIM_TIP_LABEL[s.birim_tip as BirimTipi] ?? s.birim_tip;
 }
 
 type Yetkiler = {
@@ -140,10 +141,10 @@ export function KullanicilarIstemci({
         ),
       },
       {
-        id: "kurum",
-        header: "Kurum",
+        id: "birim",
+        header: "Birim",
         cell: ({ row }) => (
-          <span className="text-sm">{kurumGorunenAdRow(row.original)}</span>
+          <span className="text-sm">{birimGorunenAdRow(row.original)}</span>
         ),
       },
       {
@@ -286,7 +287,7 @@ export function KullanicilarIstemci({
               <Mail className="size-3" /> {s.email}
             </span>
             <div className="text-muted-foreground text-xs">
-              {kurumGorunenAdRow(s)}
+              {birimGorunenAdRow(s)}
             </div>
             <div className="mt-1 flex flex-wrap gap-1">
               {s.roller.map((r) => (

@@ -24,14 +24,6 @@ import {
   projeyeSiraVer,
 } from "./services";
 
-function kurumIdAl(ctx: { oturum: { kurumId?: string } | null }): string {
-  const kurumId = ctx.oturum?.kurumId;
-  if (!kurumId) {
-    throw new EylemHatasi("Kurum bilgisi yok.", HATA_KODU.YETKISIZ);
-  }
-  return kurumId;
-}
-
 function kullaniciIdAl(ctx: { oturum: { kullaniciId?: string } | null }): string {
   const id = ctx.oturum?.kullaniciId;
   if (!id) {
@@ -44,8 +36,8 @@ export const projeListele = eylem({
   ad: "proje:liste",
   girdi: projeListeSemasi,
   calistir: async (girdi, ctx) => {
-    const kurumId = kurumIdAl(ctx);
-    return projeleriListele(kurumId, girdi);
+    const kullaniciId = kullaniciIdAl(ctx);
+    return projeleriListele(kullaniciId, girdi);
   },
 });
 
@@ -54,9 +46,8 @@ export const projeOlusturEylem = eylem({
   girdi: projeOlusturSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_OLUSTUR);
-    const kurumId = kurumIdAl(ctx);
     const kullaniciId = kullaniciIdAl(ctx);
-    const yeni = await projeOlustur(kurumId, kullaniciId, girdi);
+    const yeni = await projeOlustur(kullaniciId, girdi);
     revalidatePath("/projeler");
     return yeni;
   },
@@ -68,8 +59,7 @@ export const projeGuncelleEylem = eylem({
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_DUZENLE);
     await yetkiZorunluProje(ctx.oturum?.kullaniciId, "proje:edit", girdi.id);
-    const kurumId = kurumIdAl(ctx);
-    await projeGuncelle(kurumId, girdi);
+    await projeGuncelle(girdi);
     revalidatePath("/projeler");
     return { id: girdi.id };
   },
@@ -81,8 +71,7 @@ export const projeArsivleEylem = eylem({
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_DUZENLE);
     await yetkiZorunluProje(ctx.oturum?.kullaniciId, "proje:edit", girdi.id);
-    const kurumId = kurumIdAl(ctx);
-    await projeArsivle(kurumId, girdi);
+    await projeArsivle(girdi);
     revalidatePath("/projeler");
     return { id: girdi.id };
   },
@@ -94,8 +83,7 @@ export const projeSilEylem = eylem({
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_SIL);
     await yetkiZorunluProje(ctx.oturum?.kullaniciId, "proje:delete", girdi.id);
-    const kurumId = kurumIdAl(ctx);
-    await projeSil(kurumId, girdi.id);
+    await projeSil(girdi.id);
     revalidatePath("/projeler");
     return { id: girdi.id };
   },
@@ -107,8 +95,7 @@ export const projeGeriYukleEylem = eylem({
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_SIL);
     await yetkiZorunluProje(ctx.oturum?.kullaniciId, "proje:delete", girdi.id);
-    const kurumId = kurumIdAl(ctx);
-    await projeGeriYukle(kurumId, girdi.id);
+    await projeGeriYukle(girdi.id);
     revalidatePath("/projeler");
     return { id: girdi.id };
   },
@@ -120,7 +107,6 @@ export const projeSiralaEylem = eylem({
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_DUZENLE);
     await yetkiZorunluProje(ctx.oturum?.kullaniciId, "proje:edit", girdi.id);
-    const kurumId = kurumIdAl(ctx);
-    return projeyeSiraVer(kurumId, girdi);
+    return projeyeSiraVer(girdi);
   },
 });

@@ -32,8 +32,8 @@ const adminDb = new PrismaClient({
 let ortam: Ortam;
 let kart: { id: string };
 
-async function sahipliProjeOlustur(kurumId: string, sahipId: string) {
-  const p = await projeOlusturFiks(adminDb, { kurumId, olusturanId: sahipId });
+async function sahipliProjeOlustur(birimId: string, sahipId: string) {
+  const p = await projeOlusturFiks(adminDb, { birimId, olusturanId: sahipId });
   await adminDb.projeUyesi.create({
     data: { proje_id: p.id, kullanici_id: sahipId, seviye: "ADMIN" },
   });
@@ -51,36 +51,36 @@ afterAll(async () => {
 beforeEach(async () => {
   await truncateAll(adminDb);
   ortam = await ortamKur(adminDb);
-  const proje = await sahipliProjeOlustur(ortam.kurum.id, ortam.superAdmin.id);
+  const proje = await sahipliProjeOlustur(ortam.birim.id, ortam.superAdmin.id);
   const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
   kart = await kartOlusturFiks(adminDb, { listeId: liste.id });
 });
 
 describe("yorumOlustur + listele", () => {
   it("yorum eklenir, listede yazan bilgisi ile döner", async () => {
-    const y = await yorumOlustur(ortam.kurum.id, ortam.superAdmin.id, {
+    const y = await yorumOlustur(ortam.birim.id, ortam.superAdmin.id, {
       kart_id: kart.id,
       icerik: "İlk yorum",
     });
     expect(y.icerik).toBe("İlk yorum");
     expect(y.yazan.email).toBe(ortam.superAdmin.email);
 
-    const liste = await kartYorumlariniListele(ortam.kurum.id, kart.id);
+    const liste = await kartYorumlariniListele(ortam.birim.id, kart.id);
     expect(liste).toHaveLength(1);
     expect(liste[0]!.duzenlendi_mi).toBe(false);
   });
 
   it("yanıt yorum aynı kartta olmalı", async () => {
-    const proje2 = await sahipliProjeOlustur(ortam.kurum.id, ortam.superAdmin.id);
+    const proje2 = await sahipliProjeOlustur(ortam.birim.id, ortam.superAdmin.id);
     const liste2 = await listeOlusturFiks(adminDb, { projeId: proje2.id });
     const baskaKart = await kartOlusturFiks(adminDb, { listeId: liste2.id });
-    const y1 = await yorumOlustur(ortam.kurum.id, ortam.superAdmin.id, {
+    const y1 = await yorumOlustur(ortam.birim.id, ortam.superAdmin.id, {
       kart_id: baskaKart.id,
       icerik: "Birinci",
     });
 
     await expect(
-      yorumOlustur(ortam.kurum.id, ortam.superAdmin.id, {
+      yorumOlustur(ortam.birim.id, ortam.superAdmin.id, {
         kart_id: kart.id,
         icerik: "Yanıt başka karttan",
         yanit_yorum_id: y1.id,
@@ -91,7 +91,7 @@ describe("yorumOlustur + listele", () => {
 
 describe("yorumGuncelle", () => {
   it("sadece yazan kendi yorumunu güncelleyebilir", async () => {
-    const y = await yorumOlustur(ortam.kurum.id, ortam.superAdmin.id, {
+    const y = await yorumOlustur(ortam.birim.id, ortam.superAdmin.id, {
       kart_id: kart.id,
       icerik: "Asıl",
     });
@@ -99,29 +99,29 @@ describe("yorumGuncelle", () => {
     // Personel projeye üye değil ama services seviyesinde yetki kontrolü
     // sadece "yazan_id == silenId" çıkışı YETKISIZ verir.
     await expect(
-      yorumGuncelle(ortam.kurum.id, ortam.personel.id, {
+      yorumGuncelle(ortam.birim.id, ortam.personel.id, {
         id: y.id,
         icerik: "Hile",
       }),
     ).rejects.toMatchObject({ kod: "YETKISIZ" });
 
-    await yorumGuncelle(ortam.kurum.id, ortam.superAdmin.id, {
+    await yorumGuncelle(ortam.birim.id, ortam.superAdmin.id, {
       id: y.id,
       icerik: "Düzeltildi",
     });
-    const liste = await kartYorumlariniListele(ortam.kurum.id, kart.id);
+    const liste = await kartYorumlariniListele(ortam.birim.id, kart.id);
     expect(liste[0]).toMatchObject({ icerik: "Düzeltildi", duzenlendi_mi: true });
   });
 });
 
 describe("yorumSil", () => {
   it("yazan kendi yorumunu silebilir (soft delete)", async () => {
-    const y = await yorumOlustur(ortam.kurum.id, ortam.superAdmin.id, {
+    const y = await yorumOlustur(ortam.birim.id, ortam.superAdmin.id, {
       kart_id: kart.id,
       icerik: "Silinecek",
     });
-    await yorumSil(ortam.kurum.id, ortam.superAdmin.id, y.id);
-    const liste = await kartYorumlariniListele(ortam.kurum.id, kart.id);
+    await yorumSil(ortam.birim.id, ortam.superAdmin.id, y.id);
+    const liste = await kartYorumlariniListele(ortam.birim.id, kart.id);
     expect(liste).toEqual([]);
   });
 
@@ -138,25 +138,25 @@ describe("yorumSil", () => {
         seviye: "NORMAL",
       },
     });
-    const y = await yorumOlustur(ortam.kurum.id, ortam.personel.id, {
+    const y = await yorumOlustur(ortam.birim.id, ortam.personel.id, {
       kart_id: kart.id,
       icerik: "Personel yorumu",
     });
 
     // SuperAdmin (ADMIN) silebilmeli
-    await yorumSil(ortam.kurum.id, ortam.superAdmin.id, y.id);
-    const liste = await kartYorumlariniListele(ortam.kurum.id, kart.id);
+    await yorumSil(ortam.birim.id, ortam.superAdmin.id, y.id);
+    const liste = await kartYorumlariniListele(ortam.birim.id, kart.id);
     expect(liste).toEqual([]);
   });
 
   it("ne yazan ne admin başkasının yorumunu silemez", async () => {
     // Yorum sahibi superAdmin; personel yazan değil → YETKISIZ.
-    const y = await yorumOlustur(ortam.kurum.id, ortam.superAdmin.id, {
+    const y = await yorumOlustur(ortam.birim.id, ortam.superAdmin.id, {
       kart_id: kart.id,
       icerik: "Sahip",
     });
     await expect(
-      yorumSil(ortam.kurum.id, ortam.personel.id, y.id),
+      yorumSil(ortam.birim.id, ortam.personel.id, y.id),
     ).rejects.toMatchObject({ kod: "YETKISIZ" });
   });
 });

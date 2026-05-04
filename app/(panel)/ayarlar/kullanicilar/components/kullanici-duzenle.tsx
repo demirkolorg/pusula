@@ -26,8 +26,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/lib/toast";
-import { KURUM_TIP_LABEL, kurumGorunenAd } from "@/lib/constants/kurum";
-import { kurumSecenekleriniGetir } from "../../kurumlar/actions";
+import { BIRIM_TIP_LABEL, birimGorunenAd } from "@/lib/constants/birim";
+import { birimSecenekleriniGetir } from "../../birimler/actions";
 import { kullaniciGuncelleEylem, rolListele } from "../actions";
 import {
   kullaniciGuncelleSemasi,
@@ -41,7 +41,7 @@ type Kayit = {
   soyad: string;
   unvan: string | null;
   telefon: string | null;
-  kurum_id: string;
+  birim_id: string | null;
   aktif: boolean;
   roller: Rol[];
 } | null;
@@ -63,7 +63,7 @@ export function KullaniciDuzenleSheet({ kayit, kapat, basaridaTetikle }: Props) 
       soyad: "",
       unvan: "",
       telefon: "",
-      kurum_id: "",
+      birim_id: "",
       aktif: true,
       rol_idleri: [],
     },
@@ -77,7 +77,7 @@ export function KullaniciDuzenleSheet({ kayit, kapat, basaridaTetikle }: Props) 
         soyad: kayit.soyad,
         unvan: kayit.unvan ?? "",
         telefon: kayit.telefon ?? "",
-        kurum_id: kayit.kurum_id,
+        birim_id: kayit.birim_id ?? "",
         aktif: kayit.aktif,
         rol_idleri: kayit.roller.map((r) => r.id),
       });
@@ -94,10 +94,10 @@ export function KullaniciDuzenleSheet({ kayit, kapat, basaridaTetikle }: Props) 
     enabled: acik,
   });
 
-  const kurumSorgu = useQuery({
-    queryKey: ["kurum-secenekleri"],
+  const birimSorgu = useQuery({
+    queryKey: ["birim-secenekleri"],
     queryFn: async () => {
-      const r = await kurumSecenekleriniGetir(undefined);
+      const r = await birimSecenekleriniGetir(undefined);
       if (!r.basarili) throw new Error(r.hata);
       return r.veri;
     },
@@ -131,7 +131,7 @@ export function KullaniciDuzenleSheet({ kayit, kapat, basaridaTetikle }: Props) 
     }
   });
 
-  const kurumDeger = form.watch("kurum_id");
+  const birimDeger = form.watch("birim_id");
   const aktifDeger = form.watch("aktif");
   const rolDeger = form.watch("rol_idleri");
 
@@ -148,7 +148,7 @@ export function KullaniciDuzenleSheet({ kayit, kapat, basaridaTetikle }: Props) 
         <ResponsiveDialogHeader className="border-b p-4">
           <ResponsiveDialogTitle>Kullanıcıyı Düzenle</ResponsiveDialogTitle>
           <ResponsiveDialogDescription>
-            Kişisel bilgiler, kurum ataması ve roller.
+            Kişisel bilgiler, birim ataması ve roller.
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
@@ -189,38 +189,38 @@ export function KullaniciDuzenleSheet({ kayit, kapat, basaridaTetikle }: Props) 
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="kurum_secici">Kurum</Label>
+            <Label htmlFor="birim_secici">Birim</Label>
             <Select
-              value={kurumDeger}
-              onValueChange={(v) => form.setValue("kurum_id", v ?? "")}
+              value={birimDeger}
+              onValueChange={(v) => form.setValue("birim_id", v ?? "")}
             >
-              <SelectTrigger id="kurum_secici">
+              <SelectTrigger id="birim_secici">
                 <SelectValue>
                   {(v) => {
-                    if (!v) return "Kurum seçin";
-                    const k = (kurumSorgu.data ?? []).find((x) => x.id === v);
+                    if (!v) return "Birim seçin";
+                    const k = (birimSorgu.data ?? []).find((x) => x.id === v);
                     return k
-                      ? kurumGorunenAd({ ad: k.ad, tip: k.tip })
-                      : "Kurum seçin";
+                      ? birimGorunenAd({ ad: k.ad, tip: k.tip })
+                      : "Birim seçin";
                   }}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {(kurumSorgu.data ?? []).map((k) => (
+                {(birimSorgu.data ?? []).map((k) => (
                   <SelectItem key={k.id} value={k.id}>
-                    {kurumGorunenAd({ ad: k.ad, tip: k.tip })}
+                    {birimGorunenAd({ ad: k.ad, tip: k.tip })}
                     {k.ad && (
                       <span className="text-muted-foreground ml-2 text-xs">
-                        {KURUM_TIP_LABEL[k.tip]}
+                        {BIRIM_TIP_LABEL[k.tip]}
                       </span>
                     )}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {form.formState.errors.kurum_id && (
+            {form.formState.errors.birim_id && (
               <p className="text-destructive text-sm">
-                {form.formState.errors.kurum_id.message}
+                {form.formState.errors.birim_id.message}
               </p>
             )}
           </div>

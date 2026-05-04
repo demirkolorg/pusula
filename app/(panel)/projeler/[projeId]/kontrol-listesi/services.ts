@@ -37,10 +37,10 @@ export type KontrolListesiOzeti = {
 // =====================================================================
 
 async function kartiBulVeProjeAl(
-  _kurumId: string,
+  _birimId: string,
   kartId: string,
 ): Promise<{ proje_id: string }> {
-  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
+  // Tek-birim (ADR-0007) — birim kontrolü düştü.
   const k = await db.kart.findUnique({
     where: { id: kartId },
     select: {
@@ -54,10 +54,10 @@ async function kartiBulVeProjeAl(
 }
 
 async function kontrolListesiBulVeKart(
-  _kurumId: string,
+  _birimId: string,
   klId: string,
 ): Promise<{ kart_id: string; proje_id: string }> {
-  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
+  // Tek-birim (ADR-0007) — birim kontrolü düştü.
   const kl = await db.kontrolListesi.findUnique({
     where: { id: klId },
     select: {
@@ -78,10 +78,10 @@ async function kontrolListesiBulVeKart(
 }
 
 async function maddeBul(
-  _kurumId: string,
+  _birimId: string,
   maddeId: string,
 ): Promise<{ kontrol_listesi_id: string; kart_id: string; proje_id: string }> {
-  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
+  // Tek-birim (ADR-0007) — birim kontrolü düştü.
   const m = await db.kontrolMaddesi.findUnique({
     where: { id: maddeId },
     select: {
@@ -117,10 +117,10 @@ async function maddeBul(
 // =====================================================================
 
 export async function kartKontrolListeleriniListele(
-  kurumId: string,
+  birimId: string,
   kartId: string,
 ): Promise<KontrolListesiOzeti[]> {
-  await kartiBulVeProjeAl(kurumId, kartId);
+  await kartiBulVeProjeAl(birimId, kartId);
   const liste = await db.kontrolListesi.findMany({
     where: { kart_id: kartId },
     orderBy: { sira: "asc" },
@@ -167,10 +167,10 @@ export async function kartKontrolListeleriniListele(
 }
 
 export async function kontrolListesiOlustur(
-  kurumId: string,
+  birimId: string,
   girdi: KontrolListesiOlustur,
 ): Promise<KontrolListesiOzeti> {
-  await kartiBulVeProjeAl(kurumId, girdi.kart_id);
+  await kartiBulVeProjeAl(birimId, girdi.kart_id);
   const son = await db.kontrolListesi.findFirst({
     where: { kart_id: girdi.kart_id },
     orderBy: { sira: "desc" },
@@ -189,10 +189,10 @@ export async function kontrolListesiOlustur(
 }
 
 export async function kontrolListesiGuncelle(
-  kurumId: string,
+  birimId: string,
   girdi: KontrolListesiGuncelle,
 ): Promise<void> {
-  const { kart_id } = await kontrolListesiBulVeKart(kurumId, girdi.id);
+  const { kart_id } = await kontrolListesiBulVeKart(birimId, girdi.id);
   await db.kontrolListesi.update({
     where: { id: girdi.id },
     data: { ad: girdi.ad },
@@ -204,10 +204,10 @@ export async function kontrolListesiGuncelle(
 }
 
 export async function kontrolListesiSil(
-  kurumId: string,
+  birimId: string,
   id: string,
 ): Promise<void> {
-  const { kart_id } = await kontrolListesiBulVeKart(kurumId, id);
+  const { kart_id } = await kontrolListesiBulVeKart(birimId, id);
   // Maddeler onDelete: Cascade ile birlikte gider.
   await db.kontrolListesi.delete({ where: { id } });
   yayinla(SOCKET.KONTROL_LISTESI_SIL, room.kart(kart_id), {
@@ -221,11 +221,11 @@ export async function kontrolListesiSil(
 // =====================================================================
 
 export async function maddeOlustur(
-  kurumId: string,
+  birimId: string,
   girdi: MaddeOlustur,
 ): Promise<MaddeOzeti> {
   const { proje_id } = await kontrolListesiBulVeKart(
-    kurumId,
+    birimId,
     girdi.kontrol_listesi_id,
   );
   // atanan proje üyesi mi?
@@ -285,11 +285,11 @@ export async function maddeOlustur(
 }
 
 export async function maddeGuncelle(
-  kurumId: string,
+  birimId: string,
   yapanId: string,
   girdi: MaddeGuncelle,
 ): Promise<void> {
-  const { proje_id, kart_id } = await maddeBul(kurumId, girdi.id);
+  const { proje_id, kart_id } = await maddeBul(birimId, girdi.id);
   if (girdi.atanan_id) {
     const uye = await db.projeUyesi.findUnique({
       where: {
@@ -323,8 +323,8 @@ export async function maddeGuncelle(
   }).catch(() => {});
 }
 
-export async function maddeSil(kurumId: string, id: string): Promise<void> {
-  const { kart_id } = await maddeBul(kurumId, id);
+export async function maddeSil(birimId: string, id: string): Promise<void> {
+  const { kart_id } = await maddeBul(birimId, id);
   await db.kontrolMaddesi.delete({ where: { id } });
   yayinla(SOCKET.MADDE_SIL, room.kart(kart_id), {
     kart_id,

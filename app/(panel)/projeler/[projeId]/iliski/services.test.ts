@@ -34,8 +34,8 @@ let projeId: string;
 let kartA: { id: string };
 let kartB: { id: string };
 
-async function sahipliProjeOlustur(kurumId: string, sahipId: string) {
-  const p = await projeOlusturFiks(adminDb, { kurumId, olusturanId: sahipId });
+async function sahipliProjeOlustur(birimId: string, sahipId: string) {
+  const p = await projeOlusturFiks(adminDb, { birimId, olusturanId: sahipId });
   await adminDb.projeUyesi.create({
     data: { proje_id: p.id, kullanici_id: sahipId, seviye: "ADMIN" },
   });
@@ -53,7 +53,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await truncateAll(adminDb);
   ortam = await ortamKur(adminDb);
-  const proje = await sahipliProjeOlustur(ortam.kurum.id, ortam.superAdmin.id);
+  const proje = await sahipliProjeOlustur(ortam.birim.id, ortam.superAdmin.id);
   projeId = proje.id;
   const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
   kartA = await kartOlusturFiks(adminDb, { listeId: liste.id, baslik: "A" });
@@ -62,14 +62,14 @@ beforeEach(async () => {
 
 describe("iliskiOlustur", () => {
   it("aynı projedeki iki kart arasında BLOCKS ilişkisi kurulur", async () => {
-    const r = await iliskiOlustur(ortam.kurum.id, {
+    const r = await iliskiOlustur(ortam.birim.id, {
       kart_a_id: kartA.id,
       kart_b_id: kartB.id,
       tip: "BLOCKS",
     });
     expect(r.id).toBeTruthy();
 
-    const aIliski = await kartinIliskileri(ortam.kurum.id, kartA.id);
+    const aIliski = await kartinIliskileri(ortam.birim.id, kartA.id);
     expect(aIliski).toHaveLength(1);
     expect(aIliski[0]).toMatchObject({
       tip: "BLOCKS",
@@ -78,13 +78,13 @@ describe("iliskiOlustur", () => {
     expect(aIliski[0]!.diger_kart.id).toBe(kartB.id);
 
     // B tarafından da görünür ama yön gelen
-    const bIliski = await kartinIliskileri(ortam.kurum.id, kartB.id);
+    const bIliski = await kartinIliskileri(ortam.birim.id, kartB.id);
     expect(bIliski[0]).toMatchObject({ tip: "BLOCKS", yon: "gelen" });
   });
 
   it("kart kendisiyle ilişkilendirilemez", async () => {
     await expect(
-      iliskiOlustur(ortam.kurum.id, {
+      iliskiOlustur(ortam.birim.id, {
         kart_a_id: kartA.id,
         kart_b_id: kartA.id,
         tip: "RELATES",
@@ -93,11 +93,11 @@ describe("iliskiOlustur", () => {
   });
 
   it("farklı projedeki kartlar ilişkilendirilemez", async () => {
-    const proje2 = await sahipliProjeOlustur(ortam.kurum.id, ortam.superAdmin.id);
+    const proje2 = await sahipliProjeOlustur(ortam.birim.id, ortam.superAdmin.id);
     const liste2 = await listeOlusturFiks(adminDb, { projeId: proje2.id });
     const baska = await kartOlusturFiks(adminDb, { listeId: liste2.id });
     await expect(
-      iliskiOlustur(ortam.kurum.id, {
+      iliskiOlustur(ortam.birim.id, {
         kart_a_id: kartA.id,
         kart_b_id: baska.id,
         tip: "RELATES",
@@ -106,13 +106,13 @@ describe("iliskiOlustur", () => {
   });
 
   it("aynı (a,b,tip) çifti için duplicate eklenemez (P2002)", async () => {
-    await iliskiOlustur(ortam.kurum.id, {
+    await iliskiOlustur(ortam.birim.id, {
       kart_a_id: kartA.id,
       kart_b_id: kartB.id,
       tip: "RELATES",
     });
     await expect(
-      iliskiOlustur(ortam.kurum.id, {
+      iliskiOlustur(ortam.birim.id, {
         kart_a_id: kartA.id,
         kart_b_id: kartB.id,
         tip: "RELATES",
@@ -123,20 +123,20 @@ describe("iliskiOlustur", () => {
 
 describe("iliskiSil", () => {
   it("ilişki silinir, listeden düşer", async () => {
-    const r = await iliskiOlustur(ortam.kurum.id, {
+    const r = await iliskiOlustur(ortam.birim.id, {
       kart_a_id: kartA.id,
       kart_b_id: kartB.id,
       tip: "RELATES",
     });
-    await iliskiSil(ortam.kurum.id, r.id);
-    const aIliski = await kartinIliskileri(ortam.kurum.id, kartA.id);
+    await iliskiSil(ortam.birim.id, r.id);
+    const aIliski = await kartinIliskileri(ortam.birim.id, kartA.id);
     expect(aIliski).toEqual([]);
   });
 });
 
 describe("projedeKartiAra", () => {
   it("haric_kart_id verilince o kart sonuçtan düşer", async () => {
-    const sonuc = await projedeKartiAra(ortam.kurum.id, {
+    const sonuc = await projedeKartiAra(ortam.birim.id, {
       proje_id: projeId,
       haric_kart_id: kartA.id,
     });
@@ -145,7 +145,7 @@ describe("projedeKartiAra", () => {
   });
 
   it("q ile başlık contains araması (case-insensitive)", async () => {
-    const sonuc = await projedeKartiAra(ortam.kurum.id, {
+    const sonuc = await projedeKartiAra(ortam.birim.id, {
       proje_id: projeId,
       q: "a",
     });

@@ -30,22 +30,18 @@ function yeniSiralar(adet: number): string[] {
 async function islem() {
   console.log("Sıra yeniden hesaplama başladı...");
 
-  // Projeler — kurum bazında grupla
-  const kurumlar = await db.kurum.findMany({ select: { id: true, ad: true } });
-  for (const k of kurumlar) {
-    const projeler = await db.proje.findMany({
-      where: { kurum_id: k.id },
-      orderBy: [{ sira: "asc" }, { olusturma_zamani: "asc" }],
-      select: { id: true, sira: true },
-    });
-    if (projeler.length === 0) continue;
+  const projeler = await db.proje.findMany({
+    orderBy: [{ sira: "asc" }, { olusturma_zamani: "asc" }],
+    select: { id: true, sira: true },
+  });
+  if (projeler.length > 0) {
     const yeni = yeniSiralar(projeler.length);
     await db.$transaction(
       projeler.map((p, i) =>
         db.proje.update({ where: { id: p.id }, data: { sira: yeni[i] } }),
       ),
     );
-    console.log(`  ✓ Kurum "${k.ad}": ${projeler.length} proje sırası güncellendi`);
+    console.log(`  ? Projeler: ${projeler.length} proje s?ras? g?ncellendi`);
   }
 
   // Listeler — proje bazında grupla

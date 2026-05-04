@@ -9,7 +9,7 @@ import { AktiviteListesi } from "../aktivite/components/aktivite-listesi";
 // Audit middleware (lib/audit-middleware.ts) her Prisma yazımını
 // AktiviteLogu'na kaydeder; service JSON path filter ile karta bağlı
 // kayıtları çeker (kart, yorum, eklenti, kontrol-listesi/maddesi,
-// etiket-bağı, üye-bağı, ilişki, hedef-kurum). Kullanıcı bilgisi
+// etiket-bağı, üye-bağı, ilişki, hedef-birim). Kullanıcı bilgisi
 // audit-context'ten geliyor (Server Action içinde otomatik dolar).
 //
 // projeId opsiyonel: verildiğinde yorum aktivitelerinin detay alanındaki

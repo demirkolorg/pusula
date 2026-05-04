@@ -36,6 +36,10 @@ import {
   useListeSil,
 } from "../hooks/detay-sorgulari";
 import type { KanbanYetkileri } from "./kanban-pano";
+import {
+  ListePaylasimPopover,
+  ListePaylasimTrigger,
+} from "./liste-paylasim-popover";
 
 type Props = {
   liste: ListeOzeti;
@@ -222,6 +226,19 @@ export function KanbanListe({
               {liste.kartlar.length}
             </span>
           </div>
+        )}
+        {!taslak && yetkiler.listeDuzenle && !duzenlemeAcik && (
+          <ListePaylasimPopover
+            listeId={liste.id}
+            trigger={
+              <span
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ListePaylasimTrigger />
+              </span>
+            }
+          />
         )}
         {!taslak &&
           (yetkiler.listeDuzenle || yetkiler.listeSil) &&

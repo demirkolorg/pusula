@@ -24,8 +24,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/lib/toast";
-import { KURUM_TIP_LABEL, kurumGorunenAd } from "@/lib/constants/kurum";
-import { kurumSecenekleriniGetir } from "../../kurumlar/actions";
+import { BIRIM_TIP_LABEL, birimGorunenAd } from "@/lib/constants/birim";
+import { birimSecenekleriniGetir } from "../../birimler/actions";
 import { davetGonderEylem, rolListele } from "../actions";
 import { davetGonderSemasi, type DavetGonder } from "../schemas";
 
@@ -40,11 +40,11 @@ type Props = {
 export function DavetGonderSheet({ acik, kapat, basaridaTetikle }: Props) {
   const form = useForm<DavetGonder>({
     resolver: zodResolver(davetGonderSemasi),
-    defaultValues: { email: "", rol_id: null, kurum_id: "" },
+    defaultValues: { email: "", rol_id: null, birim_id: "" },
   });
 
   React.useEffect(() => {
-    if (acik) form.reset({ email: "", rol_id: null, kurum_id: "" });
+    if (acik) form.reset({ email: "", rol_id: null, birim_id: "" });
   }, [acik, form]);
 
   const rolSorgu = useQuery({
@@ -57,10 +57,10 @@ export function DavetGonderSheet({ acik, kapat, basaridaTetikle }: Props) {
     enabled: acik,
   });
 
-  const kurumSorgu = useQuery({
-    queryKey: ["kurum-secenekleri"],
+  const birimSorgu = useQuery({
+    queryKey: ["birim-secenekleri"],
     queryFn: async () => {
-      const r = await kurumSecenekleriniGetir(undefined);
+      const r = await birimSecenekleriniGetir(undefined);
       if (!r.basarili) throw new Error(r.hata);
       return r.veri;
     },
@@ -95,7 +95,7 @@ export function DavetGonderSheet({ acik, kapat, basaridaTetikle }: Props) {
   });
 
   const rolDeger = form.watch("rol_id");
-  const kurumDeger = form.watch("kurum_id");
+  const birimDeger = form.watch("birim_id");
 
   return (
     <ResponsiveDialog open={acik} onOpenChange={(o) => (o ? null : kapat())}>
@@ -121,7 +121,7 @@ export function DavetGonderSheet({ acik, kapat, basaridaTetikle }: Props) {
                 id="email"
                 type="email"
                 inputMode="email"
-                placeholder="ad.soyad@kurum.gov.tr"
+                placeholder="ad.soyad@birim.gov.tr"
                 className="pl-9"
                 {...form.register("email")}
               />
@@ -134,38 +134,38 @@ export function DavetGonderSheet({ acik, kapat, basaridaTetikle }: Props) {
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="davet_kurum">Atanacak Kurum</Label>
+            <Label htmlFor="davet_birim">Atanacak Birim</Label>
             <Select
-              value={kurumDeger || ""}
-              onValueChange={(v) => form.setValue("kurum_id", v ?? "")}
+              value={birimDeger || ""}
+              onValueChange={(v) => form.setValue("birim_id", v ?? "")}
             >
-              <SelectTrigger id="davet_kurum">
+              <SelectTrigger id="davet_birim">
                 <SelectValue>
                   {(v) => {
-                    if (!v) return "Kurum seçin";
-                    const k = (kurumSorgu.data ?? []).find((x) => x.id === v);
+                    if (!v) return "Birim seçin";
+                    const k = (birimSorgu.data ?? []).find((x) => x.id === v);
                     return k
-                      ? kurumGorunenAd({ ad: k.ad, tip: k.tip })
-                      : "Kurum seçin";
+                      ? birimGorunenAd({ ad: k.ad, tip: k.tip })
+                      : "Birim seçin";
                   }}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {(kurumSorgu.data ?? []).map((k) => (
+                {(birimSorgu.data ?? []).map((k) => (
                   <SelectItem key={k.id} value={k.id}>
-                    {kurumGorunenAd({ ad: k.ad, tip: k.tip })}
+                    {birimGorunenAd({ ad: k.ad, tip: k.tip })}
                     {k.ad && (
                       <span className="text-muted-foreground ml-2 text-xs">
-                        {KURUM_TIP_LABEL[k.tip]}
+                        {BIRIM_TIP_LABEL[k.tip]}
                       </span>
                     )}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {form.formState.errors.kurum_id && (
+            {form.formState.errors.birim_id && (
               <p className="text-destructive text-sm">
-                {form.formState.errors.kurum_id.message}
+                {form.formState.errors.birim_id.message}
               </p>
             )}
           </div>

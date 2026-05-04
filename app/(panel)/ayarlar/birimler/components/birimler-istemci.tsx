@@ -4,7 +4,7 @@ import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
 import { Pencil, Plus, Search, Trash2, X } from "lucide-react";
-import type { KurumKategorisi, KurumTipi } from "@prisma/client";
+import type { BirimKategorisi, BirimTipi } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -18,20 +18,20 @@ import {
 import { DataTable } from "@/components/tablo/data-table";
 import { useOptimisticMutation, eylemMutasyonu } from "@/lib/optimistic";
 import {
-  KURUM_KATEGORI_LABEL,
-  KURUM_TIP_LABEL,
-  kurumGorunenAd,
-} from "@/lib/constants/kurum";
-import { kurumListele, kurumSilEylem } from "../actions";
-import { KurumFormSheet } from "./kurum-form";
-import { KurumSilDiyalog } from "./kurum-sil-diyalog";
+  BIRIM_KATEGORI_LABEL,
+  BIRIM_TIP_LABEL,
+  birimGorunenAd,
+} from "@/lib/constants/birim";
+import { birimListele, birimSilEylem } from "../actions";
+import { BirimFormSheet } from "./birim-form";
+import { BirimSilDiyalog } from "./birim-sil-diyalog";
 
 type Satir = {
   id: string;
   ad: string | null;
   kisa_ad: string | null;
-  kategori: KurumKategorisi;
-  tip: KurumTipi;
+  kategori: BirimKategorisi;
+  tip: BirimTipi;
   il: string | null;
   ilce: string | null;
   aktif: boolean;
@@ -40,7 +40,7 @@ type Satir = {
 
 const TUM_KATEGORILER = "__tum_kategoriler__";
 
-export function KurumlarIstemci({ yetkili }: { yetkili: boolean }) {
+export function BirimlerIstemci({ yetkili }: { yetkili: boolean }) {
   const istemci = useQueryClient();
   const [sayfalama, setSayfalama] = React.useState<PaginationState>({
     pageIndex: 0,
@@ -49,7 +49,7 @@ export function KurumlarIstemci({ yetkili }: { yetkili: boolean }) {
   const [arama, setArama] = React.useState("");
   const [aramaInput, setAramaInput] = React.useState("");
   const [kategoriFiltre, setKategoriFiltre] =
-    React.useState<KurumKategorisi | typeof TUM_KATEGORILER>(TUM_KATEGORILER);
+    React.useState<BirimKategorisi | typeof TUM_KATEGORILER>(TUM_KATEGORILER);
   const [duzenlenen, setDuzenlenen] = React.useState<Satir | null>(null);
   const [yeniAcik, setYeniAcik] = React.useState(false);
   const [silinecek, setSilinecek] = React.useState<Satir | null>(null);
@@ -64,7 +64,7 @@ export function KurumlarIstemci({ yetkili }: { yetkili: boolean }) {
 
   const sorgu = useQuery({
     queryKey: [
-      "kurumlar",
+      "birimler",
       {
         sayfa: sayfalama.pageIndex + 1,
         sayfaBoyutu: sayfalama.pageSize,
@@ -73,7 +73,7 @@ export function KurumlarIstemci({ yetkili }: { yetkili: boolean }) {
       },
     ],
     queryFn: async () => {
-      const r = await kurumListele({
+      const r = await birimListele({
         sayfa: sayfalama.pageIndex + 1,
         sayfaBoyutu: sayfalama.pageSize,
         arama: arama || undefined,
@@ -88,8 +88,8 @@ export function KurumlarIstemci({ yetkili }: { yetkili: boolean }) {
   type Liste = { kayitlar: Satir[]; toplam: number };
 
   const silMut = useOptimisticMutation<{ id: string }, { id: string }>({
-    queryKey: ["kurumlar"],
-    mutationFn: eylemMutasyonu(kurumSilEylem),
+    queryKey: ["birimler"],
+    mutationFn: eylemMutasyonu(birimSilEylem),
     optimistic: (old, vars) => {
       const v = old as Liste | undefined;
       if (!v) return old;
@@ -99,24 +99,24 @@ export function KurumlarIstemci({ yetkili }: { yetkili: boolean }) {
         toplam: Math.max(0, v.toplam - 1),
       };
     },
-    hataMesaji: "Kurum silinemedi",
-    basariMesaji: "Kurum silindi.",
+    hataMesaji: "Birim silinemedi",
+    basariMesaji: "Birim silindi.",
     onSettledExtra: () => setSilinecek(null),
   });
 
   const kolonlar: ColumnDef<Satir>[] = React.useMemo(
     () => [
       {
-        id: "kurum",
-        header: "Kurum",
+        id: "birim",
+        header: "Birim",
         cell: ({ row }) => (
           <div className="flex flex-col">
             <span className="font-medium">
-              {kurumGorunenAd({ ad: row.original.ad, tip: row.original.tip })}
+              {birimGorunenAd({ ad: row.original.ad, tip: row.original.tip })}
             </span>
             {row.original.ad && (
               <span className="text-muted-foreground text-xs">
-                {KURUM_TIP_LABEL[row.original.tip]}
+                {BIRIM_TIP_LABEL[row.original.tip]}
               </span>
             )}
           </div>
@@ -127,7 +127,7 @@ export function KurumlarIstemci({ yetkili }: { yetkili: boolean }) {
         header: "Kategori",
         cell: ({ row }) => (
           <Badge variant="outline">
-            {KURUM_KATEGORI_LABEL[row.original.kategori]}
+            {BIRIM_KATEGORI_LABEL[row.original.kategori]}
           </Badge>
         ),
       },
@@ -178,7 +178,7 @@ export function KurumlarIstemci({ yetkili }: { yetkili: boolean }) {
 
   const veri = sorgu.data?.kayitlar ?? [];
   const toplam = sorgu.data?.toplam ?? 0;
-  const kategoriler = Object.keys(KURUM_KATEGORI_LABEL) as KurumKategorisi[];
+  const kategoriler = Object.keys(BIRIM_KATEGORI_LABEL) as BirimKategorisi[];
   const filtreAktif =
     aramaInput.trim().length > 0 || kategoriFiltre !== TUM_KATEGORILER;
 
@@ -198,7 +198,7 @@ export function KurumlarIstemci({ yetkili }: { yetkili: boolean }) {
             <Input
               value={aramaInput}
               onChange={(e) => setAramaInput(e.target.value)}
-              placeholder="Kurum ara..."
+              placeholder="Birim ara..."
               className="pl-9"
             />
           </div>
@@ -207,7 +207,7 @@ export function KurumlarIstemci({ yetkili }: { yetkili: boolean }) {
             onValueChange={(v) =>
               setKategoriFiltre(
                 (v ?? TUM_KATEGORILER) as
-                  | KurumKategorisi
+                  | BirimKategorisi
                   | typeof TUM_KATEGORILER,
               )
             }
@@ -217,7 +217,7 @@ export function KurumlarIstemci({ yetkili }: { yetkili: boolean }) {
                 {(v) =>
                   v === TUM_KATEGORILER
                     ? "Tüm kategoriler"
-                    : (KURUM_KATEGORI_LABEL[v as KurumKategorisi] ?? v)
+                    : (BIRIM_KATEGORI_LABEL[v as BirimKategorisi] ?? v)
                 }
               </SelectValue>
             </SelectTrigger>
@@ -225,7 +225,7 @@ export function KurumlarIstemci({ yetkili }: { yetkili: boolean }) {
               <SelectItem value={TUM_KATEGORILER}>Tüm kategoriler</SelectItem>
               {kategoriler.map((k) => (
                 <SelectItem key={k} value={k}>
-                  {KURUM_KATEGORI_LABEL[k]}
+                  {BIRIM_KATEGORI_LABEL[k]}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -248,7 +248,7 @@ export function KurumlarIstemci({ yetkili }: { yetkili: boolean }) {
             onClick={() => setYeniAcik(true)}
             disabled={!yetkili}
           >
-            <Plus className="size-4" /> Yeni Kurum
+            <Plus className="size-4" /> Yeni Birim
           </Button>
         </div>
       </div>
@@ -260,13 +260,13 @@ export function KurumlarIstemci({ yetkili }: { yetkili: boolean }) {
         sayfalama={sayfalama}
         sayfalamaDegisti={setSayfalama}
         yukleniyor={sorgu.isLoading}
-        bosMesaj="Henüz kurum yok."
+        bosMesaj="Henüz birim yok."
         satirAnahtari={(s) => s.id}
         kartGorunumu={(s) => (
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
               <span className="font-medium">
-                {kurumGorunenAd({ ad: s.ad, tip: s.tip })}
+                {birimGorunenAd({ ad: s.ad, tip: s.tip })}
               </span>
               {s.aktif ? (
                 <Badge variant="secondary">Aktif</Badge>
@@ -275,7 +275,7 @@ export function KurumlarIstemci({ yetkili }: { yetkili: boolean }) {
               )}
             </div>
             <span className="text-muted-foreground text-xs">
-              {KURUM_TIP_LABEL[s.tip]} · {KURUM_KATEGORI_LABEL[s.kategori]}
+              {BIRIM_TIP_LABEL[s.tip]} · {BIRIM_KATEGORI_LABEL[s.kategori]}
             </span>
             <div className="text-muted-foreground mt-1 text-xs">
               {s.kullanici_sayisi} kullanıcı
@@ -302,28 +302,28 @@ export function KurumlarIstemci({ yetkili }: { yetkili: boolean }) {
         )}
       />
 
-      <KurumFormSheet
+      <BirimFormSheet
         acik={yeniAcik}
         kapat={() => setYeniAcik(false)}
         baslangic={null}
         basaridaTetikle={() =>
-          istemci.invalidateQueries({ queryKey: ["kurumlar"] })
+          istemci.invalidateQueries({ queryKey: ["birimler"] })
         }
       />
-      <KurumFormSheet
+      <BirimFormSheet
         acik={!!duzenlenen}
         kapat={() => setDuzenlenen(null)}
         baslangic={duzenlenen}
         basaridaTetikle={() =>
-          istemci.invalidateQueries({ queryKey: ["kurumlar"] })
+          istemci.invalidateQueries({ queryKey: ["birimler"] })
         }
       />
-      <KurumSilDiyalog
+      <BirimSilDiyalog
         kayit={
           silinecek
             ? {
                 id: silinecek.id,
-                gorunenAd: kurumGorunenAd({
+                gorunenAd: birimGorunenAd({
                   ad: silinecek.ad,
                   tip: silinecek.tip,
                 }),

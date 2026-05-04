@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { canKart } from "@/lib/yetki";
 
 export const metadata = { title: "Kart — Pusula" };
 
@@ -17,8 +18,10 @@ export default async function KartDeepLink({ params }: SayfaProps) {
   const oturum = await auth();
   if (!oturum?.user) redirect("/giris");
 
-  const kullanici = oturum.user as { id: string; kurumId?: string };
-  if (!kullanici.kurumId) redirect("/giris");
+  const kullanici = oturum.user as { id: string };
+  if (!(await canKart(kullanici.id, "kart:read", kartId))) {
+    notFound();
+  }
 
   const kart = await db.kart.findUnique({
     where: { id: kartId },
@@ -30,7 +33,7 @@ export default async function KartDeepLink({ params }: SayfaProps) {
     },
   });
 
-  // Tek-kurum (ADR-0007) — kurum sahiplik kontrolü düştü.
+  // Tek-birim (ADR-0007) — birim sahiplik kontrolü düştü.
   if (!kart || kart.silindi_mi) {
     notFound();
   }

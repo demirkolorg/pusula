@@ -19,7 +19,7 @@ export default function KayitSayfasi() {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Pusula — Kayıt</CardTitle>
           <CardDescription>
-            Kurumunuzu seçip hesap oluşturun. Kaymakamlık tarafından
+            Biriminizi seçip hesap oluşturun. Kaymakamlık tarafından
             onaylandıktan sonra giriş yapabileceksiniz.
           </CardDescription>
         </CardHeader>

@@ -9,17 +9,18 @@ import { siraSonuna } from "@/lib/sira";
 //
 // ozet:
 //   const ortam = await ortamKur(db);
-//   await projeOlusturFiks(db, { kurumId: ortam.kurum.id, ... });
+//   await projeOlusturFiks(db, { birimId: ortam.birim.id, ... });
 
 type AnyPrisma = Pick<
   PrismaClient,
-  | "kurum"
+  | "birim"
   | "kullanici"
   | "rol"
   | "izin"
   | "rolIzin"
   | "kullaniciRol"
   | "proje"
+  | "projeBirimi"
   | "projeUyesi"
   | "liste"
   | "kart"
@@ -47,11 +48,11 @@ const ROL_IZINLERI: Record<string, string[]> = {
 };
 
 export type Ortam = {
-  kurum: { id: string; ad: string };
-  digerKurum: { id: string; ad: string };
+  birim: { id: string; ad: string };
+  digerBirim: { id: string; ad: string };
   superAdmin: { id: string; email: string };
   personel: { id: string; email: string };
-  // diger kurumun bir kullanicisi — cross-tenant izolasyon testleri icin.
+  // Diger birimin bir kullanicisi — paylasim kapsami testleri icin.
   digerKullanici: { id: string; email: string };
 };
 
@@ -94,14 +95,14 @@ export async function rolIzinSeedle(db: AnyPrisma): Promise<void> {
   }
 }
 
-export async function kurumOlusturFiks(
+export async function birimOlusturFiks(
   db: AnyPrisma,
   ad?: string,
 ): Promise<{ id: string; ad: string }> {
   // Test fikstürü: tekil tipte birden fazla kayıt olamayacağı için her seferinde
   // çoklu bir tip (ECZANE) kullanıyoruz. `ad` zorunlu çünkü çoklu tip.
   const adGercek = ad ?? `${faker.company.name()} Eczanesi`;
-  const k = await db.kurum.create({
+  const k = await db.birim.create({
     data: {
       kategori: "SAGLIK",
       tip: "ECZANE",
@@ -117,7 +118,7 @@ export async function kurumOlusturFiks(
 
 export async function kullaniciOlusturFiks(
   db: AnyPrisma,
-  args: { kurumId: string; rolKod?: string; email?: string },
+  args: { birimId: string; rolKod?: string; email?: string },
 ): Promise<{ id: string; email: string }> {
   const parolaHash = await testParolaHashAl();
   const ad = faker.person.firstName();
@@ -128,7 +129,7 @@ export async function kullaniciOlusturFiks(
 
   const k = await db.kullanici.create({
     data: {
-      kurum_id: args.kurumId,
+      birim_id: args.birimId,
       email,
       parola_hash: parolaHash,
       ad,
@@ -151,31 +152,31 @@ export async function kullaniciOlusturFiks(
   return k;
 }
 
-// Iki kurum + uc kullaniciyi tek seferde kuran ortam fabrikasi.
-// Cross-tenant test ihtiyaclari icin `digerKurum` ve `digerKullanici` da hazir.
+// Iki birim + uc kullaniciyi tek seferde kuran ortam fabrikasi.
+// Paylasim kapsami test ihtiyaclari icin `digerBirim` ve `digerKullanici` da hazir.
 export async function ortamKur(db: AnyPrisma): Promise<Ortam> {
   await rolIzinSeedle(db);
-  const kurum = await kurumOlusturFiks(db, "Test Kurum A");
-  const digerKurum = await kurumOlusturFiks(db, "Test Kurum B");
+  const birim = await birimOlusturFiks(db, "Test Birim A");
+  const digerBirim = await birimOlusturFiks(db, "Test Birim B");
 
   const superAdmin = await kullaniciOlusturFiks(db, {
-    kurumId: kurum.id,
+    birimId: birim.id,
     rolKod: "SUPER_ADMIN",
   });
   const personel = await kullaniciOlusturFiks(db, {
-    kurumId: kurum.id,
+    birimId: birim.id,
     rolKod: "PERSONEL",
   });
   const digerKullanici = await kullaniciOlusturFiks(db, {
-    kurumId: digerKurum.id,
+    birimId: digerBirim.id,
     rolKod: "PERSONEL",
   });
 
-  return { kurum, digerKurum, superAdmin, personel, digerKullanici };
+  return { birim, digerBirim, superAdmin, personel, digerKullanici };
 }
 
 export type ProjeFiksOps = {
-  kurumId: string;
+  birimId: string;
   olusturanId?: string;
   ad?: string;
   aciklama?: string | null;
@@ -201,7 +202,6 @@ export async function projeOlusturFiks(
 }> {
   const sira = ops.sira ?? siraSonuna(ops.oncekiSira ?? null);
   const veri = {
-    kurum_id: ops.kurumId,
     ad: ops.ad ?? `${faker.commerce.department()} Projesi`,
     aciklama: ops.aciklama ?? null,
     kapak_renk: ops.kapak_renk ?? null,
@@ -212,6 +212,7 @@ export async function projeOlusturFiks(
     silinme_zamani: ops.silindi_mi ? new Date() : null,
     sira,
     olusturan_id: ops.olusturanId ?? null,
+    birimler: { create: { birim_id: ops.birimId } },
   };
   const p = await db.proje.create({
     data: veri,
@@ -227,12 +228,12 @@ export async function projeOlusturFiks(
   return p;
 }
 
-// Bir kuruma birden fazla proje seedle — sira monoton artar.
+// Bir birime birden fazla proje seedle — sira monoton artar.
 // `tipler` her bir projenin durumunu belirler (default: hepsi aktif).
 export async function projeleriSeedle(
   db: AnyPrisma,
   args: {
-    kurumId: string;
+    birimId: string;
     olusturanId?: string;
     tipler?: Array<{
       ad?: string;
@@ -249,7 +250,7 @@ export async function projeleriSeedle(
   let oncekiSira: string | null = null;
   for (const tip of list) {
     const p = await projeOlusturFiks(db, {
-      kurumId: args.kurumId,
+      birimId: args.birimId,
       olusturanId: args.olusturanId,
       oncekiSira,
       ...tip,

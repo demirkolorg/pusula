@@ -23,9 +23,9 @@ export type AdayKullanici = {
   ad: string;
   soyad: string;
   email: string;
-  // Why kurum görünümü: aday listesi sistem genelinden çekildiği için aynı
-  // ad/soyad farklı kurumlarda olabilir; kullanıcı doğru kişiyi seçebilsin.
-  kurum_ad: string | null;
+  // Why birim görünümü: aday listesi sistem genelinden çekildiği için aynı
+  // ad/soyad farklı birimlerda olabilir; kullanıcı doğru kişiyi seçebilsin.
+  birim_ad: string | null;
 };
 
 // =====================================================================
@@ -33,10 +33,10 @@ export type AdayKullanici = {
 // =====================================================================
 
 async function projeyeErisimDogrula(
-  _kurumId: string,
+  _birimId: string,
   projeId: string,
 ): Promise<void> {
-  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
+  // Tek-birim (ADR-0007) — birim kontrolü düştü.
   const p = await db.proje.findUnique({
     where: { id: projeId },
     select: { silindi_mi: true },
@@ -47,10 +47,10 @@ async function projeyeErisimDogrula(
 }
 
 async function kartiBulVeProjeAl(
-  _kurumId: string,
+  _birimId: string,
   kartId: string,
 ): Promise<{ proje_id: string }> {
-  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
+  // Tek-birim (ADR-0007) — birim kontrolü düştü.
   const k = await db.kart.findUnique({
     where: { id: kartId },
     select: {
@@ -68,10 +68,10 @@ async function kartiBulVeProjeAl(
 // =====================================================================
 
 export async function projeUyeleriniListele(
-  kurumId: string,
+  birimId: string,
   projeId: string,
 ): Promise<ProjeUyeOzeti[]> {
-  await projeyeErisimDogrula(kurumId, projeId);
+  await projeyeErisimDogrula(birimId, projeId);
   const uyeler = await db.projeUyesi.findMany({
     where: { proje_id: projeId },
     orderBy: { eklenme_zamani: "asc" },
@@ -93,12 +93,12 @@ export async function projeUyeleriniListele(
 }
 
 export async function projeAdayKullanicilariniAra(
-  kurumId: string,
+  birimId: string,
   girdi: ProjeAdayKullanicilar,
 ): Promise<AdayKullanici[]> {
   // Why erişim doğrula: sadece projeyi görebildiğinden emin ol; aday havuzu
-  // sistem geneli (kurum filtresi kaldırıldı, çoklu kurum atama desteklenir).
-  await projeyeErisimDogrula(kurumId, girdi.proje_id);
+  // sistem geneli (birim filtresi kaldırıldı, çoklu birim atama desteklenir).
+  await projeyeErisimDogrula(birimId, girdi.proje_id);
   const aramaQ = girdi.q?.trim() ?? "";
   const sonuc = await db.kullanici.findMany({
     where: {
@@ -114,10 +114,10 @@ export async function projeAdayKullanicilariniAra(
               { soyad: { contains: aramaQ, mode: "insensitive" } },
               { email: { contains: aramaQ, mode: "insensitive" } },
               {
-                kurum: { ad: { contains: aramaQ, mode: "insensitive" } },
+                birim: { ad: { contains: aramaQ, mode: "insensitive" } },
               },
               {
-                kurum: { kisa_ad: { contains: aramaQ, mode: "insensitive" } },
+                birim: { kisa_ad: { contains: aramaQ, mode: "insensitive" } },
               },
             ],
           }
@@ -130,7 +130,7 @@ export async function projeAdayKullanicilariniAra(
       ad: true,
       soyad: true,
       email: true,
-      kurum: { select: { ad: true, kisa_ad: true } },
+      birim: { select: { ad: true, kisa_ad: true } },
     },
   });
   return sonuc.map((k) => ({
@@ -138,17 +138,17 @@ export async function projeAdayKullanicilariniAra(
     ad: k.ad,
     soyad: k.soyad,
     email: k.email,
-    kurum_ad: k.kurum?.kisa_ad ?? k.kurum?.ad ?? null,
+    birim_ad: k.birim?.kisa_ad ?? k.birim?.ad ?? null,
   }));
 }
 
 export async function projeyeUyeEkle(
-  kurumId: string,
+  birimId: string,
   girdi: ProjeyeUyeEkle,
 ): Promise<ProjeUyeOzeti> {
-  await projeyeErisimDogrula(kurumId, girdi.proje_id);
-  // Kullanıcı sistem genelinden eklenebilir (kurum izolasyonu kaldırıldı —
-  // aday listesi de tüm kurumlardan kullanıcı dönüyor). Sadece silinmiş /
+  await projeyeErisimDogrula(birimId, girdi.proje_id);
+  // Kullanıcı sistem genelinden eklenebilir (birim izolasyonu kaldırıldı —
+  // aday listesi de tüm birimlerden kullanıcı dönüyor). Sadece silinmiş /
   // var olmayan kullanıcılar reddedilir; aktiflik & onay durumu aday
   // sorgusunda zaten süzülmüş olur.
   const k = await db.kullanici.findUnique({
@@ -195,11 +195,11 @@ export async function projeyeUyeEkle(
 }
 
 export async function projeyeUyeKaldir(
-  kurumId: string,
+  birimId: string,
   projeId: string,
   kullaniciId: string,
 ): Promise<void> {
-  await projeyeErisimDogrula(kurumId, projeId);
+  await projeyeErisimDogrula(birimId, projeId);
   // Son ADMIN'i çıkarmaya izin verme — proje sahipsiz kalmasın.
   const uye = await db.projeUyesi.findUnique({
     where: { proje_id_kullanici_id: { proje_id: projeId, kullanici_id: kullaniciId } },
@@ -233,10 +233,10 @@ export async function projeyeUyeKaldir(
 }
 
 export async function projeUyesiSeviyeGuncelle(
-  kurumId: string,
+  birimId: string,
   girdi: ProjeUyesiSeviyeGuncelle,
 ): Promise<void> {
-  await projeyeErisimDogrula(kurumId, girdi.proje_id);
+  await projeyeErisimDogrula(birimId, girdi.proje_id);
   const uye = await db.projeUyesi.findUnique({
     where: {
       proje_id_kullanici_id: { proje_id: girdi.proje_id, kullanici_id: girdi.kullanici_id },
@@ -278,10 +278,10 @@ export type KartUyeOzeti = {
 };
 
 export async function kartinUyeleri(
-  kurumId: string,
+  birimId: string,
   kartId: string,
 ): Promise<KartUyeOzeti[]> {
-  await kartiBulVeProjeAl(kurumId, kartId);
+  await kartiBulVeProjeAl(birimId, kartId);
   const uyeler = await db.kartUyesi.findMany({
     where: { kart_id: kartId },
     orderBy: { eklenme_zamani: "asc" },
@@ -299,11 +299,11 @@ export async function kartinUyeleri(
 }
 
 export async function kartaUyeEkle(
-  kurumId: string,
+  birimId: string,
   kartId: string,
   kullaniciId: string,
 ): Promise<void> {
-  const { proje_id } = await kartiBulVeProjeAl(kurumId, kartId);
+  const { proje_id } = await kartiBulVeProjeAl(birimId, kartId);
   // Kullanıcı projenin üyesi olmalı
   const uye = await db.projeUyesi.findUnique({
     where: {
@@ -329,11 +329,11 @@ export async function kartaUyeEkle(
 }
 
 export async function kartaUyeKaldir(
-  kurumId: string,
+  birimId: string,
   kartId: string,
   kullaniciId: string,
 ): Promise<void> {
-  await kartiBulVeProjeAl(kurumId, kartId);
+  await kartiBulVeProjeAl(birimId, kartId);
   await db.kartUyesi
     .delete({
       where: {

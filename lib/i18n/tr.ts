@@ -5,8 +5,8 @@
  */
 
 export const tr = {
-  kurum: {
-    secinizPlaceholder: "Kurum seçin",
+  birim: {
+    secinizPlaceholder: "Birim seçin",
     kategoriHepsi: "Tüm kategoriler",
     tekilEkAd: "(opsiyonel)",
     tipTekilNot: "Tekil tip — ad opsiyoneldir.",
@@ -36,11 +36,11 @@ export const tr = {
 
 /**
  * Makam katmanında olan rol kodları.
- * Bu rollere sahip kullanıcılar tüm kurumların verisine erişebilir.
+ * Bu rollere sahip kullanıcılar tüm birimlerin verisine erişebilir.
  *
- * ADR-0001 (Kurum-Birim birleştirme) sonrası: Kural 50a artık birim filtresi
- * yerine kurum filtresinin bypass edilmesini ifade eder. Bu sabit yetki
- * katmanında "tüm kurumlara erişim" rolünü tespit etmek için kullanılır.
+ * ADR-0001 (Birim-Birim birleştirme) sonrası: Kural 50a artık birim filtresi
+ * yerine birim filtresinin bypass edilmesini ifade eder. Bu sabit yetki
+ * katmanında "tüm birimlera erişim" rolünü tespit etmek için kullanılır.
  */
 export const MAKAM_ROL_KODLARI = ["SUPER_ADMIN", "KAYMAKAM"] as const;
 

@@ -4,6 +4,7 @@ import { siraArasi, siraSonuna } from "@/lib/sira";
 import { EylemHatasi } from "@/lib/action-wrapper";
 import { HATA_KODU } from "@/lib/sonuc";
 import { aramaUuidIdleri } from "@/lib/arama";
+import { kullaniciErisimBilgisi } from "@/lib/yetki";
 import type {
   ProjeArsiv,
   ProjeGuncelle,
@@ -26,36 +27,77 @@ export type ProjeKart = {
   olusturma_zamani: Date;
 };
 
-function whereYap(_kurumId: string, girdi: ProjeListe): Prisma.ProjeWhereInput {
-  // Tek-kurum mimari (ADR-0007): kurum_id veri filtresi kaldırıldı.
-  // Erişim resource-level RBAC + ProjeUyesi seviyesinde sağlanır.
-  const taban: Prisma.ProjeWhereInput = {};
+function filtreWhere(girdi: ProjeListe): Prisma.ProjeWhereInput {
+  const where: Prisma.ProjeWhereInput = {};
   switch (girdi.filtre) {
     case "yildizli":
-      taban.yildizli_mi = true;
-      taban.silindi_mi = false;
+      where.yildizli_mi = true;
+      where.silindi_mi = false;
       break;
     case "arsiv":
-      taban.arsiv_mi = true;
-      taban.silindi_mi = false;
+      where.arsiv_mi = true;
+      where.silindi_mi = false;
       break;
     case "silinmis":
-      taban.silindi_mi = true;
+      where.silindi_mi = true;
       break;
     case "aktif":
     default:
-      taban.silindi_mi = false;
-      taban.arsiv_mi = false;
+      where.silindi_mi = false;
+      where.arsiv_mi = false;
       break;
   }
-  return taban;
+  return where;
+}
+
+async function projeListeWhere(
+  kullaniciId: string,
+  girdi: ProjeListe,
+): Promise<Prisma.ProjeWhereInput> {
+  const where = filtreWhere(girdi);
+  const erisim = await kullaniciErisimBilgisi(kullaniciId);
+  if (erisim.makam) return where;
+
+  const birimKosulu = erisim.birimId
+    ? { birim_id: erisim.birimId }
+    : { birim_id: { in: [] } };
+  const erisimKosullari: Prisma.ProjeWhereInput[] = [
+    { uyeler: { some: { kullanici_id: kullaniciId } } },
+    { birimler: { some: birimKosulu } },
+    {
+      listeler: {
+        some: { uyeler: { some: { kullanici_id: kullaniciId } } },
+      },
+    },
+    {
+      listeler: {
+        some: { birimler: { some: birimKosulu } },
+      },
+    },
+    {
+      listeler: {
+        some: {
+          kartlar: {
+            some: { uyeler: { some: { kullanici_id: kullaniciId } } },
+          },
+        },
+      },
+    },
+    {
+      listeler: {
+        some: { kartlar: { some: { birimler: { some: birimKosulu } } } },
+      },
+    },
+  ];
+  where.OR = erisimKosullari;
+  return where;
 }
 
 export async function projeleriListele(
-  kurumId: string,
+  kullaniciId: string,
   girdi: ProjeListe,
 ): Promise<ProjeKart[]> {
-  const where = whereYap(kurumId, girdi);
+  const where = await projeListeWhere(kullaniciId, girdi);
   if (girdi.arama) {
     const idler = await aramaUuidIdleri({
       tablo: "Proje",
@@ -67,6 +109,7 @@ export async function projeleriListele(
       where.id = { in: idler };
     }
   }
+
   const kayitlar = await db.proje.findMany({
     where,
     orderBy: [{ sira: "asc" }],
@@ -101,21 +144,24 @@ export async function projeleriListele(
 }
 
 export async function projeOlustur(
-  kurumId: string,
   olusturanId: string,
   girdi: ProjeOlustur,
 ): Promise<ProjeKart> {
-  // Sonraki sıra: en sondaki proje + bir adım. Tek-kurum (ADR-0007) — filtre yok.
-  const son = await db.proje.findFirst({
-    where: { silindi_mi: false },
-    orderBy: { sira: "desc" },
-    select: { sira: true },
-  });
+  const [son, olusturan] = await Promise.all([
+    db.proje.findFirst({
+      where: { silindi_mi: false },
+      orderBy: { sira: "desc" },
+      select: { sira: true },
+    }),
+    db.kullanici.findUnique({
+      where: { id: olusturanId },
+      select: { birim_id: true },
+    }),
+  ]);
   const sira = siraSonuna(son?.sira ?? null);
 
   const yeni = await db.proje.create({
     data: {
-      kurum_id: kurumId,
       ad: girdi.ad.trim(),
       aciklama: girdi.aciklama?.trim() || null,
       kapak_renk: girdi.kapak_renk || null,
@@ -124,6 +170,9 @@ export async function projeOlustur(
       uyeler: {
         create: { kullanici_id: olusturanId, seviye: "ADMIN" },
       },
+      birimler: olusturan?.birim_id
+        ? { create: { birim_id: olusturan.birim_id } }
+        : undefined,
     },
     select: {
       id: true,
@@ -145,11 +194,7 @@ export async function projeOlustur(
   };
 }
 
-async function projeyiBulVeKurumDogrula(
-  _kurumId: string,
-  id: string,
-): Promise<void> {
-  // Tek-kurum (ADR-0007) — kurum eşleşme reddi düştü; sadece varlık kontrolü.
+async function projeyiBul(id: string): Promise<void> {
   const p = await db.proje.findUnique({
     where: { id },
     select: { id: true },
@@ -159,11 +204,8 @@ async function projeyiBulVeKurumDogrula(
   }
 }
 
-export async function projeGuncelle(
-  kurumId: string,
-  girdi: ProjeGuncelle,
-): Promise<void> {
-  await projeyiBulVeKurumDogrula(kurumId, girdi.id);
+export async function projeGuncelle(girdi: ProjeGuncelle): Promise<void> {
+  await projeyiBul(girdi.id);
   const veri: Prisma.ProjeUpdateInput = {};
   if (girdi.ad !== undefined) veri.ad = girdi.ad.trim();
   if (girdi.aciklama !== undefined) veri.aciklama = girdi.aciklama?.trim() || null;
@@ -172,11 +214,8 @@ export async function projeGuncelle(
   await db.proje.update({ where: { id: girdi.id }, data: veri });
 }
 
-export async function projeArsivle(
-  kurumId: string,
-  girdi: ProjeArsiv,
-): Promise<void> {
-  await projeyiBulVeKurumDogrula(kurumId, girdi.id);
+export async function projeArsivle(girdi: ProjeArsiv): Promise<void> {
+  await projeyiBul(girdi.id);
   await db.proje.update({
     where: { id: girdi.id },
     data: {
@@ -186,24 +225,23 @@ export async function projeArsivle(
   });
 }
 
-export async function projeSil(kurumId: string, id: string): Promise<void> {
-  await projeyiBulVeKurumDogrula(kurumId, id);
+export async function projeSil(id: string): Promise<void> {
+  await projeyiBul(id);
   await db.proje.update({
     where: { id },
     data: { silindi_mi: true, silinme_zamani: new Date() },
   });
 }
 
-export async function projeGeriYukle(kurumId: string, id: string): Promise<void> {
-  await projeyiBulVeKurumDogrula(kurumId, id);
+export async function projeGeriYukle(id: string): Promise<void> {
+  await projeyiBul(id);
   await db.proje.update({
     where: { id },
     data: { silindi_mi: false, silinme_zamani: null },
   });
 }
 
-async function kurumProjeleriniRebalance(_kurumId: string): Promise<void> {
-  // Tek-kurum (ADR-0007) — kurum filtresi düştü, tüm projeleri rebalance eder.
+async function projeleriRebalance(): Promise<void> {
   const projeler = await db.proje.findMany({
     where: { silindi_mi: false },
     orderBy: { sira: "asc" },
@@ -227,10 +265,9 @@ async function kurumProjeleriniRebalance(_kurumId: string): Promise<void> {
 }
 
 export async function projeyeSiraVer(
-  kurumId: string,
   girdi: ProjeSira,
 ): Promise<{ sira: string }> {
-  await projeyiBulVeKurumDogrula(kurumId, girdi.id);
+  await projeyiBul(girdi.id);
 
   async function komsulariOku() {
     const [onceki, sonraki] = await Promise.all([
@@ -247,18 +284,16 @@ export async function projeyeSiraVer(
           })
         : null,
     ]);
-    // Tek-kurum (ADR-0007) — komşuların kurum eşleşme kontrolü düştü.
     return { onceki, sonraki };
   }
 
   let { onceki, sonraki } = await komsulariOku();
-
   let yeniSira: string;
   try {
     yeniSira = siraArasi(onceki?.sira ?? null, sonraki?.sira ?? null);
   } catch (err) {
     if (err instanceof Error && err.message.includes("alfabe tabanı")) {
-      await kurumProjeleriniRebalance(kurumId);
+      await projeleriRebalance();
       const yeni = await komsulariOku();
       onceki = yeni.onceki;
       sonraki = yeni.sonraki;

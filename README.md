@@ -98,7 +98,7 @@ Tüm kod yazımı, refactoring, PR öncesi `.claude/skills/kontrol/SKILL.md` kur
 ## Mimari Kararlar (ADR)
 
 `docs/adr/` altında:
-- [0001 — Kurum + Birim birleştirme](docs/adr/0001-kurum-birim-birlestirme.md)
+- [0001 — Birim + Birim birleştirme](docs/adr/0001-birim-birim-birlestirme.md)
 - [0002 — Mimari audit (2026-05-04)](docs/adr/0002-mimari-audit-2026-05-04.md)
 - [0003 — Next 16 proxy migration](docs/adr/0003-next16-proxy-migration.md)
 - [0004 — Güvenlik omurgası](docs/adr/0004-guvenlik-omurgasi.md)

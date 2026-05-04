@@ -21,12 +21,12 @@ import {
   yuklemeOnayla as yuklemeOnaylaSrv,
 } from "./services";
 
-function kurumIdAl(ctx: { oturum: { kurumId?: string } | null }): string {
-  const kurumId = ctx.oturum?.kurumId;
-  if (!kurumId) {
-    throw new EylemHatasi("Kurum bilgisi yok.", HATA_KODU.YETKISIZ);
+function birimIdAl(ctx: { oturum: { kullaniciId?: string } | null }): string {
+  const id = ctx.oturum?.kullaniciId;
+  if (!id) {
+    throw new EylemHatasi("Oturum yok.", HATA_KODU.GIRIS_YOK);
   }
-  return kurumId;
+  return id;
 }
 
 function kullaniciIdAl(ctx: { oturum: { kullaniciId?: string } | null }): string {
@@ -40,7 +40,7 @@ export const eklentileriListeleEylem = eylem({
   girdi: kartEklentileriListeleSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:read", girdi.kart_id);
-    return kartEklentileriniListele(kurumIdAl(ctx), girdi.kart_id);
+    return kartEklentileriniListele(birimIdAl(ctx), girdi.kart_id);
   },
 });
 
@@ -59,7 +59,7 @@ export const yuklemeBaslatEylem = eylem({
         HATA_KODU.YETKISIZ,
       );
     }
-    return yuklemeBaslatSrv(kurumIdAl(ctx), girdi);
+    return yuklemeBaslatSrv(birimIdAl(ctx), girdi);
   },
 });
 
@@ -70,7 +70,7 @@ export const yuklemeOnaylaEylem = eylem({
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.kart_id);
     const yukleyenId = kullaniciIdAl(ctx);
-    const e = await yuklemeOnaylaSrv(kurumIdAl(ctx), yukleyenId, girdi);
+    const e = await yuklemeOnaylaSrv(birimIdAl(ctx), yukleyenId, girdi);
     tetikleEklentiYuklendi({
       eklentiId: e.id,
       kartId: girdi.kart_id,
@@ -85,8 +85,8 @@ export const eklentiIndirEylem = eylem({
   ad: "eklenti:indir",
   girdi: eklentiIndirSemasi,
   calistir: async (girdi, ctx) => {
-    const kurumId = kurumIdAl(ctx);
-    return eklentiIndirURL(kurumId, girdi.id);
+    const birimId = birimIdAl(ctx);
+    return eklentiIndirURL(birimId, girdi.id);
   },
 });
 
@@ -95,7 +95,7 @@ export const eklentiSilEylem = eylem({
   girdi: eklentiSilSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
-    await eklentiSilSrv(kurumIdAl(ctx), kullaniciIdAl(ctx), girdi.id);
+    await eklentiSilSrv(birimIdAl(ctx), kullaniciIdAl(ctx), girdi.id);
     return { id: girdi.id };
   },
 });

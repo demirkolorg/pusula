@@ -614,9 +614,9 @@ description: Pusula (kaymakamlık görev yönetimi) projesinin tüm geliştirme 
    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);    // global
    await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.id);   // resource-level
    ```
-   `lib/yetki.ts` üzerinden `canProje`/`canListe`/`canKart` policy katmanı kullanılır. ProjeUyesi.seviye → action eşlemesi ile her işlem doğrulanır. Makam katmanı (SUPER_ADMIN/KAYMAKAM) kurum içi tüm projelere otomatik erişir.
+   `lib/yetki.ts` üzerinden `canProje`/`canListe`/`canKart` policy katmanı kullanılır. ProjeUyesi.seviye → action eşlemesi ile her işlem doğrulanır. Makam katmanı (SUPER_ADMIN/KAYMAKAM) paylaşım filtresini aşarak tüm projelere erişir.
 
-   **Sebep:** Aksi halde aynı kurumdaki personel üye olmadığı projelerin verisine erişebilir → KVKK ihlali (audit 2026-05-04 madde 4).
+   **Sebep:** Aksi halde birim veya üye ilişkisi olmayan personel erişmemesi gereken proje verisine erişebilir → KVKK ihlali (audit 2026-05-04 madde 4).
 
 ### V.3 — Public POST Endpoint Güvenlik Hattı
 

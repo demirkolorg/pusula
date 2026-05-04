@@ -28,7 +28,6 @@ import {
   type Ortam,
 } from "@/tests/fixtures/proje";
 import { truncateAll } from "@/tests/db/setup";
-import { EylemHatasi } from "@/lib/action-wrapper";
 
 // Tur 2 — services.ts integration testleri.
 // Mock yasak (Kontrol Kural 80) — gercek pg-test DB.
@@ -56,14 +55,14 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await truncateAll(adminDb);
-  // Her test temiz seed: kurum + roller + kullanicilar.
+  // Her test temiz seed: birim + roller + kullanicilar.
   ortam = await ortamKur(adminDb);
 });
 
 describe("projeleriListele", () => {
   it("filtre 'aktif' verildiginde sadece arsivsiz ve silinmemis projeler doner", async () => {
     await projeleriSeedle(adminDb, {
-      kurumId: ortam.kurum.id,
+      birimId: ortam.birim.id,
       tipler: [
         { ad: "Aktif 1" },
         { ad: "Arsiv 1", arsiv_mi: true },
@@ -72,7 +71,7 @@ describe("projeleriListele", () => {
       ],
     });
 
-    const sonuc = await projeleriListele(ortam.kurum.id, { filtre: "aktif" });
+    const sonuc = await projeleriListele(ortam.superAdmin.id, { filtre: "aktif" });
     const adlar = sonuc.map((p) => p.ad);
     expect(adlar).toHaveLength(2);
     expect(adlar).toContain("Aktif 1");
@@ -81,7 +80,7 @@ describe("projeleriListele", () => {
 
   it("filtre 'yildizli' verildiginde sadece yildizli projeler doner", async () => {
     await projeleriSeedle(adminDb, {
-      kurumId: ortam.kurum.id,
+      birimId: ortam.birim.id,
       tipler: [
         { ad: "Yildizli", yildizli_mi: true },
         { ad: "Normal" },
@@ -90,14 +89,14 @@ describe("projeleriListele", () => {
       ],
     });
 
-    const sonuc = await projeleriListele(ortam.kurum.id, { filtre: "yildizli" });
+    const sonuc = await projeleriListele(ortam.superAdmin.id, { filtre: "yildizli" });
     const adlar = sonuc.map((p) => p.ad);
     expect(adlar).toEqual(["Yildizli"]);
   });
 
   it("filtre 'arsiv' verildiginde arsivlenmis projeler doner", async () => {
     await projeleriSeedle(adminDb, {
-      kurumId: ortam.kurum.id,
+      birimId: ortam.birim.id,
       tipler: [
         { ad: "Aktif" },
         { ad: "Arsiv 1", arsiv_mi: true },
@@ -106,14 +105,14 @@ describe("projeleriListele", () => {
       ],
     });
 
-    const sonuc = await projeleriListele(ortam.kurum.id, { filtre: "arsiv" });
+    const sonuc = await projeleriListele(ortam.superAdmin.id, { filtre: "arsiv" });
     const adlar = sonuc.map((p) => p.ad).sort();
     expect(adlar).toEqual(["Arsiv 1", "Arsiv 2"]);
   });
 
   it("filtre 'silinmis' verildiginde silinmis projeler doner", async () => {
     await projeleriSeedle(adminDb, {
-      kurumId: ortam.kurum.id,
+      birimId: ortam.birim.id,
       tipler: [
         { ad: "Aktif" },
         { ad: "Silinmis 1", silindi_mi: true },
@@ -121,14 +120,14 @@ describe("projeleriListele", () => {
       ],
     });
 
-    const sonuc = await projeleriListele(ortam.kurum.id, { filtre: "silinmis" });
+    const sonuc = await projeleriListele(ortam.superAdmin.id, { filtre: "silinmis" });
     const adlar = sonuc.map((p) => p.ad).sort();
     expect(adlar).toEqual(["Silinmis 1", "Silinmis 2"]);
   });
 
   it("arama parametresi ad ve aciklama icinde case-insensitive eslesir", async () => {
     await projeleriSeedle(adminDb, {
-      kurumId: ortam.kurum.id,
+      birimId: ortam.birim.id,
       tipler: [
         { ad: "Egitim Projesi", aciklama: "Okullar icin." },
         { ad: "Saglik Calistayi", aciklama: "EGITIM saglik karisimi." },
@@ -136,7 +135,7 @@ describe("projeleriListele", () => {
       ],
     });
 
-    const sonuc = await projeleriListele(ortam.kurum.id, {
+    const sonuc = await projeleriListele(ortam.superAdmin.id, {
       filtre: "aktif",
       arama: "egitim",
     });
@@ -147,7 +146,7 @@ describe("projeleriListele", () => {
 
   it("siraya gore artan doner (LexoRank)", async () => {
     await projeleriSeedle(adminDb, {
-      kurumId: ortam.kurum.id,
+      birimId: ortam.birim.id,
       tipler: [
         { ad: "Birinci" },
         { ad: "Ikinci" },
@@ -156,7 +155,7 @@ describe("projeleriListele", () => {
       ],
     });
 
-    const sonuc = await projeleriListele(ortam.kurum.id, { filtre: "aktif" });
+    const sonuc = await projeleriListele(ortam.superAdmin.id, { filtre: "aktif" });
     const sortlu = [...sonuc.map((p) => p.sira)].sort();
     expect(sonuc.map((p) => p.sira)).toEqual(sortlu);
     // Seed ediliste verilen sirayla esit gelmeli.
@@ -173,37 +172,37 @@ describe("projeleriListele", () => {
     // sirali yapmaliyiz; toplu createMany ile (sira'yi manuel uretip).
     const tipler = Array.from({ length: 250 }, (_, i) => ({ ad: `Proje ${i}` }));
     await projeleriSeedle(adminDb, {
-      kurumId: ortam.kurum.id,
+      birimId: ortam.birim.id,
       tipler,
     });
 
-    const sonuc = await projeleriListele(ortam.kurum.id, { filtre: "aktif" });
+    const sonuc = await projeleriListele(ortam.superAdmin.id, { filtre: "aktif" });
     expect(sonuc).toHaveLength(200);
   }, 30_000);
 
-  // Cross-tenant testi ADR-0007 tek-kurum geçişiyle kaldırıldı (kurum izolasyonu yok).
+  // Eski birim izolasyonu testi paylaşım modeliyle kapsam dışı kaldı.
 });
 
 describe("projeOlustur", () => {
   it("yeni proje listenin sonuna eklenir (sira en buyuk)", async () => {
     const oncekiler = await projeleriSeedle(adminDb, {
-      kurumId: ortam.kurum.id,
+      birimId: ortam.birim.id,
       tipler: [{ ad: "Eski 1" }, { ad: "Eski 2" }],
     });
     const enBuyukSira = oncekiler[oncekiler.length - 1]!.sira;
 
-    const yeni = await projeOlustur(ortam.kurum.id, ortam.superAdmin.id, {
+    const yeni = await projeOlustur(ortam.superAdmin.id, {
       ad: "Yepyeni",
     });
 
     expect(yeni.sira > enBuyukSira).toBe(true);
     // listele de monoton artan donmeli.
-    const liste = await projeleriListele(ortam.kurum.id, { filtre: "aktif" });
+    const liste = await projeleriListele(ortam.superAdmin.id, { filtre: "aktif" });
     expect(liste.map((p) => p.ad)).toEqual(["Eski 1", "Eski 2", "Yepyeni"]);
   });
 
   it("olusturan otomatik ProjeUyesi olarak ADMIN seviyesinde eklenir", async () => {
-    const yeni = await projeOlustur(ortam.kurum.id, ortam.superAdmin.id, {
+    const yeni = await projeOlustur(ortam.superAdmin.id, {
       ad: "Uyeli Proje",
     });
 
@@ -222,12 +221,12 @@ describe("projeOlustur", () => {
   });
 
   it("kapak rengi opsiyonel — verilmezse null kalir", async () => {
-    const yeni = await projeOlustur(ortam.kurum.id, ortam.superAdmin.id, {
+    const yeni = await projeOlustur(ortam.superAdmin.id, {
       ad: "Renksiz",
     });
     expect(yeni.kapak_renk).toBeNull();
 
-    const renkli = await projeOlustur(ortam.kurum.id, ortam.superAdmin.id, {
+    const renkli = await projeOlustur(ortam.superAdmin.id, {
       ad: "Renkli",
       kapak_renk: "primary",
     });
@@ -238,14 +237,14 @@ describe("projeOlustur", () => {
 describe("projeGuncelle", () => {
   it("ad/aciklama/kapak_renk/yildizli_mi alanlari guncellenir", async () => {
     const p = await projeOlusturFiks(adminDb, {
-      kurumId: ortam.kurum.id,
+      birimId: ortam.birim.id,
       ad: "Eski Ad",
       aciklama: "Eski aciklama",
       kapak_renk: null,
       yildizli_mi: false,
     });
 
-    await projeGuncelle(ortam.kurum.id, {
+    await projeGuncelle({
       id: p.id,
       ad: "Yeni Ad",
       aciklama: "Yeni aciklama",
@@ -260,14 +259,14 @@ describe("projeGuncelle", () => {
     expect(sonra?.yildizli_mi).toBe(true);
   });
 
-  // Cross-tenant testi ADR-0007 tek-kurum geçişiyle kaldırıldı (kurum izolasyonu yok).
+  // Eski birim izolasyonu testi paylaşım modeliyle kapsam dışı kaldı.
 });
 
 describe("projeArsivle", () => {
   it("arsiv_mi=true ise arsiv_zamani set edilir", async () => {
-    const p = await projeOlusturFiks(adminDb, { kurumId: ortam.kurum.id });
+    const p = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
 
-    await projeArsivle(ortam.kurum.id, { id: p.id, arsiv_mi: true });
+    await projeArsivle({ id: p.id, arsiv_mi: true });
 
     const sonra = await adminDb.proje.findUnique({ where: { id: p.id } });
     expect(sonra?.arsiv_mi).toBe(true);
@@ -276,11 +275,11 @@ describe("projeArsivle", () => {
 
   it("arsiv_mi=false ise arsiv_zamani null olur", async () => {
     const p = await projeOlusturFiks(adminDb, {
-      kurumId: ortam.kurum.id,
+      birimId: ortam.birim.id,
       arsiv_mi: true,
     });
     // Once arsivde baslayan bir kayit; geri al.
-    await projeArsivle(ortam.kurum.id, { id: p.id, arsiv_mi: false });
+    await projeArsivle({ id: p.id, arsiv_mi: false });
 
     const sonra = await adminDb.proje.findUnique({ where: { id: p.id } });
     expect(sonra?.arsiv_mi).toBe(false);
@@ -290,9 +289,9 @@ describe("projeArsivle", () => {
 
 describe("projeSil", () => {
   it("soft delete: silindi_mi=true + silinme_zamani set edilir", async () => {
-    const p = await projeOlusturFiks(adminDb, { kurumId: ortam.kurum.id });
+    const p = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
 
-    await projeSil(ortam.kurum.id, p.id);
+    await projeSil(p.id);
 
     const sonra = await adminDb.proje.findUnique({ where: { id: p.id } });
     expect(sonra?.silindi_mi).toBe(true);
@@ -300,8 +299,8 @@ describe("projeSil", () => {
   });
 
   it("kayit fiziksel olarak DB'de kalir", async () => {
-    const p = await projeOlusturFiks(adminDb, { kurumId: ortam.kurum.id });
-    await projeSil(ortam.kurum.id, p.id);
+    const p = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+    await projeSil(p.id);
 
     // findUnique ile hala bulunabilmeli (soft delete; fiziksel silme yok).
     const sonra = await adminDb.proje.findUnique({ where: { id: p.id } });
@@ -312,11 +311,11 @@ describe("projeSil", () => {
 describe("projeGeriYukle", () => {
   it("silindi_mi=false + silinme_zamani=null olur", async () => {
     const p = await projeOlusturFiks(adminDb, {
-      kurumId: ortam.kurum.id,
+      birimId: ortam.birim.id,
       silindi_mi: true,
     });
 
-    await projeGeriYukle(ortam.kurum.id, p.id);
+    await projeGeriYukle(p.id);
 
     const sonra = await adminDb.proje.findUnique({ where: { id: p.id } });
     expect(sonra?.silindi_mi).toBe(false);
@@ -327,13 +326,13 @@ describe("projeGeriYukle", () => {
 describe("projeyeSiraVer", () => {
   it("iki proje arasina yeni sira atanir", async () => {
     const projeler = await projeleriSeedle(adminDb, {
-      kurumId: ortam.kurum.id,
+      birimId: ortam.birim.id,
       tipler: [{ ad: "A" }, { ad: "B" }, { ad: "C" }],
     });
     const [a, b, c] = projeler;
 
     // C'yi A ile B arasina tasimak: onceki=A, sonraki=B.
-    const { sira } = await projeyeSiraVer(ortam.kurum.id, {
+    const { sira } = await projeyeSiraVer({
       id: c!.id,
       onceki_id: a!.id,
       sonraki_id: b!.id,
@@ -342,18 +341,18 @@ describe("projeyeSiraVer", () => {
     expect(sira > a!.sira).toBe(true);
     expect(sira < b!.sira).toBe(true);
 
-    const liste = await projeleriListele(ortam.kurum.id, { filtre: "aktif" });
+    const liste = await projeleriListele(ortam.superAdmin.id, { filtre: "aktif" });
     expect(liste.map((p) => p.ad)).toEqual(["A", "C", "B"]);
   });
 
   it("ilk pozisyona tasininca onceki=null sonraki=ilkProje", async () => {
     const projeler = await projeleriSeedle(adminDb, {
-      kurumId: ortam.kurum.id,
+      birimId: ortam.birim.id,
       tipler: [{ ad: "A" }, { ad: "B" }, { ad: "C" }],
     });
     const [a, , c] = projeler;
 
-    const { sira } = await projeyeSiraVer(ortam.kurum.id, {
+    const { sira } = await projeyeSiraVer({
       id: c!.id,
       onceki_id: null,
       sonraki_id: a!.id,
@@ -361,18 +360,18 @@ describe("projeyeSiraVer", () => {
 
     expect(sira < a!.sira).toBe(true);
 
-    const liste = await projeleriListele(ortam.kurum.id, { filtre: "aktif" });
+    const liste = await projeleriListele(ortam.superAdmin.id, { filtre: "aktif" });
     expect(liste.map((p) => p.ad)[0]).toBe("C");
   });
 
   it("son pozisyona tasininca onceki=sonProje sonraki=null", async () => {
     const projeler = await projeleriSeedle(adminDb, {
-      kurumId: ortam.kurum.id,
+      birimId: ortam.birim.id,
       tipler: [{ ad: "A" }, { ad: "B" }, { ad: "C" }],
     });
     const [a, , c] = projeler;
 
-    const { sira } = await projeyeSiraVer(ortam.kurum.id, {
+    const { sira } = await projeyeSiraVer({
       id: a!.id,
       onceki_id: c!.id,
       sonraki_id: null,
@@ -380,9 +379,9 @@ describe("projeyeSiraVer", () => {
 
     expect(sira > c!.sira).toBe(true);
 
-    const liste = await projeleriListele(ortam.kurum.id, { filtre: "aktif" });
+    const liste = await projeleriListele(ortam.superAdmin.id, { filtre: "aktif" });
     expect(liste.map((p) => p.ad)[liste.length - 1]).toBe("A");
   });
 
-  // Cross-tenant testi ADR-0007 tek-kurum geçişiyle kaldırıldı (kurum izolasyonu yok).
+  // Eski birim izolasyonu testi paylaşım modeliyle kapsam dışı kaldı.
 });

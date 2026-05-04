@@ -7,12 +7,12 @@ import { HATA_KODU } from "@/lib/sonuc";
 import { kapagiAyarlaSemasi, kapagiKaldirSemasi } from "./schemas";
 import { kapagiAyarla as kapagiAyarlaSrv, kapagiKaldir as kapagiKaldirSrv } from "./services";
 
-function kurumIdAl(ctx: { oturum: { kurumId?: string } | null }): string {
-  const kurumId = ctx.oturum?.kurumId;
-  if (!kurumId) {
-    throw new EylemHatasi("Kurum bilgisi yok.", HATA_KODU.YETKISIZ);
+function birimIdAl(ctx: { oturum: { kullaniciId?: string } | null }): string {
+  const id = ctx.oturum?.kullaniciId;
+  if (!id) {
+    throw new EylemHatasi("Oturum yok.", HATA_KODU.GIRIS_YOK);
   }
-  return kurumId;
+  return id;
 }
 
 export const kapagiAyarlaEylem = eylem({
@@ -21,7 +21,7 @@ export const kapagiAyarlaEylem = eylem({
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.kart_id);
-    await kapagiAyarlaSrv(kurumIdAl(ctx), girdi.kart_id, girdi.eklenti_id);
+    await kapagiAyarlaSrv(birimIdAl(ctx), girdi.kart_id, girdi.eklenti_id);
     return { kart_id: girdi.kart_id, eklenti_id: girdi.eklenti_id };
   },
 });
@@ -32,7 +32,7 @@ export const kapagiKaldirEylem = eylem({
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.kart_id);
-    await kapagiKaldirSrv(kurumIdAl(ctx), girdi.kart_id);
+    await kapagiKaldirSrv(birimIdAl(ctx), girdi.kart_id);
     return { kart_id: girdi.kart_id };
   },
 });

@@ -17,8 +17,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/lib/toast";
-import { KURUM_TIP_LABEL, kurumGorunenAd } from "@/lib/constants/kurum";
-import { kurumSecenekleriniGetir } from "../../../(panel)/ayarlar/kurumlar/actions";
+import { BIRIM_TIP_LABEL, birimGorunenAd } from "@/lib/constants/birim";
+import { birimSecenekleriniGetir } from "../../../(panel)/ayarlar/birimler/actions";
 import { kayitOl } from "../actions";
 import { kayitSemasi, type Kayit } from "../schemas";
 
@@ -35,14 +35,14 @@ export function KayitForm() {
       unvan: "",
       parola: "",
       parolaTekrar: "",
-      kurum_id: "",
+      birim_id: "",
     },
   });
 
-  const kurumSorgu = useQuery({
-    queryKey: ["kurum-secenekleri"],
+  const birimSorgu = useQuery({
+    queryKey: ["birim-secenekleri"],
     queryFn: async () => {
-      const r = await kurumSecenekleriniGetir(undefined);
+      const r = await birimSecenekleriniGetir(undefined);
       if (!r.basarili) throw new Error(r.hata);
       return r.veri;
     },
@@ -93,7 +93,7 @@ export function KayitForm() {
     );
   }
 
-  const kurumDeger = form.watch("kurum_id");
+  const birimDeger = form.watch("birim_id");
 
   return (
     <form
@@ -138,38 +138,38 @@ export function KayitForm() {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="kurum">Bağlı olduğunuz kurum</Label>
+        <Label htmlFor="birim">Bağlı olduğunuz birim</Label>
         <Select
-          value={kurumDeger}
-          onValueChange={(v) => form.setValue("kurum_id", v ?? "")}
+          value={birimDeger}
+          onValueChange={(v) => form.setValue("birim_id", v ?? "")}
         >
-          <SelectTrigger id="kurum">
+          <SelectTrigger id="birim">
             <SelectValue>
               {(v) => {
-                if (!v) return "Kurum seçin";
-                const k = (kurumSorgu.data ?? []).find((x) => x.id === v);
+                if (!v) return "Birim seçin";
+                const k = (birimSorgu.data ?? []).find((x) => x.id === v);
                 return k
-                  ? kurumGorunenAd({ ad: k.ad, tip: k.tip })
-                  : "Kurum seçin";
+                  ? birimGorunenAd({ ad: k.ad, tip: k.tip })
+                  : "Birim seçin";
               }}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {(kurumSorgu.data ?? []).map((k) => (
+            {(birimSorgu.data ?? []).map((k) => (
               <SelectItem key={k.id} value={k.id}>
-                {kurumGorunenAd({ ad: k.ad, tip: k.tip })}
+                {birimGorunenAd({ ad: k.ad, tip: k.tip })}
                 {k.ad && (
                   <span className="text-muted-foreground ml-2 text-xs">
-                    {KURUM_TIP_LABEL[k.tip]}
+                    {BIRIM_TIP_LABEL[k.tip]}
                   </span>
                 )}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        {form.formState.errors.kurum_id && (
+        {form.formState.errors.birim_id && (
           <p className="text-destructive text-xs">
-            {form.formState.errors.kurum_id.message}
+            {form.formState.errors.birim_id.message}
           </p>
         )}
       </div>

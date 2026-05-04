@@ -4,10 +4,10 @@ import { db } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  KURUM_KATEGORI_LABEL,
-  KURUM_TIP_LABEL,
-  kurumGorunenAd,
-} from "@/lib/constants/kurum";
+  BIRIM_KATEGORI_LABEL,
+  BIRIM_TIP_LABEL,
+  birimGorunenAd,
+} from "@/lib/constants/birim";
 
 export default async function ProfilPage() {
   const oturum = await auth();
@@ -26,7 +26,7 @@ export default async function ProfilPage() {
       telefon: true,
       olusturma_zamani: true,
       son_giris_zamani: true,
-      kurum: { select: { ad: true, kategori: true, tip: true } },
+      birim: { select: { ad: true, kategori: true, tip: true } },
       roller: { select: { rol: { select: { id: true, ad: true } } } },
     },
   });
@@ -39,10 +39,9 @@ export default async function ProfilPage() {
     timeZone: "Europe/Istanbul",
   });
 
-  const kurumAdi = kurumGorunenAd({
-    ad: kullanici.kurum.ad,
-    tip: kullanici.kurum.tip,
-  });
+  const birimAdi = kullanici.birim
+    ? birimGorunenAd({ ad: kullanici.birim.ad, tip: kullanici.birim.tip })
+    : "Makam";
 
   return (
     <div className="flex flex-col gap-4">
@@ -68,19 +67,25 @@ export default async function ProfilPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Kurumsal</CardTitle>
+            <CardTitle>Birim ve Roller</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 text-sm">
             <div className="flex flex-col gap-1">
-              <span className="text-muted-foreground text-xs">Kurum</span>
-              <span className="font-medium">{kurumAdi}</span>
+              <span className="text-muted-foreground text-xs">Birim</span>
+              <span className="font-medium">{birimAdi}</span>
               <div className="flex flex-wrap gap-1">
-                <Badge variant="outline">
-                  {KURUM_KATEGORI_LABEL[kullanici.kurum.kategori]}
-                </Badge>
-                <Badge variant="secondary">
-                  {KURUM_TIP_LABEL[kullanici.kurum.tip]}
-                </Badge>
+                {kullanici.birim ? (
+                  <>
+                    <Badge variant="outline">
+                      {BIRIM_KATEGORI_LABEL[kullanici.birim.kategori]}
+                    </Badge>
+                    <Badge variant="secondary">
+                      {BIRIM_TIP_LABEL[kullanici.birim.tip]}
+                    </Badge>
+                  </>
+                ) : (
+                  <Badge variant="secondary">Birimsiz makam</Badge>
+                )}
               </div>
             </div>
             <div className="flex flex-col gap-1">

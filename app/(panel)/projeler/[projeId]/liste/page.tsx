@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { db } from "@/lib/db";
+import { izinVarMi, IZIN_KODLARI } from "@/lib/permissions";
+import { canProje } from "@/lib/yetki";
 import { projeDetayiniGetir } from "../services";
 import { ProjeBaslik } from "../components/proje-baslik";
 import { KartListeIstemci } from "./components/kart-liste-istemci";
@@ -16,23 +17,23 @@ export default async function ProjeListeGorunumu({ params }: SayfaProps) {
 
   const oturum = await auth();
   if (!oturum?.user) redirect("/giris");
-  const kullanici = oturum.user as { id: string; kurumId?: string };
-  if (!kullanici.kurumId) redirect("/giris");
-
-  // Tek-kurum (ADR-0007) — kurum sahiplik kontrolü düştü.
-  const sahiplik = await db.proje.findUnique({
-    where: { id: projeId },
-    select: { silindi_mi: true },
-  });
-  if (!sahiplik || sahiplik.silindi_mi) {
+  const kullanici = oturum.user as { id: string };
+  if (!(await canProje(kullanici.id, "proje:read", projeId))) {
     notFound();
   }
 
-  const detay = await projeDetayiniGetir(kullanici.kurumId, projeId);
+  const [detay, projeUyeYonetIzni, projeUyeYonetKaynak] = await Promise.all([
+    projeDetayiniGetir(kullanici.id, projeId),
+    izinVarMi(kullanici.id, IZIN_KODLARI.PROJE_UYE_YONET),
+    canProje(kullanici.id, "proje:uye-yonet", projeId),
+  ]);
 
   return (
     <div className="flex flex-1 flex-col gap-4">
-      <ProjeBaslik proje={detay} />
+      <ProjeBaslik
+        proje={detay}
+        paylasimYonet={projeUyeYonetIzni && projeUyeYonetKaynak}
+      />
       <KartListeIstemci projeId={projeId} />
     </div>
   );

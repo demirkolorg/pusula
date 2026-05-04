@@ -11,7 +11,7 @@ export const kayitSemasi = z.object({
     .min(8, "Parola en az 8 karakter")
     .max(128, "Parola en fazla 128 karakter"),
   parolaTekrar: z.string(),
-  kurum_id: z.string().uuid({ message: "Kurum seçimi zorunlu" }),
+  birim_id: z.string().uuid({ message: "Birim seçimi zorunlu" }),
 }).refine((d) => d.parola === d.parolaTekrar, {
   message: "Parolalar eşleşmiyor",
   path: ["parolaTekrar"],

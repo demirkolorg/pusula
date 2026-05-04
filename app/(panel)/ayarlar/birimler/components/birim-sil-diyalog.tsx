@@ -24,18 +24,18 @@ type Props = {
   yukleniyor?: boolean;
 };
 
-export function KurumSilDiyalog({ kayit, kapat, onayla, yukleniyor }: Props) {
+export function BirimSilDiyalog({ kayit, kapat, onayla, yukleniyor }: Props) {
   return (
     <AlertDialog open={!!kayit} onOpenChange={(o) => (o ? null : kapat())}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Kurum silinsin mi?</AlertDialogTitle>
+          <AlertDialogTitle>Birim silinsin mi?</AlertDialogTitle>
           <AlertDialogDescription>
-            <span className="font-medium">{kayit?.gorunenAd}</span> kurumunu
+            <span className="font-medium">{kayit?.gorunenAd}</span> biriminu
             sileceksiniz.
             {kayit && kayit.kullanici_sayisi > 0 ? (
               <span className="mt-2 block">
-                Bu kuruma bağlı {kayit.kullanici_sayisi} kullanıcı var.
+                Bu birima bağlı {kayit.kullanici_sayisi} kullanıcı var.
                 Bağlantılar etkilenebilir.
               </span>
             ) : null}

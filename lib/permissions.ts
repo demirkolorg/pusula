@@ -23,7 +23,7 @@ export const IZIN_KODLARI = {
   DENETIM_OKU: "audit:read",
   HATA_LOGU_OKU: "errorlog:read",
   AYAR_DUZENLE: "settings:edit",
-  KURUM_YONET: "kurum:manage",
+  BIRIM_YONET: "birim:manage",
   ROL_YONET: "rol:manage",
 } as const;
 
@@ -45,8 +45,8 @@ export const kullaniciIzinleriniAl = cache(
 
     const izinler = new Set<string>();
     for (const satir of satirlar) {
-      // Makam rolleri (SUPER_ADMIN, KAYMAKAM) — tüm kurumların verisine erişir.
-      // ADR-0001: Kural 50a güncel metni — kurum filtresi atlanır.
+      // Makam rolleri (SUPER_ADMIN, KAYMAKAM) — tüm birimlerin verisine erişir.
+      // ADR-0001: Kural 50a güncel metni — birim filtresi atlanır.
       if (satir.rol.kod === "SUPER_ADMIN" || satir.rol.kod === "KAYMAKAM") {
         izinler.add("*");
       }
@@ -61,7 +61,7 @@ export const kullaniciIzinleriniAl = cache(
 export async function aktifKullaniciAl(): Promise<{
   kullaniciId: string;
   email: string;
-  kurumId?: string;
+  birimId?: string;
   roller: string[];
 } | null> {
   const oturum = await auth();
@@ -69,13 +69,13 @@ export async function aktifKullaniciAl(): Promise<{
   const u = oturum.user as {
     id: string;
     email?: string;
-    kurumId?: string;
+    birimId?: string;
     roller?: string[];
   };
   return {
     kullaniciId: u.id,
     email: u.email ?? "",
-    kurumId: u.kurumId,
+    birimId: u.birimId,
     roller: u.roller ?? [],
   };
 }

@@ -9,10 +9,10 @@ import { SOCKET, room } from "@/lib/socket-events";
 // =====================================================================
 
 async function kartiBulVeProjeAl(
-  _kurumId: string,
+  _birimId: string,
   kartId: string,
 ): Promise<{ proje_id: string }> {
-  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
+  // Tek-birim (ADR-0007) — birim kontrolü düştü.
   const k = await db.kart.findUnique({
     where: { id: kartId },
     select: {
@@ -32,11 +32,11 @@ async function kartiBulVeProjeAl(
 // =====================================================================
 
 export async function kapagiAyarla(
-  kurumId: string,
+  birimId: string,
   kartId: string,
   eklentiId: string,
 ): Promise<void> {
-  await kartiBulVeProjeAl(kurumId, kartId);
+  await kartiBulVeProjeAl(birimId, kartId);
 
   // Eklenti aynı karta ait, silinmemiş ve görsel olmalı
   const e = await db.eklenti.findUnique({
@@ -75,10 +75,10 @@ export async function kapagiAyarla(
 // =====================================================================
 
 export async function kapagiKaldir(
-  kurumId: string,
+  birimId: string,
   kartId: string,
 ): Promise<void> {
-  await kartiBulVeProjeAl(kurumId, kartId);
+  await kartiBulVeProjeAl(birimId, kartId);
   await db.kart.update({
     where: { id: kartId },
     data: { kapak_dosya_id: null },

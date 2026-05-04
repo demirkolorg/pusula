@@ -26,12 +26,12 @@ import {
   projeyeUyeKaldir as projeyeUyeKaldirSrv,
 } from "./services";
 
-function kurumIdAl(ctx: { oturum: { kurumId?: string } | null }): string {
-  const kurumId = ctx.oturum?.kurumId;
-  if (!kurumId) {
-    throw new EylemHatasi("Kurum bilgisi yok.", HATA_KODU.YETKISIZ);
+function birimIdAl(ctx: { oturum: { kullaniciId?: string } | null }): string {
+  const id = ctx.oturum?.kullaniciId;
+  if (!id) {
+    throw new EylemHatasi("Oturum yok.", HATA_KODU.GIRIS_YOK);
   }
-  return kurumId;
+  return id;
 }
 
 // =====================================================================
@@ -47,7 +47,7 @@ export const projeUyeleriniListeleEylem = eylem({
       "proje:read",
       girdi.proje_id,
     );
-    return projeUyeleriniListele(kurumIdAl(ctx), girdi.proje_id);
+    return projeUyeleriniListele(birimIdAl(ctx), girdi.proje_id);
   },
 });
 
@@ -61,7 +61,7 @@ export const projeAdayKullanicilarEylem = eylem({
       "proje:uye-yonet",
       girdi.proje_id,
     );
-    return projeAdayKullanicilariniAra(kurumIdAl(ctx), girdi);
+    return projeAdayKullanicilariniAra(birimIdAl(ctx), girdi);
   },
 });
 
@@ -75,7 +75,7 @@ export const projeyeUyeEkleEylem = eylem({
       "proje:uye-yonet",
       girdi.proje_id,
     );
-    return projeyeUyeEkleSrv(kurumIdAl(ctx), girdi);
+    return projeyeUyeEkleSrv(birimIdAl(ctx), girdi);
   },
 });
 
@@ -90,7 +90,7 @@ export const projeyeUyeKaldirEylem = eylem({
       girdi.proje_id,
     );
     await projeyeUyeKaldirSrv(
-      kurumIdAl(ctx),
+      birimIdAl(ctx),
       girdi.proje_id,
       girdi.kullanici_id,
     );
@@ -108,7 +108,7 @@ export const projeUyesiSeviyeGuncelleEylem = eylem({
       "proje:uye-yonet",
       girdi.proje_id,
     );
-    await projeUyesiSeviyeGuncelleSrv(kurumIdAl(ctx), girdi);
+    await projeUyesiSeviyeGuncelleSrv(birimIdAl(ctx), girdi);
     return {
       proje_id: girdi.proje_id,
       kullanici_id: girdi.kullanici_id,
@@ -126,7 +126,7 @@ export const kartinUyeleriEylem = eylem({
   girdi: kartinUyeleriSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:read", girdi.kart_id);
-    return kartinUyeleriSrv(kurumIdAl(ctx), girdi.kart_id);
+    return kartinUyeleriSrv(birimIdAl(ctx), girdi.kart_id);
   },
 });
 
@@ -137,7 +137,7 @@ export const kartaUyeEkleEylem = eylem({
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.kart_id);
     const atayanId = ctx.oturum?.kullaniciId ?? null;
-    await kartaUyeEkleSrv(kurumIdAl(ctx), girdi.kart_id, girdi.kullanici_id);
+    await kartaUyeEkleSrv(birimIdAl(ctx), girdi.kart_id, girdi.kullanici_id);
     if (atayanId) {
       tetikleKartUyeAtama({
         kartId: girdi.kart_id,
@@ -157,7 +157,7 @@ export const kartaUyeKaldirEylem = eylem({
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.kart_id);
-    await kartaUyeKaldirSrv(kurumIdAl(ctx), girdi.kart_id, girdi.kullanici_id);
+    await kartaUyeKaldirSrv(birimIdAl(ctx), girdi.kart_id, girdi.kullanici_id);
     return { kart_id: girdi.kart_id, kullanici_id: girdi.kullanici_id };
   },
 });

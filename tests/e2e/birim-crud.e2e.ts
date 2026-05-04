@@ -1,17 +1,17 @@
 import { test, expect, girisYap, SUPER_ADMIN } from "./fixtures/auth";
 
-// Kurum CRUD akışı: liste görüntüleme → kategori filtre → yeni kurum oluşturma
-// → düzenleme → silme. ADR-0001 sonrası /ayarlar/kurumlar route'u.
+// Birim CRUD akışı: liste görüntüleme → kategori filtre → yeni birim oluşturma
+// → düzenleme → silme. ADR-0001 sonrası /ayarlar/birimler route'u.
 
-test.describe("Kurum CRUD akışı", () => {
+test.describe("Birim CRUD akışı", () => {
   const benzersiz = `E2E Eczane ${Date.now()}`;
 
-  test("liste sayfası açılır, seed kurumları görünür", async ({ page }) => {
+  test("liste sayfası açılır, seed birimlerı görünür", async ({ page }) => {
     await girisYap(page, SUPER_ADMIN);
-    await page.goto("/ayarlar/kurumlar");
+    await page.goto("/ayarlar/birimler");
 
     await expect(
-      page.getByRole("heading", { name: /kurumlar/i }),
+      page.getByRole("heading", { name: /birimler/i }),
     ).toBeVisible();
 
     // Seed: KAYMAKAMLIK gibi tekil bir kayıt mutlaka var
@@ -20,13 +20,13 @@ test.describe("Kurum CRUD akışı", () => {
     });
   });
 
-  test("yeni kurum (çoklu tip = Eczane) ekler ve listede görünür", async ({
+  test("yeni birim (çoklu tip = Eczane) ekler ve listede görünür", async ({
     page,
   }) => {
     await girisYap(page, SUPER_ADMIN);
-    await page.goto("/ayarlar/kurumlar");
+    await page.goto("/ayarlar/birimler");
 
-    await page.getByRole("button", { name: /yeni kurum/i }).click();
+    await page.getByRole("button", { name: /yeni birim/i }).click();
 
     // Sheet açılınca kategori "MULKI_IDARE" default. SAGLIK seç.
     const kategori = page.getByLabel(/^Kategori$/i);
@@ -53,7 +53,7 @@ test.describe("Kurum CRUD akışı", () => {
     page,
   }) => {
     await girisYap(page, SUPER_ADMIN);
-    await page.goto("/ayarlar/kurumlar");
+    await page.goto("/ayarlar/birimler");
 
     // Filtre: Sağlık
     const filtre = page.getByRole("combobox").filter({ hasText: /tüm kate/i });
@@ -66,9 +66,9 @@ test.describe("Kurum CRUD akışı", () => {
     });
   });
 
-  test("oluşturulan kurum silinebilir (soft delete)", async ({ page }) => {
+  test("oluşturulan birim silinebilir (soft delete)", async ({ page }) => {
     await girisYap(page, SUPER_ADMIN);
-    await page.goto("/ayarlar/kurumlar");
+    await page.goto("/ayarlar/birimler");
 
     // Önceki testte oluşturulan benzersiz eczaneyi bul, sil butonuna bas
     const satir = page.getByText(benzersiz).first().locator("xpath=ancestor::tr|ancestor::div[contains(@class,'card')]");

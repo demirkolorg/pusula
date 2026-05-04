@@ -29,7 +29,7 @@ type OturumKullanicisi = {
   ad: string;
   soyad: string;
   email: string;
-  kurum_id: string;
+  birim_id: string;
 };
 
 // =====================================================================
@@ -177,7 +177,7 @@ io.on("connection", (socket: Socket) => {
       },
     });
     if (!k) return;
-    // Tek-kurum (ADR-0007) — kurum izolasyonu düştü; erişim ProjeUyesi seviyesinde.
+    // Tek-birim (ADR-0007) — birim izolasyonu düştü; erişim ProjeUyesi seviyesinde.
     if (k.liste.proje.uyeler.length === 0) return;
     socket.join(room.kart(kartId));
     yayinlaPresence(kartId);

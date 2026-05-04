@@ -79,7 +79,7 @@ export const authConfig = {
       if (user) {
         token.id = user.id;
         token.email = user.email;
-        token.kurumId = (user as { kurumId?: string }).kurumId;
+        token.birimId = (user as { birimId?: string }).birimId;
         token.adSoyad = (user as { adSoyad?: string }).adSoyad;
         token.roller = (user as { roller?: string[] }).roller;
       }
@@ -89,7 +89,7 @@ export const authConfig = {
       if (session.user && token) {
         session.user.id = token.id as string;
         session.user.email = token.email as string;
-        (session.user as { kurumId?: string }).kurumId = token.kurumId as string;
+        (session.user as { birimId?: string }).birimId = token.birimId as string;
         (session.user as { adSoyad?: string }).adSoyad = token.adSoyad as string;
         (session.user as { roller?: string[] }).roller = (token.roller as string[]) ?? [];
       }

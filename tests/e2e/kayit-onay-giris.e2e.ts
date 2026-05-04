@@ -20,8 +20,8 @@ test.describe.serial("Kayıt → Onay → Giriş akışı", () => {
     await page.locator("#soyad").fill("Test");
     await page.locator("#email").fill(benzersiz);
 
-    // Kurum select — id="kurum" SelectTrigger
-    await page.locator("#kurum").click();
+    // Birim select — id="birim" SelectTrigger
+    await page.locator("#birim").click();
     await page.getByRole("option").first().click();
 
     await page.locator("#parola").fill(parola);

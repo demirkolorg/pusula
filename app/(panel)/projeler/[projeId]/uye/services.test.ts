@@ -39,11 +39,11 @@ let proje: { id: string };
 // projeOlusturFiks raw create (ProjeUyesi otomatik eklenmez). Bizde
 // her test için sahip-ADMIN bir proje gerekli — helper ile setup.
 async function sahipliProjeOlustur(
-  kurumId: string,
+  birimId: string,
   sahipId: string,
 ): Promise<{ id: string }> {
   const p = await projeOlusturFiks(adminDb, {
-    kurumId,
+    birimId,
     olusturanId: sahipId,
   });
   await adminDb.projeUyesi.create({
@@ -63,7 +63,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await truncateAll(adminDb);
   ortam = await ortamKur(adminDb);
-  proje = await sahipliProjeOlustur(ortam.kurum.id, ortam.superAdmin.id);
+  proje = await sahipliProjeOlustur(ortam.birim.id, ortam.superAdmin.id);
 });
 
 // =====================================================================
@@ -72,13 +72,13 @@ beforeEach(async () => {
 
 describe("projeUyeleriniListele", () => {
   it("projedeki üyeleri kullanıcı bilgileriyle döner", async () => {
-    await projeyeUyeEkle(ortam.kurum.id, {
+    await projeyeUyeEkle(ortam.birim.id, {
       proje_id: proje.id,
       kullanici_id: ortam.personel.id,
       seviye: "NORMAL",
     });
 
-    const liste = await projeUyeleriniListele(ortam.kurum.id, proje.id);
+    const liste = await projeUyeleriniListele(ortam.birim.id, proje.id);
     expect(liste).toHaveLength(2);
     expect(liste.find((u) => u.kullanici_id === ortam.superAdmin.id)?.seviye).toBe("ADMIN");
     const personelUye = liste.find((u) => u.kullanici_id === ortam.personel.id);
@@ -89,13 +89,13 @@ describe("projeUyeleriniListele", () => {
 
 describe("projeyeUyeEkle", () => {
   it("aynı kullanıcı iki kez eklenince GECERSIZ_GIRDI hatası", async () => {
-    await projeyeUyeEkle(ortam.kurum.id, {
+    await projeyeUyeEkle(ortam.birim.id, {
       proje_id: proje.id,
       kullanici_id: ortam.personel.id,
       seviye: "NORMAL",
     });
     await expect(
-      projeyeUyeEkle(ortam.kurum.id, {
+      projeyeUyeEkle(ortam.birim.id, {
         proje_id: proje.id,
         kullanici_id: ortam.personel.id,
         seviye: "NORMAL",
@@ -103,11 +103,11 @@ describe("projeyeUyeEkle", () => {
     ).rejects.toMatchObject({ kod: "GECERSIZ_GIRDI" });
   });
 
-  it("farklı kurum kullanıcısı projeye eklenebilir (sistem geneli atama)", async () => {
-    // Mimari karar: aday havuzu sistem geneli, projeye farklı kurum
+  it("farklı birim kullanıcısı projeye eklenebilir (sistem geneli atama)", async () => {
+    // Mimari karar: aday havuzu sistem geneli, projeye farklı birim
     // kullanıcısı atanabilir. İzolasyon proje üyeliği seviyesinde değil
     // proje erişimi seviyesindedir.
-    const yeni = await projeyeUyeEkle(ortam.kurum.id, {
+    const yeni = await projeyeUyeEkle(ortam.birim.id, {
       proje_id: proje.id,
       kullanici_id: ortam.digerKullanici.id,
       seviye: "NORMAL",
@@ -118,7 +118,7 @@ describe("projeyeUyeEkle", () => {
 
   it("var olmayan/silinmiş kullanıcı eklenemez", async () => {
     await expect(
-      projeyeUyeEkle(ortam.kurum.id, {
+      projeyeUyeEkle(ortam.birim.id, {
         proje_id: proje.id,
         kullanici_id: "00000000-0000-0000-0000-000000000000",
         seviye: "NORMAL",
@@ -130,25 +130,25 @@ describe("projeyeUyeEkle", () => {
 describe("projeyeUyeKaldir", () => {
   it("son ADMIN çıkarılamaz", async () => {
     await expect(
-      projeyeUyeKaldir(ortam.kurum.id, proje.id, ortam.superAdmin.id),
+      projeyeUyeKaldir(ortam.birim.id, proje.id, ortam.superAdmin.id),
     ).rejects.toMatchObject({ kod: "GECERSIZ_GIRDI" });
   });
 
   it("üye kaldırılınca kart üyelikleri de silinir", async () => {
     const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
     const kart = await kartOlusturFiks(adminDb, { listeId: liste.id });
-    await projeyeUyeEkle(ortam.kurum.id, {
+    await projeyeUyeEkle(ortam.birim.id, {
       proje_id: proje.id,
       kullanici_id: ortam.personel.id,
       seviye: "NORMAL",
     });
-    await kartaUyeEkle(ortam.kurum.id, kart.id, ortam.personel.id);
+    await kartaUyeEkle(ortam.birim.id, kart.id, ortam.personel.id);
 
-    await projeyeUyeKaldir(ortam.kurum.id, proje.id, ortam.personel.id);
+    await projeyeUyeKaldir(ortam.birim.id, proje.id, ortam.personel.id);
 
-    const kartUyeleri = await kartinUyeleri(ortam.kurum.id, kart.id);
+    const kartUyeleri = await kartinUyeleri(ortam.birim.id, kart.id);
     expect(kartUyeleri).toEqual([]);
-    const projeUyeleri = await projeUyeleriniListele(ortam.kurum.id, proje.id);
+    const projeUyeleri = await projeUyeleriniListele(ortam.birim.id, proje.id);
     expect(projeUyeleri.find((u) => u.kullanici_id === ortam.personel.id)).toBeUndefined();
   });
 });
@@ -156,7 +156,7 @@ describe("projeyeUyeKaldir", () => {
 describe("projeUyesiSeviyeGuncelle", () => {
   it("son ADMIN'i NORMAL'e düşüremez", async () => {
     await expect(
-      projeUyesiSeviyeGuncelle(ortam.kurum.id, {
+      projeUyesiSeviyeGuncelle(ortam.birim.id, {
         proje_id: proje.id,
         kullanici_id: ortam.superAdmin.id,
         seviye: "NORMAL",
@@ -165,44 +165,44 @@ describe("projeUyesiSeviyeGuncelle", () => {
   });
 
   it("ikinci ADMIN olunca ilk admin NORMAL'e düşürülebilir", async () => {
-    await projeyeUyeEkle(ortam.kurum.id, {
+    await projeyeUyeEkle(ortam.birim.id, {
       proje_id: proje.id,
       kullanici_id: ortam.personel.id,
       seviye: "ADMIN",
     });
-    await projeUyesiSeviyeGuncelle(ortam.kurum.id, {
+    await projeUyesiSeviyeGuncelle(ortam.birim.id, {
       proje_id: proje.id,
       kullanici_id: ortam.superAdmin.id,
       seviye: "NORMAL",
     });
-    const liste = await projeUyeleriniListele(ortam.kurum.id, proje.id);
+    const liste = await projeUyeleriniListele(ortam.birim.id, proje.id);
     expect(liste.find((u) => u.kullanici_id === ortam.superAdmin.id)?.seviye).toBe("NORMAL");
   });
 });
 
 describe("projeAdayKullanicilariniAra", () => {
-  it("proje üyesi olmayanları sistem genelinden döner (kurum sınırı yok)", async () => {
-    const adaylar = await projeAdayKullanicilariniAra(ortam.kurum.id, {
+  it("proje üyesi olmayanları sistem genelinden döner (birim sınırı yok)", async () => {
+    const adaylar = await projeAdayKullanicilariniAra(ortam.birim.id, {
       proje_id: proje.id,
     });
     // Proje üyesi olan superAdmin filtreli
     expect(adaylar.find((a) => a.id === ortam.superAdmin.id)).toBeUndefined();
-    // Aynı kurum personeli aday
+    // Aynı birim personeli aday
     expect(adaylar.find((a) => a.id === ortam.personel.id)).toBeDefined();
-    // Farklı kurum kullanıcısı da aday (sistem geneli)
+    // Farklı birim kullanıcısı da aday (sistem geneli)
     expect(adaylar.find((a) => a.id === ortam.digerKullanici.id)).toBeDefined();
   });
 
-  it("kurum adına göre arama eşleşir", async () => {
-    // Why: kullanıcı "Test Kurum B" yazıp digerKurum'daki kullanıcılara
-    // hızlıca süzebilmeli — kurum.ad ve kurum.kisa_ad da OR'da.
-    const adaylar = await projeAdayKullanicilariniAra(ortam.kurum.id, {
+  it("birim adına göre arama eşleşir", async () => {
+    // Why: kullanıcı "Test Birim B" yazıp digerBirim'daki kullanıcılara
+    // hızlıca süzebilmeli — birim.ad ve birim.kisa_ad da OR'da.
+    const adaylar = await projeAdayKullanicilariniAra(ortam.birim.id, {
       proje_id: proje.id,
-      q: "Test Kurum B",
+      q: "Test Birim B",
     });
     expect(adaylar.find((a) => a.id === ortam.digerKullanici.id)).toBeDefined();
-    // Aynı kurum personeli kurum filtresine takılmaz (Test Kurum eşleşse
-    // bile B harfi yoksa eşleşmez — fixture: ortam.kurum "Test Kurum")
+    // Aynı birim personeli birim filtresine takılmaz (Test Birim eşleşse
+    // bile B harfi yoksa eşleşmez — fixture: ortam.birim "Test Birim")
     expect(adaylar.find((a) => a.id === ortam.personel.id)).toBeUndefined();
   });
 
@@ -212,27 +212,27 @@ describe("projeAdayKullanicilariniAra", () => {
       select: { ad: true, email: true },
     });
     if (!personel) throw new Error("personel bulunamadı");
-    const adAramasi = await projeAdayKullanicilariniAra(ortam.kurum.id, {
+    const adAramasi = await projeAdayKullanicilariniAra(ortam.birim.id, {
       proje_id: proje.id,
       q: personel.ad.slice(0, 3),
     });
     expect(adAramasi.find((a) => a.id === ortam.personel.id)).toBeDefined();
 
-    const emailAramasi = await projeAdayKullanicilariniAra(ortam.kurum.id, {
+    const emailAramasi = await projeAdayKullanicilariniAra(ortam.birim.id, {
       proje_id: proje.id,
       q: personel.email.split("@")[0]!,
     });
     expect(emailAramasi.find((a) => a.id === ortam.personel.id)).toBeDefined();
   });
 
-  it("aday satırında kurum bilgisi de döner", async () => {
-    const adaylar = await projeAdayKullanicilariniAra(ortam.kurum.id, {
+  it("aday satırında birim bilgisi de döner", async () => {
+    const adaylar = await projeAdayKullanicilariniAra(ortam.birim.id, {
       proje_id: proje.id,
     });
     const personel = adaylar.find((a) => a.id === ortam.personel.id);
     expect(personel).toBeDefined();
-    expect(typeof personel?.kurum_ad).toBe("string");
-    expect(personel?.kurum_ad?.length ?? 0).toBeGreaterThan(0);
+    expect(typeof personel?.birim_ad).toBe("string");
+    expect(personel?.birim_ad?.length ?? 0).toBeGreaterThan(0);
   });
 });
 
@@ -245,23 +245,23 @@ describe("kartaUyeEkle", () => {
     const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
     const kart = await kartOlusturFiks(adminDb, { listeId: liste.id });
     await expect(
-      kartaUyeEkle(ortam.kurum.id, kart.id, ortam.personel.id),
+      kartaUyeEkle(ortam.birim.id, kart.id, ortam.personel.id),
     ).rejects.toMatchObject({ kod: "GECERSIZ_GIRDI" });
   });
 
   it("proje üyesi karta atanabilir, idempotent", async () => {
     const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
     const kart = await kartOlusturFiks(adminDb, { listeId: liste.id });
-    await projeyeUyeEkle(ortam.kurum.id, {
+    await projeyeUyeEkle(ortam.birim.id, {
       proje_id: proje.id,
       kullanici_id: ortam.personel.id,
       seviye: "NORMAL",
     });
 
-    await kartaUyeEkle(ortam.kurum.id, kart.id, ortam.personel.id);
-    await kartaUyeEkle(ortam.kurum.id, kart.id, ortam.personel.id);
+    await kartaUyeEkle(ortam.birim.id, kart.id, ortam.personel.id);
+    await kartaUyeEkle(ortam.birim.id, kart.id, ortam.personel.id);
 
-    const uyeler = await kartinUyeleri(ortam.kurum.id, kart.id);
+    const uyeler = await kartinUyeleri(ortam.birim.id, kart.id);
     expect(uyeler.map((u) => u.kullanici_id)).toEqual([ortam.personel.id]);
   });
 });
@@ -270,17 +270,17 @@ describe("kartaUyeKaldir", () => {
   it("üyeyi karttan çıkarır, var olmayan idempotent", async () => {
     const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
     const kart = await kartOlusturFiks(adminDb, { listeId: liste.id });
-    await projeyeUyeEkle(ortam.kurum.id, {
+    await projeyeUyeEkle(ortam.birim.id, {
       proje_id: proje.id,
       kullanici_id: ortam.personel.id,
       seviye: "NORMAL",
     });
-    await kartaUyeEkle(ortam.kurum.id, kart.id, ortam.personel.id);
+    await kartaUyeEkle(ortam.birim.id, kart.id, ortam.personel.id);
 
-    await kartaUyeKaldir(ortam.kurum.id, kart.id, ortam.personel.id);
-    await kartaUyeKaldir(ortam.kurum.id, kart.id, ortam.personel.id);
+    await kartaUyeKaldir(ortam.birim.id, kart.id, ortam.personel.id);
+    await kartaUyeKaldir(ortam.birim.id, kart.id, ortam.personel.id);
 
-    const uyeler = await kartinUyeleri(ortam.kurum.id, kart.id);
+    const uyeler = await kartinUyeleri(ortam.birim.id, kart.id);
     expect(uyeler).toEqual([]);
   });
 });

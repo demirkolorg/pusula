@@ -12,10 +12,10 @@ datasource db {
 }
 
 // ============================================================
-// Kurum (ilçedeki tüm kurumların envanteri — düz liste)
+// Birim (ilçedeki tüm birimlerin envanteri — düz liste)
 // ============================================================
 
-enum KurumKategorisi {
+enum BirimKategorisi {
   MULKI_IDARE
   YEREL_YONETIM
   EMNIYET_ASAYIS
@@ -41,7 +41,7 @@ enum KurumKategorisi {
   BASIN_MEDYA
 }
 
-enum KurumTipi {
+enum BirimTipi {
   // MULKI_IDARE
   KAYMAKAMLIK
   OZEL_KALEM
@@ -219,12 +219,12 @@ enum KurumTipi {
   HABER_AJANSI
 }
 
-model Kurum {
+model Birim {
   id                String          @id @default(uuid()) @db.Uuid
   ad                String?
   kisa_ad           String?
-  kategori          KurumKategorisi
-  tip               KurumTipi
+  kategori          BirimKategorisi
+  tip               BirimTipi
   il                String?
   ilce              String?
   logo_url          String?
@@ -234,9 +234,10 @@ model Kurum {
   olusturma_zamani  DateTime        @default(now())
   guncelleme_zamani DateTime        @updatedAt
 
-  kullanicilar  Kullanici[]
-  projeler      Proje[]
-  kart_hedefler KartHedefKurumu[]
+  kullanicilar    Kullanici[]
+  proje_birimleri ProjeBirimi[]
+  liste_birimleri ListeBirimi[]
+  kart_birimleri  KartBirimi[]
 
   @@index([kategori])
   @@index([tip])
@@ -255,7 +256,7 @@ enum KullaniciOnayDurumu {
 
 model Kullanici {
   id                String              @id @default(uuid()) @db.Uuid
-  kurum_id          String              @db.Uuid
+  birim_id          String?             @db.Uuid
   email             String              @unique
   parola_hash       String
   ad                String
@@ -275,9 +276,10 @@ model Kullanici {
   olusturma_zamani  DateTime            @default(now())
   guncelleme_zamani DateTime            @updatedAt
 
-  kurum               Kurum            @relation(fields: [kurum_id], references: [id])
+  birim               Birim?           @relation(fields: [birim_id], references: [id])
   roller              KullaniciRol[]
   proje_uyelik        ProjeUyesi[]
+  liste_uyelik        ListeUyesi[]
   kart_uyelik         KartUyesi[]
   olusturduklari      Proje[]          @relation("ProjeOlusturan")
   yorumlar            Yorum[]          @relation("YorumYazan")
@@ -287,7 +289,7 @@ model Kullanici {
   bildirimler         Bildirim[]       @relation("BildirimAlici")
   ureten_bildirimler  Bildirim[]       @relation("BildirimUreten")
 
-  @@index([kurum_id])
+  @@index([birim_id])
   @@index([email])
   @@index([onay_durumu])
   @@index([silindi_mi])
@@ -415,7 +417,7 @@ model DavetTokeni {
   token            String    @unique
   email            String
   rol_id           String?   @db.Uuid
-  kurum_id         String?   @db.Uuid
+  birim_id         String?   @db.Uuid
   davet_eden_id    String    @db.Uuid
   son_kullanma     DateTime
   kullanildi_mi    Boolean   @default(false)
@@ -424,6 +426,7 @@ model DavetTokeni {
 
   @@index([token])
   @@index([email])
+  @@index([birim_id])
 }
 
 model SifirlamaTokeni {
@@ -457,7 +460,6 @@ enum KartIliskiTipi {
 
 model Proje {
   id                String    @id @default(uuid()) @db.Uuid
-  kurum_id          String    @db.Uuid
   ad                String
   aciklama          String?
   kapak_renk        String? // tema token'ı: "primary" | "secondary" | "tertiary"
@@ -472,14 +474,14 @@ model Proje {
   olusturma_zamani  DateTime  @default(now())
   guncelleme_zamani DateTime  @updatedAt
 
-  kurum     Kurum        @relation(fields: [kurum_id], references: [id])
-  olusturan Kullanici?   @relation("ProjeOlusturan", fields: [olusturan_id], references: [id])
+  olusturan Kullanici?    @relation("ProjeOlusturan", fields: [olusturan_id], references: [id])
   uyeler    ProjeUyesi[]
+  birimler  ProjeBirimi[]
   listeler  Liste[]
   etiketler Etiket[]
 
-  @@index([kurum_id, silindi_mi, arsiv_mi])
-  @@index([kurum_id, sira])
+  @@index([silindi_mi, arsiv_mi])
+  @@index([sira])
 }
 
 model ProjeUyesi {
@@ -495,6 +497,18 @@ model ProjeUyesi {
   @@index([kullanici_id])
 }
 
+model ProjeBirimi {
+  proje_id       String   @db.Uuid
+  birim_id       String   @db.Uuid
+  eklenme_zamani DateTime @default(now())
+
+  proje Proje @relation(fields: [proje_id], references: [id], onDelete: Cascade)
+  birim Birim @relation(fields: [birim_id], references: [id])
+
+  @@id([proje_id, birim_id])
+  @@index([birim_id])
+}
+
 model Liste {
   id                String   @id @default(uuid()) @db.Uuid
   proje_id          String   @db.Uuid
@@ -505,11 +519,37 @@ model Liste {
   olusturma_zamani  DateTime @default(now())
   guncelleme_zamani DateTime @updatedAt
 
-  proje   Proje  @relation(fields: [proje_id], references: [id], onDelete: Cascade)
-  kartlar Kart[]
+  proje    Proje         @relation(fields: [proje_id], references: [id], onDelete: Cascade)
+  kartlar  Kart[]
+  uyeler   ListeUyesi[]
+  birimler ListeBirimi[]
 
   @@index([proje_id, sira])
   @@index([proje_id, arsiv_mi])
+}
+
+model ListeUyesi {
+  liste_id       String   @db.Uuid
+  kullanici_id   String   @db.Uuid
+  eklenme_zamani DateTime @default(now())
+
+  liste     Liste     @relation(fields: [liste_id], references: [id], onDelete: Cascade)
+  kullanici Kullanici @relation(fields: [kullanici_id], references: [id], onDelete: Cascade)
+
+  @@id([liste_id, kullanici_id])
+  @@index([kullanici_id])
+}
+
+model ListeBirimi {
+  liste_id       String   @db.Uuid
+  birim_id       String   @db.Uuid
+  eklenme_zamani DateTime @default(now())
+
+  liste Liste @relation(fields: [liste_id], references: [id], onDelete: Cascade)
+  birim Birim @relation(fields: [birim_id], references: [id])
+
+  @@id([liste_id, birim_id])
+  @@index([birim_id])
 }
 
 model Kart {
@@ -529,12 +569,12 @@ model Kart {
   olusturma_zamani  DateTime  @default(now())
   guncelleme_zamani DateTime  @updatedAt
 
-  liste             Liste             @relation(fields: [liste_id], references: [id], onDelete: Cascade)
+  liste             Liste            @relation(fields: [liste_id], references: [id], onDelete: Cascade)
   uyeler            KartUyesi[]
   etiketler         KartEtiket[]
-  iliski_a          KartIliskisi[]    @relation("KartA")
-  iliski_b          KartIliskisi[]    @relation("KartB")
-  hedef_kurumlar    KartHedefKurumu[]
+  iliski_a          KartIliskisi[]   @relation("KartA")
+  iliski_b          KartIliskisi[]   @relation("KartB")
+  birimler          KartBirimi[]
   yorumlar          Yorum[]
   eklentiler        Eklenti[]
   kontrol_listeleri KontrolListesi[]
@@ -544,16 +584,16 @@ model Kart {
   @@index([bitis])
 }
 
-model KartHedefKurumu {
+model KartBirimi {
   kart_id        String   @db.Uuid
-  kurum_id       String   @db.Uuid
+  birim_id       String   @db.Uuid
   eklenme_zamani DateTime @default(now())
 
   kart  Kart  @relation(fields: [kart_id], references: [id], onDelete: Cascade)
-  kurum Kurum @relation(fields: [kurum_id], references: [id])
+  birim Birim @relation(fields: [birim_id], references: [id])
 
-  @@id([kart_id, kurum_id])
-  @@index([kurum_id])
+  @@id([kart_id, birim_id])
+  @@index([birim_id])
 }
 
 model Etiket {

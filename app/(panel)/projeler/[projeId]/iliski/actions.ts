@@ -17,12 +17,12 @@ import {
   projedeKartiAra,
 } from "./services";
 
-function kurumIdAl(ctx: { oturum: { kurumId?: string } | null }): string {
-  const kurumId = ctx.oturum?.kurumId;
-  if (!kurumId) {
-    throw new EylemHatasi("Kurum bilgisi yok.", HATA_KODU.YETKISIZ);
+function birimIdAl(ctx: { oturum: { kullaniciId?: string } | null }): string {
+  const id = ctx.oturum?.kullaniciId;
+  if (!id) {
+    throw new EylemHatasi("Oturum yok.", HATA_KODU.GIRIS_YOK);
   }
-  return kurumId;
+  return id;
 }
 
 export const kartIliskileriListeleEylem = eylem({
@@ -30,7 +30,7 @@ export const kartIliskileriListeleEylem = eylem({
   girdi: kartIliskileriListeleSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:read", girdi.kart_id);
-    return kartinIliskileri(kurumIdAl(ctx), girdi.kart_id);
+    return kartinIliskileri(birimIdAl(ctx), girdi.kart_id);
   },
 });
 
@@ -41,7 +41,7 @@ export const iliskiOlusturEylem = eylem({
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.kart_a_id);
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:read", girdi.kart_b_id);
-    return iliskiOlusturSrv(kurumIdAl(ctx), girdi);
+    return iliskiOlusturSrv(birimIdAl(ctx), girdi);
   },
 });
 
@@ -50,7 +50,7 @@ export const iliskiSilEylem = eylem({
   girdi: iliskiSilSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
-    await iliskiSilSrv(kurumIdAl(ctx), girdi.id);
+    await iliskiSilSrv(birimIdAl(ctx), girdi.id);
     return { id: girdi.id };
   },
 });
@@ -64,6 +64,6 @@ export const projedeKartiAraEylem = eylem({
       "proje:read",
       girdi.proje_id,
     );
-    return projedeKartiAra(kurumIdAl(ctx), girdi);
+    return projedeKartiAra(birimIdAl(ctx), girdi);
   },
 });

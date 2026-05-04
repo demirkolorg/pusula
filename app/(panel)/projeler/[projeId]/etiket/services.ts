@@ -16,14 +16,14 @@ export type EtiketOzeti = {
 };
 
 // =====================================================================
-// Erişim doğrulama (kurum izolasyonu — yetki kontrolü actions katmanında)
+// Erişim doğrulama (birim izolasyonu — yetki kontrolü actions katmanında)
 // =====================================================================
 
 async function projeyeErisimDogrula(
-  _kurumId: string,
+  _birimId: string,
   projeId: string,
 ): Promise<void> {
-  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
+  // Tek-birim (ADR-0007) — birim kontrolü düştü.
   const p = await db.proje.findUnique({
     where: { id: projeId },
     select: { silindi_mi: true },
@@ -34,10 +34,10 @@ async function projeyeErisimDogrula(
 }
 
 async function etiketiBulVeProjeAl(
-  _kurumId: string,
+  _birimId: string,
   etiketId: string,
 ): Promise<{ proje_id: string }> {
-  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
+  // Tek-birim (ADR-0007) — birim kontrolü düştü.
   const e = await db.etiket.findUnique({
     where: { id: etiketId },
     select: { proje_id: true },
@@ -49,10 +49,10 @@ async function etiketiBulVeProjeAl(
 }
 
 async function kartiBulVeProjeAl(
-  _kurumId: string,
+  _birimId: string,
   kartId: string,
 ): Promise<{ proje_id: string }> {
-  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
+  // Tek-birim (ADR-0007) — birim kontrolü düştü.
   const k = await db.kart.findUnique({
     where: { id: kartId },
     select: {
@@ -70,10 +70,10 @@ async function kartiBulVeProjeAl(
 // =====================================================================
 
 export async function etiketleriListele(
-  kurumId: string,
+  birimId: string,
   projeId: string,
 ): Promise<EtiketOzeti[]> {
-  await projeyeErisimDogrula(kurumId, projeId);
+  await projeyeErisimDogrula(birimId, projeId);
   return db.etiket.findMany({
     where: { proje_id: projeId },
     orderBy: { olusturma_zamani: "asc" },
@@ -82,10 +82,10 @@ export async function etiketleriListele(
 }
 
 export async function etiketOlustur(
-  kurumId: string,
+  birimId: string,
   girdi: EtiketOlustur,
 ): Promise<EtiketOzeti> {
-  await projeyeErisimDogrula(kurumId, girdi.proje_id);
+  await projeyeErisimDogrula(birimId, girdi.proje_id);
   try {
     return await db.etiket.create({
       data: {
@@ -113,10 +113,10 @@ export async function etiketOlustur(
 }
 
 export async function etiketGuncelle(
-  kurumId: string,
+  birimId: string,
   girdi: EtiketGuncelle,
 ): Promise<void> {
-  await etiketiBulVeProjeAl(kurumId, girdi.id);
+  await etiketiBulVeProjeAl(birimId, girdi.id);
   const veri: Record<string, unknown> = {};
   if (girdi.ad !== undefined) veri.ad = girdi.ad;
   if (girdi.renk !== undefined) veri.renk = girdi.renk;
@@ -139,8 +139,8 @@ export async function etiketGuncelle(
   }
 }
 
-export async function etiketSil(kurumId: string, id: string): Promise<void> {
-  await etiketiBulVeProjeAl(kurumId, id);
+export async function etiketSil(birimId: string, id: string): Promise<void> {
+  await etiketiBulVeProjeAl(birimId, id);
   // KartEtiket join onDelete: Cascade ile birlikte gider — hard delete.
   // Soft delete burada gereksiz; tekrar olusturulabilen domain.
   await db.etiket.delete({ where: { id } });
@@ -151,12 +151,12 @@ export async function etiketSil(kurumId: string, id: string): Promise<void> {
 // =====================================================================
 
 export async function kartaEtiketEkle(
-  kurumId: string,
+  birimId: string,
   kartId: string,
   etiketId: string,
 ): Promise<void> {
-  const { proje_id: kartProje } = await kartiBulVeProjeAl(kurumId, kartId);
-  const { proje_id: etiketProje } = await etiketiBulVeProjeAl(kurumId, etiketId);
+  const { proje_id: kartProje } = await kartiBulVeProjeAl(birimId, kartId);
+  const { proje_id: etiketProje } = await etiketiBulVeProjeAl(birimId, etiketId);
   if (kartProje !== etiketProje) {
     throw new EylemHatasi(
       "Etiket başka bir projeye ait.",
@@ -176,11 +176,11 @@ export async function kartaEtiketEkle(
 }
 
 export async function kartaEtiketKaldir(
-  kurumId: string,
+  birimId: string,
   kartId: string,
   etiketId: string,
 ): Promise<void> {
-  await kartiBulVeProjeAl(kurumId, kartId);
+  await kartiBulVeProjeAl(birimId, kartId);
   await db.kartEtiket
     .delete({
       where: { kart_id_etiket_id: { kart_id: kartId, etiket_id: etiketId } },
@@ -196,10 +196,10 @@ export async function kartaEtiketKaldir(
 
 // Karttaki etiket id'lerini getir (UI'da seçili durumu göstermek için)
 export async function kartinEtiketleri(
-  kurumId: string,
+  birimId: string,
   kartId: string,
 ): Promise<string[]> {
-  await kartiBulVeProjeAl(kurumId, kartId);
+  await kartiBulVeProjeAl(birimId, kartId);
   const baglar = await db.kartEtiket.findMany({
     where: { kart_id: kartId },
     select: { etiket_id: true },

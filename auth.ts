@@ -70,7 +70,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           email: kullanici.email,
           name: `${kullanici.ad} ${kullanici.soyad}`,
           adSoyad: `${kullanici.ad} ${kullanici.soyad}`,
-          kurumId: kullanici.kurum_id,
+          birimId: kullanici.birim_id,
           roller: kullanici.roller.map((r) => r.rol.kod),
         };
       },

@@ -44,13 +44,13 @@ export const daveriKabul = eylem({
       );
     }
 
-    // Davet edilen kurum: davet kaydında belirtilen `kurum_id` (yoksa daveti
-    // gönderen kullanıcının kurumu — geriye dönük güvenli varsayılan).
-    let kurumId: string | null = davet.kurum_id;
-    if (!kurumId) {
+    // Davet edilen birim: davet kaydında belirtilen `birim_id` (yoksa daveti
+    // gönderen kullanıcının birimu — geriye dönük güvenli varsayılan).
+    let birimId: string | null = davet.birim_id;
+    if (!birimId) {
       const davetEden = await db.kullanici.findUnique({
         where: { id: davet.davet_eden_id },
-        select: { kurum_id: true },
+        select: { birim_id: true },
       });
       if (!davetEden) {
         throw new EylemHatasi(
@@ -58,7 +58,7 @@ export const daveriKabul = eylem({
           HATA_KODU.BULUNAMADI,
         );
       }
-      kurumId = davetEden.kurum_id;
+      birimId = davetEden.birim_id;
     }
 
     const parolaHash = await argon2.hash(girdi.parola, { type: argon2.argon2id });
@@ -66,7 +66,7 @@ export const daveriKabul = eylem({
     const yeni = await db.$transaction(async (tx) => {
       const kullanici = await tx.kullanici.create({
         data: {
-          kurum_id: kurumId!,
+          birim_id: birimId!,
           email: davet.email.toLowerCase(),
           parola_hash: parolaHash,
           ad: girdi.ad.trim(),

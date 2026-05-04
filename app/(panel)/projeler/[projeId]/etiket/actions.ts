@@ -22,12 +22,12 @@ import {
   kartinEtiketleri as kartinEtiketleriSrv,
 } from "./services";
 
-function kurumIdAl(ctx: { oturum: { kurumId?: string } | null }): string {
-  const kurumId = ctx.oturum?.kurumId;
-  if (!kurumId) {
-    throw new EylemHatasi("Kurum bilgisi yok.", HATA_KODU.YETKISIZ);
+function birimIdAl(ctx: { oturum: { kullaniciId?: string } | null }): string {
+  const id = ctx.oturum?.kullaniciId;
+  if (!id) {
+    throw new EylemHatasi("Oturum yok.", HATA_KODU.GIRIS_YOK);
   }
-  return kurumId;
+  return id;
 }
 
 // ============================================================
@@ -43,8 +43,8 @@ export const etiketleriListeleEylem = eylem({
       "proje:read",
       girdi.proje_id,
     );
-    const kurumId = kurumIdAl(ctx);
-    return etiketleriListele(kurumId, girdi.proje_id);
+    const birimId = birimIdAl(ctx);
+    return etiketleriListele(birimId, girdi.proje_id);
   },
 });
 
@@ -58,8 +58,8 @@ export const etiketOlusturEylem = eylem({
       "proje:edit",
       girdi.proje_id,
     );
-    const kurumId = kurumIdAl(ctx);
-    return etiketOlusturSrv(kurumId, girdi);
+    const birimId = birimIdAl(ctx);
+    return etiketOlusturSrv(birimId, girdi);
   },
 });
 
@@ -68,8 +68,8 @@ export const etiketGuncelleEylem = eylem({
   girdi: etiketGuncelleSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_DUZENLE);
-    const kurumId = kurumIdAl(ctx);
-    await etiketGuncelleSrv(kurumId, girdi);
+    const birimId = birimIdAl(ctx);
+    await etiketGuncelleSrv(birimId, girdi);
     return { id: girdi.id };
   },
 });
@@ -79,8 +79,8 @@ export const etiketSilEylem = eylem({
   girdi: etiketSilSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_DUZENLE);
-    const kurumId = kurumIdAl(ctx);
-    await etiketSilSrv(kurumId, girdi.id);
+    const birimId = birimIdAl(ctx);
+    await etiketSilSrv(birimId, girdi.id);
     return { id: girdi.id };
   },
 });
@@ -95,8 +95,8 @@ export const kartaEtiketEkleEylem = eylem({
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.kart_id);
-    const kurumId = kurumIdAl(ctx);
-    await kartaEtiketEkleSrv(kurumId, girdi.kart_id, girdi.etiket_id);
+    const birimId = birimIdAl(ctx);
+    await kartaEtiketEkleSrv(birimId, girdi.kart_id, girdi.etiket_id);
     return { kart_id: girdi.kart_id, etiket_id: girdi.etiket_id };
   },
 });
@@ -107,8 +107,8 @@ export const kartaEtiketKaldirEylem = eylem({
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.kart_id);
-    const kurumId = kurumIdAl(ctx);
-    await kartaEtiketKaldirSrv(kurumId, girdi.kart_id, girdi.etiket_id);
+    const birimId = birimIdAl(ctx);
+    await kartaEtiketKaldirSrv(birimId, girdi.kart_id, girdi.etiket_id);
     return { kart_id: girdi.kart_id, etiket_id: girdi.etiket_id };
   },
 });
@@ -119,7 +119,7 @@ export const kartinEtiketleriEylem = eylem({
   girdi: kartaEtiketKaldirSemasi.pick({ kart_id: true }),
   calistir: async (girdi, ctx) => {
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:read", girdi.kart_id);
-    const kurumId = kurumIdAl(ctx);
-    return kartinEtiketleriSrv(kurumId, girdi.kart_id);
+    const birimId = birimIdAl(ctx);
+    return kartinEtiketleriSrv(birimId, girdi.kart_id);
   },
 });

@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check, Loader2, X } from "lucide-react";
-import type { KurumTipi } from "@prisma/client";
+import type { BirimTipi } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +19,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useOptimisticMutation, eylemMutasyonu } from "@/lib/optimistic";
-import { KURUM_TIP_LABEL, kurumGorunenAd } from "@/lib/constants/kurum";
+import { BIRIM_TIP_LABEL, birimGorunenAd } from "@/lib/constants/birim";
 import {
   bekleyenKullanicilariListeleEylem,
   kullaniciOnaylaEylem,
@@ -34,7 +34,7 @@ type Kayit = {
   telefon: string | null;
   unvan: string | null;
   olusturma_zamani: Date | string;
-  kurum: { id: string; ad: string | null; tip: string };
+  birim: { id: string; ad: string | null; tip: string };
 };
 
 const TARIH_FORMAT = new Intl.DateTimeFormat("tr-TR", {
@@ -112,11 +112,11 @@ export function OnayBekleyenlerIstemci() {
     <>
       <div className="grid gap-3">
         {kayitlar.map((k) => {
-          const kurumAdi = kurumGorunenAd({
-            ad: k.kurum.ad,
-            tip: k.kurum.tip as KurumTipi,
+          const birimAdi = birimGorunenAd({
+            ad: k.birim.ad,
+            tip: k.birim.tip as BirimTipi,
           });
-          const kurumTipi = KURUM_TIP_LABEL[k.kurum.tip as KurumTipi];
+          const birimTipi = BIRIM_TIP_LABEL[k.birim.tip as BirimTipi];
           return (
             <Card key={k.id}>
               <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -134,9 +134,9 @@ export function OnayBekleyenlerIstemci() {
                     {k.telefon && <> · {k.telefon}</>}
                   </span>
                   <span className="text-xs">
-                    <span className="font-medium">{kurumAdi}</span>
-                    {k.kurum.ad && (
-                      <span className="text-muted-foreground"> · {kurumTipi}</span>
+                    <span className="font-medium">{birimAdi}</span>
+                    {k.birim.ad && (
+                      <span className="text-muted-foreground"> · {birimTipi}</span>
                     )}
                   </span>
                   <span className="text-muted-foreground text-xs">

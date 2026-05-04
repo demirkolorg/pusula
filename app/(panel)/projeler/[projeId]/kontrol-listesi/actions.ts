@@ -24,12 +24,12 @@ import {
   maddeSil as maddeSilSrv,
 } from "./services";
 
-function kurumIdAl(ctx: { oturum: { kurumId?: string } | null }): string {
-  const kurumId = ctx.oturum?.kurumId;
-  if (!kurumId) {
-    throw new EylemHatasi("Kurum bilgisi yok.", HATA_KODU.YETKISIZ);
+function birimIdAl(ctx: { oturum: { kullaniciId?: string } | null }): string {
+  const id = ctx.oturum?.kullaniciId;
+  if (!id) {
+    throw new EylemHatasi("Oturum yok.", HATA_KODU.GIRIS_YOK);
   }
-  return kurumId;
+  return id;
 }
 
 function kullaniciIdAl(ctx: { oturum: { kullaniciId?: string } | null }): string {
@@ -47,7 +47,7 @@ export const kontrolListeleriListeleEylem = eylem({
   girdi: kontrolListeleriListeleSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:read", girdi.kart_id);
-    return kartKontrolListeleriniListele(kurumIdAl(ctx), girdi.kart_id);
+    return kartKontrolListeleriniListele(birimIdAl(ctx), girdi.kart_id);
   },
 });
 
@@ -57,7 +57,7 @@ export const kontrolListesiOlusturEylem = eylem({
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.kart_id);
-    return kontrolListesiOlusturSrv(kurumIdAl(ctx), girdi);
+    return kontrolListesiOlusturSrv(birimIdAl(ctx), girdi);
   },
 });
 
@@ -66,7 +66,7 @@ export const kontrolListesiGuncelleEylem = eylem({
   girdi: kontrolListesiGuncelleSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
-    await kontrolListesiGuncelleSrv(kurumIdAl(ctx), girdi);
+    await kontrolListesiGuncelleSrv(birimIdAl(ctx), girdi);
     return { id: girdi.id };
   },
 });
@@ -76,7 +76,7 @@ export const kontrolListesiSilEylem = eylem({
   girdi: kontrolListesiSilSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
-    await kontrolListesiSilSrv(kurumIdAl(ctx), girdi.id);
+    await kontrolListesiSilSrv(birimIdAl(ctx), girdi.id);
     return { id: girdi.id };
   },
 });
@@ -91,7 +91,7 @@ export const maddeOlusturEylem = eylem({
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
     const atayanId = ctx.oturum?.kullaniciId ?? null;
-    const m = await maddeOlusturSrv(kurumIdAl(ctx), girdi);
+    const m = await maddeOlusturSrv(birimIdAl(ctx), girdi);
     if (girdi.atanan_id && atayanId) {
       tetikleMaddeAtama({
         maddeId: m.id,
@@ -110,7 +110,7 @@ export const maddeGuncelleEylem = eylem({
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
     const atayanId = ctx.oturum?.kullaniciId ?? null;
-    await maddeGuncelleSrv(kurumIdAl(ctx), kullaniciIdAl(ctx), girdi);
+    await maddeGuncelleSrv(birimIdAl(ctx), kullaniciIdAl(ctx), girdi);
     // atanan_id explicit verildiyse (yeni atama veya değişim) bildir.
     if (girdi.atanan_id && atayanId) {
       tetikleMaddeAtama({
@@ -129,7 +129,7 @@ export const maddeSilEylem = eylem({
   girdi: maddeSilSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
-    await maddeSilSrv(kurumIdAl(ctx), girdi.id);
+    await maddeSilSrv(birimIdAl(ctx), girdi.id);
     return { id: girdi.id };
   },
 });

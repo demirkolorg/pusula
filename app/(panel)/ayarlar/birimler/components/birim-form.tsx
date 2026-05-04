@@ -4,7 +4,7 @@ import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
-import { KurumKategorisi, KurumTipi } from "@prisma/client";
+import { BirimKategorisi, BirimTipi } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,26 +26,26 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { useOptimisticMutation, eylemMutasyonu } from "@/lib/optimistic";
 import {
-  KURUM_KATEGORI_LABEL,
-  KURUM_KATEGORI_TIPLER,
-  KURUM_TIP_LABEL,
-  kurumTekilMi,
-  kurumTipininKategorisi,
-} from "@/lib/constants/kurum";
-import { kurumGuncelleEylem, kurumOlusturEylem } from "../actions";
+  BIRIM_KATEGORI_LABEL,
+  BIRIM_KATEGORI_TIPLER,
+  BIRIM_TIP_LABEL,
+  birimTekilMi,
+  birimTipininKategorisi,
+} from "@/lib/constants/birim";
+import { birimGuncelleEylem, birimOlusturEylem } from "../actions";
 import {
-  kurumGuncelleSemasi,
-  kurumOlusturSemasi,
-  type KurumGuncelle,
-  type KurumOlustur,
+  birimGuncelleSemasi,
+  birimOlusturSemasi,
+  type BirimGuncelle,
+  type BirimOlustur,
 } from "../schemas";
 
 type Baslangic = {
   id: string;
   ad: string | null;
   kisa_ad: string | null;
-  kategori: KurumKategorisi;
-  tip: KurumTipi;
+  kategori: BirimKategorisi;
+  tip: BirimTipi;
   il: string | null;
   ilce: string | null;
   aktif: boolean;
@@ -58,11 +58,11 @@ type Props = {
   basaridaTetikle?: () => void;
 };
 
-export function KurumFormSheet({ acik, kapat, baslangic, basaridaTetikle }: Props) {
+export function BirimFormSheet({ acik, kapat, baslangic, basaridaTetikle }: Props) {
   const duzenleme = !!baslangic;
 
-  const form = useForm<KurumOlustur & Partial<Pick<KurumGuncelle, "id" | "aktif">>>({
-    resolver: zodResolver(duzenleme ? kurumGuncelleSemasi : kurumOlusturSemasi),
+  const form = useForm<BirimOlustur & Partial<Pick<BirimGuncelle, "id" | "aktif">>>({
+    resolver: zodResolver(duzenleme ? birimGuncelleSemasi : birimOlusturSemasi),
     defaultValues: {
       kategori: "MULKI_IDARE",
       tip: "KAYMAKAMLIK",
@@ -104,19 +104,19 @@ export function KurumFormSheet({ acik, kapat, baslangic, basaridaTetikle }: Prop
   // tazeliyoruz (Kural 108: wrapper). Yeni kayıt eklemede swap karmaşıklığı
   // olmadan basit invalidation iyi UX sağlar — listede bir an boş görünüm
   // olmaz çünkü TanStack Query staleTime default'la mevcut veriyi gösterir.
-  const olusturMut = useOptimisticMutation<KurumOlustur, { id: string }>({
-    queryKey: ["kurumlar"],
-    mutationFn: eylemMutasyonu(kurumOlusturEylem),
-    hataMesaji: "Kurum eklenemedi",
-    basariMesaji: "Kurum eklendi.",
+  const olusturMut = useOptimisticMutation<BirimOlustur, { id: string }>({
+    queryKey: ["birimler"],
+    mutationFn: eylemMutasyonu(birimOlusturEylem),
+    hataMesaji: "Birim eklenemedi",
+    basariMesaji: "Birim eklendi.",
     onSettledExtra: () => {
       basaridaTetikle?.();
     },
   });
 
-  const guncelleMut = useOptimisticMutation<KurumGuncelle, { id: string }>({
-    queryKey: ["kurumlar"],
-    mutationFn: eylemMutasyonu(kurumGuncelleEylem),
+  const guncelleMut = useOptimisticMutation<BirimGuncelle, { id: string }>({
+    queryKey: ["birimler"],
+    mutationFn: eylemMutasyonu(birimGuncelleEylem),
     optimistic: (old, vars) => {
       const v = old as
         | {
@@ -145,8 +145,8 @@ export function KurumFormSheet({ acik, kapat, baslangic, basaridaTetikle }: Prop
         ),
       };
     },
-    hataMesaji: "Kurum güncellenemedi",
-    basariMesaji: "Kurum güncellendi.",
+    hataMesaji: "Birim güncellenemedi",
+    basariMesaji: "Birim güncellendi.",
     onSettledExtra: () => {
       basaridaTetikle?.();
     },
@@ -187,12 +187,12 @@ export function KurumFormSheet({ acik, kapat, baslangic, basaridaTetikle }: Prop
   const kategoriDeger = form.watch("kategori");
   const tipDeger = form.watch("tip");
   const aktifDeger = form.watch("aktif");
-  const tekilTip = tipDeger ? kurumTekilMi(tipDeger) : false;
+  const tekilTip = tipDeger ? birimTekilMi(tipDeger) : false;
 
   // Kategori değişince ilk tipi otomatik seç
-  const kategoriDegistir = (yeniKategori: KurumKategorisi) => {
+  const kategoriDegistir = (yeniKategori: BirimKategorisi) => {
     form.setValue("kategori", yeniKategori);
-    const tipler = KURUM_KATEGORI_TIPLER[yeniKategori] ?? [];
+    const tipler = BIRIM_KATEGORI_TIPLER[yeniKategori] ?? [];
     const ilkTip = tipler[0];
     if (ilkTip && !tipler.includes(tipDeger)) {
       form.setValue("tip", ilkTip);
@@ -200,23 +200,23 @@ export function KurumFormSheet({ acik, kapat, baslangic, basaridaTetikle }: Prop
   };
 
   // Tip değişince kategoriyi otomatik senkronla
-  const tipDegistir = (yeniTip: KurumTipi) => {
+  const tipDegistir = (yeniTip: BirimTipi) => {
     form.setValue("tip", yeniTip);
-    form.setValue("kategori", kurumTipininKategorisi(yeniTip));
+    form.setValue("kategori", birimTipininKategorisi(yeniTip));
   };
 
-  const kategoriler = Object.keys(KURUM_KATEGORI_LABEL) as KurumKategorisi[];
-  const aktifTipler = KURUM_KATEGORI_TIPLER[kategoriDeger] ?? [];
+  const kategoriler = Object.keys(BIRIM_KATEGORI_LABEL) as BirimKategorisi[];
+  const aktifTipler = BIRIM_KATEGORI_TIPLER[kategoriDeger] ?? [];
 
   return (
     <ResponsiveDialog open={acik} onOpenChange={(o) => (o ? null : kapat())}>
       <ResponsiveDialogContent className="flex w-full flex-col gap-4 p-0 sm:max-w-md">
         <ResponsiveDialogHeader className="border-b p-4">
           <ResponsiveDialogTitle>
-            {duzenleme ? "Kurumu Düzenle" : "Yeni Kurum"}
+            {duzenleme ? "Birimu Düzenle" : "Yeni Birim"}
           </ResponsiveDialogTitle>
           <ResponsiveDialogDescription>
-            Kurumun kategorisini ve tipini seçin. Tekil tiplerde ad opsiyoneldir;
+            Birimin kategorisini ve tipini seçin. Tekil tiplerde ad opsiyoneldir;
             çoklu tiplerde (eczane, okul, cami vb.) ad zorunludur.
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
@@ -230,19 +230,19 @@ export function KurumFormSheet({ acik, kapat, baslangic, basaridaTetikle }: Prop
             <Label htmlFor="kategori">Kategori</Label>
             <Select
               value={kategoriDeger}
-              onValueChange={(v) => kategoriDegistir(v as KurumKategorisi)}
+              onValueChange={(v) => kategoriDegistir(v as BirimKategorisi)}
             >
               <SelectTrigger id="kategori">
                 <SelectValue>
                   {(v) =>
-                    v ? (KURUM_KATEGORI_LABEL[v as KurumKategorisi] ?? "") : ""
+                    v ? (BIRIM_KATEGORI_LABEL[v as BirimKategorisi] ?? "") : ""
                   }
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {kategoriler.map((k) => (
                   <SelectItem key={k} value={k}>
-                    {KURUM_KATEGORI_LABEL[k]}
+                    {BIRIM_KATEGORI_LABEL[k]}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -253,17 +253,17 @@ export function KurumFormSheet({ acik, kapat, baslangic, basaridaTetikle }: Prop
             <Label htmlFor="tip">Tip</Label>
             <Select
               value={tipDeger}
-              onValueChange={(v) => tipDegistir(v as KurumTipi)}
+              onValueChange={(v) => tipDegistir(v as BirimTipi)}
             >
               <SelectTrigger id="tip">
                 <SelectValue>
-                  {(v) => (v ? (KURUM_TIP_LABEL[v as KurumTipi] ?? "") : "")}
+                  {(v) => (v ? (BIRIM_TIP_LABEL[v as BirimTipi] ?? "") : "")}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {aktifTipler.map((t) => (
                   <SelectItem key={t} value={t}>
-                    {KURUM_TIP_LABEL[t]}
+                    {BIRIM_TIP_LABEL[t]}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -284,7 +284,7 @@ export function KurumFormSheet({ acik, kapat, baslangic, basaridaTetikle }: Prop
               autoFocus
               placeholder={
                 tekilTip
-                  ? KURUM_TIP_LABEL[tipDeger]
+                  ? BIRIM_TIP_LABEL[tipDeger]
                   : "Örn. Şifa Eczanesi"
               }
               {...form.register("ad")}
@@ -317,7 +317,7 @@ export function KurumFormSheet({ acik, kapat, baslangic, basaridaTetikle }: Prop
               <div>
                 <Label className="text-sm">Aktif</Label>
                 <p className="text-muted-foreground text-xs">
-                  Pasif kurumlar listede görünmez.
+                  Pasif birimler listede görünmez.
                 </p>
               </div>
               <Switch

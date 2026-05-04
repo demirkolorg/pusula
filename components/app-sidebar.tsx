@@ -55,7 +55,7 @@ const navGroups: NavGroup[] = [
   {
     label: "Ayarlar",
     items: [
-      { title: "Kurumlar", url: "/ayarlar/kurumlar", icon: <Building2Icon /> },
+      { title: "Birimler", url: "/ayarlar/birimler", icon: <Building2Icon /> },
       {
         title: "Kullanıcılar",
         url: "/ayarlar/kullanicilar",

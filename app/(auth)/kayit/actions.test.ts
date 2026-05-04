@@ -16,7 +16,7 @@ vi.mock("@/lib/request-context", () => ({
 }));
 
 import { kayitOl } from "./actions";
-import { kurumOlustur, kurumSil } from "../../(panel)/ayarlar/kurumlar/services";
+import { birimOlustur, birimSil } from "../../(panel)/ayarlar/birimler/services";
 import { truncateAll } from "@/tests/db/setup";
 
 const adminDb = new PrismaClient({
@@ -39,7 +39,7 @@ beforeEach(async () => {
 
 describe("kayitOl", () => {
   it("happy: BEKLIYOR durumunda hesap oluşturur, aktif=false", async () => {
-    const kurum = await kurumOlustur({
+    const birim = await birimOlustur({
       kategori: "SAGLIK",
       tip: "ECZANE",
       ad: "Şifa Eczanesi",
@@ -51,7 +51,7 @@ describe("kayitOl", () => {
       email: "ahmet@test.local",
       parola: "Test1234!",
       parolaTekrar: "Test1234!",
-      kurum_id: kurum.id,
+      birim_id: birim.id,
     });
 
     expect(sonuc.basarili).toBe(true);
@@ -61,7 +61,7 @@ describe("kayitOl", () => {
       where: { id: sonuc.veri.kullaniciId },
     });
     expect(k?.email).toBe("ahmet@test.local");
-    expect(k?.kurum_id).toBe(kurum.id);
+    expect(k?.birim_id).toBe(birim.id);
     expect(k?.aktif).toBe(false);
     expect(k?.onay_durumu).toBe("BEKLIYOR");
     // Parola hash'lendi (argon2id)
@@ -69,7 +69,7 @@ describe("kayitOl", () => {
   });
 
   it("aynı e-posta ile ikinci kayıt CAKISMA hatası verir", async () => {
-    const kurum = await kurumOlustur({
+    const birim = await birimOlustur({
       kategori: "SAGLIK",
       tip: "ECZANE",
       ad: "X Eczanesi",
@@ -80,7 +80,7 @@ describe("kayitOl", () => {
       email: "duplicate@test.local",
       parola: "Test1234!",
       parolaTekrar: "Test1234!",
-      kurum_id: kurum.id,
+      birim_id: birim.id,
     });
 
     const sonuc = await kayitOl({
@@ -89,20 +89,20 @@ describe("kayitOl", () => {
       email: "duplicate@test.local",
       parola: "Test1234!",
       parolaTekrar: "Test1234!",
-      kurum_id: kurum.id,
+      birim_id: birim.id,
     });
     expect(sonuc.basarili).toBe(false);
     if (sonuc.basarili) return;
     expect(sonuc.kod).toBe("CAKISMA");
   });
 
-  it("silinmiş kuruma kayıt reddedilir", async () => {
-    const kurum = await kurumOlustur({
+  it("silinmiş birime kayıt reddedilir", async () => {
+    const birim = await birimOlustur({
       kategori: "SAGLIK",
       tip: "ECZANE",
       ad: "Y Eczanesi",
     });
-    await kurumSil(kurum.id);
+    await birimSil(birim.id);
 
     const sonuc = await kayitOl({
       ad: "Ali",
@@ -110,7 +110,7 @@ describe("kayitOl", () => {
       email: "x@test.local",
       parola: "Test1234!",
       parolaTekrar: "Test1234!",
-      kurum_id: kurum.id,
+      birim_id: birim.id,
     });
     expect(sonuc.basarili).toBe(false);
     if (sonuc.basarili) return;
@@ -118,7 +118,7 @@ describe("kayitOl", () => {
   });
 
   it("parola eşleşmezse Zod hatası verir", async () => {
-    const kurum = await kurumOlustur({
+    const birim = await birimOlustur({
       kategori: "SAGLIK",
       tip: "ECZANE",
       ad: "Z Eczanesi",
@@ -129,7 +129,7 @@ describe("kayitOl", () => {
       email: "y@test.local",
       parola: "Test1234!",
       parolaTekrar: "Different1!",
-      kurum_id: kurum.id,
+      birim_id: birim.id,
     });
     expect(sonuc.basarili).toBe(false);
     if (sonuc.basarili) return;
@@ -138,7 +138,7 @@ describe("kayitOl", () => {
   });
 
   it("kısa parola Zod ile reddedilir (8 karakter altı)", async () => {
-    const kurum = await kurumOlustur({
+    const birim = await birimOlustur({
       kategori: "SAGLIK",
       tip: "ECZANE",
       ad: "W Eczanesi",
@@ -149,7 +149,7 @@ describe("kayitOl", () => {
       email: "z@test.local",
       parola: "kisa",
       parolaTekrar: "kisa",
-      kurum_id: kurum.id,
+      birim_id: birim.id,
     });
     expect(sonuc.basarili).toBe(false);
     if (sonuc.basarili) return;
@@ -157,18 +157,18 @@ describe("kayitOl", () => {
     expect(sonuc.alanlar?.parola).toBeTruthy();
   });
 
-  it("geçersiz UUID kurum_id reddedilir", async () => {
+  it("geçersiz UUID birim_id reddedilir", async () => {
     const sonuc = await kayitOl({
       ad: "Ali",
       soyad: "Veli",
       email: "q@test.local",
       parola: "Test1234!",
       parolaTekrar: "Test1234!",
-      kurum_id: "not-a-uuid",
+      birim_id: "not-a-uuid",
     });
     expect(sonuc.basarili).toBe(false);
     if (sonuc.basarili) return;
     expect(sonuc.kod).toBe("GECERSIZ_GIRDI");
-    expect(sonuc.alanlar?.kurum_id).toBeTruthy();
+    expect(sonuc.alanlar?.birim_id).toBeTruthy();
   });
 });

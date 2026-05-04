@@ -1,6 +1,6 @@
-import type { KurumKategorisi, KurumTipi } from "@prisma/client";
+import type { BirimKategorisi, BirimTipi } from "@prisma/client";
 
-export const KURUM_KATEGORI_LABEL: Record<KurumKategorisi, string> = {
+export const BIRIM_KATEGORI_LABEL: Record<BirimKategorisi, string> = {
   MULKI_IDARE: "Mülki İdare",
   YEREL_YONETIM: "Yerel Yönetim",
   EMNIYET_ASAYIS: "Emniyet & Asayiş",
@@ -26,7 +26,7 @@ export const KURUM_KATEGORI_LABEL: Record<KurumKategorisi, string> = {
   BASIN_MEDYA: "Basın & Medya",
 };
 
-export const KURUM_TIP_LABEL: Record<KurumTipi, string> = {
+export const BIRIM_TIP_LABEL: Record<BirimTipi, string> = {
   // MULKI_IDARE
   KAYMAKAMLIK: "Kaymakamlık",
   OZEL_KALEM: "Özel Kalem",
@@ -205,7 +205,7 @@ export const KURUM_TIP_LABEL: Record<KurumTipi, string> = {
   HABER_AJANSI: "Haber Ajansı",
 };
 
-export const KURUM_TIP_KATEGORI: Record<KurumTipi, KurumKategorisi> = {
+export const BIRIM_TIP_KATEGORI: Record<BirimTipi, BirimKategorisi> = {
   // MULKI_IDARE
   KAYMAKAMLIK: "MULKI_IDARE",
   OZEL_KALEM: "MULKI_IDARE",
@@ -383,28 +383,28 @@ export const KURUM_TIP_KATEGORI: Record<KurumTipi, KurumKategorisi> = {
   HABER_AJANSI: "BASIN_MEDYA",
 };
 
-export const KURUM_KATEGORI_TIPLER: Record<KurumKategorisi, KurumTipi[]> =
-  Object.entries(KURUM_TIP_KATEGORI).reduce(
+export const BIRIM_KATEGORI_TIPLER: Record<BirimKategorisi, BirimTipi[]> =
+  Object.entries(BIRIM_TIP_KATEGORI).reduce(
     (acc, [tip, kategori]) => {
-      (acc[kategori] ??= []).push(tip as KurumTipi);
+      (acc[kategori] ??= []).push(tip as BirimTipi);
       return acc;
     },
-    {} as Record<KurumKategorisi, KurumTipi[]>,
+    {} as Record<BirimKategorisi, BirimTipi[]>,
   );
 
-export function kurumTipininKategorisi(tip: KurumTipi): KurumKategorisi {
-  return KURUM_TIP_KATEGORI[tip];
+export function birimTipininKategorisi(tip: BirimTipi): BirimKategorisi {
+  return BIRIM_TIP_KATEGORI[tip];
 }
 
 /**
- * Tekil kurum tipleri: ilçede genelde 1 tane bulunur, `ad` opsiyoneldir
- * (görüntülenirken `KURUM_TIP_LABEL[tip]` kullanılır). Seed verisi otomatik
+ * Tekil birim tipleri: ilçede genelde 1 tane bulunur, `ad` opsiyoneldir
+ * (görüntülenirken `BIRIM_TIP_LABEL[tip]` kullanılır). Seed verisi otomatik
  * olarak bu tiplerden tek satır üretir.
  *
  * Çoklu tipler (ECZANE, ILKOKUL, CAMI vb.) bu sette yer almaz; onlarda `ad`
  * zorunludur ve kullanıcı/seed tarafından elle eklenir.
  */
-export const KURUM_TIP_TEKIL: ReadonlySet<KurumTipi> = new Set<KurumTipi>([
+export const BIRIM_TIP_TEKIL: ReadonlySet<BirimTipi> = new Set<BirimTipi>([
   // MULKI_IDARE
   "KAYMAKAMLIK",
   "OZEL_KALEM",
@@ -498,13 +498,13 @@ export const KURUM_TIP_TEKIL: ReadonlySet<KurumTipi> = new Set<KurumTipi>([
   "ASKERLIK_SUBESI",
 ]);
 
-export function kurumTekilMi(tip: KurumTipi): boolean {
-  return KURUM_TIP_TEKIL.has(tip);
+export function birimTekilMi(tip: BirimTipi): boolean {
+  return BIRIM_TIP_TEKIL.has(tip);
 }
 
-export function kurumGorunenAd(kurum: {
+export function birimGorunenAd(birim: {
   ad: string | null;
-  tip: KurumTipi;
+  tip: BirimTipi;
 }): string {
-  return kurum.ad ?? KURUM_TIP_LABEL[kurum.tip];
+  return birim.ad ?? BIRIM_TIP_LABEL[birim.tip];
 }

@@ -30,7 +30,7 @@ export const projeUyesiSeviyeGuncelleSemasi = z.object({
   seviye: projeUyeSeviyeSemasi,
 });
 
-// Proje'ye eklenecek aday kullanıcıları kurumdan ara (proje üyesi olmayanlar).
+// Proje'ye eklenecek aday kullanıcıları sistem genelinden ara (proje üyesi olmayanlar).
 export const projeAdayKullanicilarSemasi = z.object({
   proje_id: z.string().uuid(),
   q: z.string().trim().max(100).optional(),

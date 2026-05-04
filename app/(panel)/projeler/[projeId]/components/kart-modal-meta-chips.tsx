@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
-import { kartHedefKurumlariEylem } from "../actions";
+import { kartBirimleriEylem } from "../actions";
 import { useKartEtiketleri, useEtiketler } from "../etiket/hooks";
 import { useKartUyeleri } from "../uye/hooks";
 import { useKartIliskileri } from "../iliski/hooks";
@@ -19,7 +19,7 @@ import { EtiketPopover } from "../etiket/components/etiket-popover";
 import { UyePopover } from "../uye/components/uye-popover";
 import { IliskiPopover } from "../iliski/components/iliski-popover";
 import { KartBitisPopover } from "./kart-bitis-popover";
-import { KartKurumPopover } from "./kart-kurum-popover";
+import { KartBirimPopover } from "./kart-birim-popover";
 
 const TARIH_BICIM = new Intl.DateTimeFormat("tr-TR", {
   day: "2-digit",
@@ -34,7 +34,7 @@ type Props = {
 };
 
 // Sancak `meta-chip` strip'i — pill chip'ler: ICON · sayı/metin · (preview) · chevron.
-// Sırası referansla aynı: Atananlar · Tarih · Etiketler · Kurumlar · İlişkili Kartlar.
+// Sırası referansla aynı: Atananlar · Tarih · Etiketler · Birimler · İlişkili Kartlar.
 export function KartModalMetaChips({
   kartId,
   projeId,
@@ -46,7 +46,7 @@ export function KartModalMetaChips({
       <UyeChipBaglanti kartId={kartId} projeId={projeId} />
       <BitisChip bitis={bitis} bitisKaydet={bitisKaydet} />
       <EtiketChipBaglanti kartId={kartId} projeId={projeId} />
-      <KurumChipBaglanti kartId={kartId} />
+      <BirimChipBaglanti kartId={kartId} />
       <IliskiChipBaglanti kartId={kartId} projeId={projeId} />
     </div>
   );
@@ -228,12 +228,12 @@ function EtiketChipBaglanti({
   );
 }
 
-function KurumChipBaglanti({ kartId }: { kartId: string }) {
-  // KartHedefKurumlar ile aynı queryKey — cache paylaşımı.
+function BirimChipBaglanti({ kartId }: { kartId: string }) {
+  // KartBirimler ile aynı queryKey — cache paylaşımı.
   const sorgu = useQuery({
-    queryKey: ["kart-hedef-kurumlar", kartId] as const,
+    queryKey: ["kart-birimler", kartId] as const,
     queryFn: async () => {
-      const r = await kartHedefKurumlariEylem({ kart_id: kartId });
+      const r = await kartBirimleriEylem({ kart_id: kartId });
       if (!r.basarili) throw new Error(r.hata);
       return r.veri;
     },
@@ -241,14 +241,14 @@ function KurumChipBaglanti({ kartId }: { kartId: string }) {
   });
   const sayi = sorgu.data?.length ?? 0;
   return (
-    <KartKurumPopover
+    <KartBirimPopover
       kartId={kartId}
       trigger={
         <ChipButon
           icon={HashIcon}
           sayi={sayi}
           bosMu={sayi === 0}
-          aria-label="Kurumlar"
+          aria-label="Birimler"
         />
       }
     />

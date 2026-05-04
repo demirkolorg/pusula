@@ -1,20 +1,20 @@
 import type { Prisma } from "@prisma/client";
-import type { KurumKategorisi, KurumTipi } from "@prisma/client";
+import type { BirimKategorisi, BirimTipi } from "@prisma/client";
 import { db } from "@/lib/db";
-import { KURUM_TIP_TEKIL } from "@/lib/constants/kurum";
+import { BIRIM_TIP_TEKIL } from "@/lib/constants/birim";
 import { aramaUuidIdleri } from "@/lib/arama";
 import type {
-  KurumGuncelle,
-  KurumListe,
-  KurumOlustur,
+  BirimGuncelle,
+  BirimListe,
+  BirimOlustur,
 } from "./schemas";
 
-export type KurumSatiri = {
+export type BirimSatiri = {
   id: string;
   ad: string | null;
   kisa_ad: string | null;
-  kategori: KurumKategorisi;
-  tip: KurumTipi;
+  kategori: BirimKategorisi;
+  tip: BirimTipi;
   il: string | null;
   ilce: string | null;
   aktif: boolean;
@@ -23,15 +23,15 @@ export type KurumSatiri = {
   olusturma_zamani: Date;
 };
 
-export async function kurumlariListele(
-  girdi: KurumListe,
-): Promise<{ kayitlar: KurumSatiri[]; toplam: number }> {
-  const where: Prisma.KurumWhereInput = { silindi_mi: false };
+export async function birimleriListele(
+  girdi: BirimListe,
+): Promise<{ kayitlar: BirimSatiri[]; toplam: number }> {
+  const where: Prisma.BirimWhereInput = { silindi_mi: false };
   if (girdi.kategori) where.kategori = girdi.kategori;
   if (girdi.tip) where.tip = girdi.tip;
   if (girdi.arama) {
     const idler = await aramaUuidIdleri({
-      tablo: "Kurum",
+      tablo: "Birim",
       sutunlar: ["ad", "kisa_ad", "il", "ilce", "tip", "kategori"],
       arama: girdi.arama,
     });
@@ -42,8 +42,8 @@ export async function kurumlariListele(
   }
 
   const [toplam, kayitlar] = await db.$transaction([
-    db.kurum.count({ where }),
-    db.kurum.findMany({
+    db.birim.count({ where }),
+    db.birim.findMany({
       where,
       orderBy: [{ kategori: "asc" }, { tip: "asc" }, { ad: "asc" }],
       skip: (girdi.sayfa - 1) * girdi.sayfaBoyutu,
@@ -83,11 +83,11 @@ export async function kurumlariListele(
 }
 
 /**
- * Self-register sayfasında kullanılır: aktif (silinmemiş) tüm kurumların
+ * Self-register sayfasında kullanılır: aktif (silinmemiş) tüm birimlerın
  * id, ad, kategori, tip listesini döner. Hassas alan içermez.
  */
-export async function kurumSecenekleri() {
-  return db.kurum.findMany({
+export async function birimSecenekleri() {
+  return db.birim.findMany({
     where: { silindi_mi: false, aktif: true },
     select: { id: true, ad: true, kategori: true, tip: true },
     orderBy: [{ kategori: "asc" }, { tip: "asc" }, { ad: "asc" }],
@@ -95,14 +95,14 @@ export async function kurumSecenekleri() {
 }
 
 /**
- * Tekil tipte aynı kuruma ikinci kayıt eklenmesini engeller.
+ * Tekil tipte aynı birima ikinci kayıt eklenmesini engeller.
  */
 async function tekilCakismaKontrolu(
-  tip: KurumTipi,
+  tip: BirimTipi,
   hariciId: string | null = null,
 ): Promise<void> {
-  if (!KURUM_TIP_TEKIL.has(tip)) return;
-  const mevcut = await db.kurum.findFirst({
+  if (!BIRIM_TIP_TEKIL.has(tip)) return;
+  const mevcut = await db.birim.findFirst({
     where: {
       tip,
       silindi_mi: false,
@@ -111,15 +111,15 @@ async function tekilCakismaKontrolu(
     select: { id: true },
   });
   if (mevcut) {
-    throw new Error("Bu tipte bir kurum zaten kayıtlı.");
+    throw new Error("Bu tipte bir birim zaten kayıtlı.");
   }
 }
 
-export async function kurumOlustur(
-  girdi: KurumOlustur,
+export async function birimOlustur(
+  girdi: BirimOlustur,
 ): Promise<{ id: string }> {
   await tekilCakismaKontrolu(girdi.tip);
-  const yeni = await db.kurum.create({
+  const yeni = await db.birim.create({
     data: {
       kategori: girdi.kategori,
       tip: girdi.tip,
@@ -133,9 +133,9 @@ export async function kurumOlustur(
   return { id: yeni.id };
 }
 
-export async function kurumGuncelle(girdi: KurumGuncelle): Promise<void> {
+export async function birimGuncelle(girdi: BirimGuncelle): Promise<void> {
   await tekilCakismaKontrolu(girdi.tip, girdi.id);
-  await db.kurum.update({
+  await db.birim.update({
     where: { id: girdi.id },
     data: {
       kategori: girdi.kategori,
@@ -149,15 +149,15 @@ export async function kurumGuncelle(girdi: KurumGuncelle): Promise<void> {
   });
 }
 
-export async function kurumSil(id: string): Promise<void> {
-  await db.kurum.update({
+export async function birimSil(id: string): Promise<void> {
+  await db.birim.update({
     where: { id },
     data: { silindi_mi: true, silinme_zamani: new Date(), aktif: false },
   });
 }
 
-export async function kurumGeriYukle(id: string): Promise<void> {
-  await db.kurum.update({
+export async function birimGeriYukle(id: string): Promise<void> {
+  await db.birim.update({
     where: { id },
     data: { silindi_mi: false, silinme_zamani: null, aktif: true },
   });

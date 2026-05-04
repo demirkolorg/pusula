@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, X } from "lucide-react";
-import type { KurumTipi } from "@prisma/client";
+import type { BirimTipi } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -15,19 +15,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useOptimisticMutation, eylemMutasyonu } from "@/lib/optimistic";
-import { KURUM_TIP_LABEL, kurumGorunenAd } from "@/lib/constants/kurum";
-import { kurumSecenekleriniGetir } from "../../../ayarlar/kurumlar/actions";
+import { BIRIM_TIP_LABEL, birimGorunenAd } from "@/lib/constants/birim";
+import { birimSecenekleriniGetir } from "../../../ayarlar/birimler/actions";
 import {
-  kartHedefKurumEkleEylem,
-  kartHedefKurumKaldirEylem,
-  kartHedefKurumlariEylem,
+  kartBirimEkleEylem,
+  kartBirimKaldirEylem,
+  kartBirimleriEylem,
 } from "../actions";
 import { kartAktiviteleriKey } from "../aktivite/keys";
 
 type Hedef = {
-  kurum_id: string;
+  birim_id: string;
   ad: string | null;
-  tip: KurumTipi;
+  tip: BirimTipi;
   eklenme_zamani: Date | string;
 };
 
@@ -40,26 +40,26 @@ type Props = {
 
 const HIC = "__yok__";
 
-export function KartHedefKurumlar({ kartId, gosterimMod = "tam" }: Props) {
+export function KartBirimler({ kartId, gosterimMod = "tam" }: Props) {
   const queryKey = React.useMemo(
-    () => ["kart-hedef-kurumlar", kartId] as const,
+    () => ["kart-birimler", kartId] as const,
     [kartId],
   );
 
   const sorgu = useQuery({
     queryKey,
     queryFn: async (): Promise<Hedef[]> => {
-      const r = await kartHedefKurumlariEylem({ kart_id: kartId });
+      const r = await kartBirimleriEylem({ kart_id: kartId });
       if (!r.basarili) throw new Error(r.hata);
       return r.veri;
     },
     staleTime: 30_000,
   });
 
-  const kurumSorgu = useQuery({
-    queryKey: ["kurum-secenekleri"],
+  const birimSorgu = useQuery({
+    queryKey: ["birim-secenekleri"],
     queryFn: async () => {
-      const r = await kurumSecenekleriniGetir(undefined);
+      const r = await birimSecenekleriniGetir(undefined);
       if (!r.basarili) throw new Error(r.hata);
       return r.veri;
     },
@@ -69,22 +69,22 @@ export function KartHedefKurumlar({ kartId, gosterimMod = "tam" }: Props) {
   const [secili, setSecili] = React.useState<string>("");
 
   const ekleMut = useOptimisticMutation<
-    { kart_id: string; hedef_kurum_id: string },
-    { kart_id: string; hedef_kurum_id: string }
+    { kart_id: string; birim_id: string },
+    { kart_id: string; birim_id: string }
   >({
     queryKey,
-    mutationFn: eylemMutasyonu(kartHedefKurumEkleEylem),
+    mutationFn: eylemMutasyonu(kartBirimEkleEylem),
     optimistic: (eski, vars) => {
       const v = (eski ?? []) as Hedef[];
-      if (v.some((h) => h.kurum_id === vars.hedef_kurum_id)) return v;
-      const k = (kurumSorgu.data ?? []).find(
-        (x) => x.id === vars.hedef_kurum_id,
+      if (v.some((h) => h.birim_id === vars.birim_id)) return v;
+      const k = (birimSorgu.data ?? []).find(
+        (x) => x.id === vars.birim_id,
       );
       if (!k) return v;
       return [
         ...v,
         {
-          kurum_id: k.id,
+          birim_id: k.id,
           ad: k.ad,
           tip: k.tip,
           eklenme_zamani: new Date(),
@@ -92,33 +92,33 @@ export function KartHedefKurumlar({ kartId, gosterimMod = "tam" }: Props) {
       ];
     },
     ekInvalidate: [kartAktiviteleriKey(kartId)],
-    hataMesaji: "Hedef kurum eklenemedi",
+    hataMesaji: "Hedef birim eklenemedi",
   });
 
   const kaldirMut = useOptimisticMutation<
-    { kart_id: string; hedef_kurum_id: string },
-    { kart_id: string; hedef_kurum_id: string }
+    { kart_id: string; birim_id: string },
+    { kart_id: string; birim_id: string }
   >({
     queryKey,
-    mutationFn: eylemMutasyonu(kartHedefKurumKaldirEylem),
+    mutationFn: eylemMutasyonu(kartBirimKaldirEylem),
     optimistic: (eski, vars) => {
       const v = (eski ?? []) as Hedef[];
-      return v.filter((h) => h.kurum_id !== vars.hedef_kurum_id);
+      return v.filter((h) => h.birim_id !== vars.birim_id);
     },
     ekInvalidate: [kartAktiviteleriKey(kartId)],
-    hataMesaji: "Hedef kurum kaldırılamadı",
+    hataMesaji: "Hedef birim kaldırılamadı",
   });
 
   const ekle = () => {
     if (!secili) return;
-    ekleMut.mutate({ kart_id: kartId, hedef_kurum_id: secili });
+    ekleMut.mutate({ kart_id: kartId, birim_id: secili });
     setSecili("");
   };
 
   const hedefler = sorgu.data ?? [];
-  const hedefIdleri = new Set(hedefler.map((h) => h.kurum_id));
-  // Henüz eklenmemiş kurumlar
-  const eklenebilirler = (kurumSorgu.data ?? []).filter(
+  const hedefIdleri = new Set(hedefler.map((h) => h.birim_id));
+  // Henüz eklenmemiş birimler
+  const eklenebilirler = (birimSorgu.data ?? []).filter(
     (k) => !hedefIdleri.has(k.id),
   );
 
@@ -126,9 +126,9 @@ export function KartHedefKurumlar({ kartId, gosterimMod = "tam" }: Props) {
     <div className="grid gap-2">
       {gosterimMod === "tam" && (
         <>
-          <Label>Hedef Kurumlar</Label>
+          <Label>Birimler</Label>
           <p className="text-muted-foreground text-xs">
-            Görevin yönlendirildiği ilçe kurumları. Eklediğiniz kurum
+            Görevin yönlendirildiği ilçe birimlerı. Eklediğiniz birim
             çalışanları bu görevi kendi panellerinde görür.
           </p>
         </>
@@ -137,18 +137,18 @@ export function KartHedefKurumlar({ kartId, gosterimMod = "tam" }: Props) {
       <div className="flex flex-wrap gap-1">
         {hedefler.length === 0 ? (
           <span className="text-muted-foreground text-xs">
-            Henüz hedef kurum yok.
+            Henüz birim yok.
           </span>
         ) : (
           hedefler.map((h) => (
             <Badge
-              key={h.kurum_id}
+              key={h.birim_id}
               variant="secondary"
               className="flex items-center gap-1 pr-1"
             >
-              <span>{kurumGorunenAd({ ad: h.ad, tip: h.tip })}</span>
+              <span>{birimGorunenAd({ ad: h.ad, tip: h.tip })}</span>
               <span className="text-muted-foreground text-xs">
-                · {KURUM_TIP_LABEL[h.tip]}
+                · {BIRIM_TIP_LABEL[h.tip]}
               </span>
               <Button
                 size="sm"
@@ -157,10 +157,10 @@ export function KartHedefKurumlar({ kartId, gosterimMod = "tam" }: Props) {
                 onClick={() =>
                   kaldirMut.mutate({
                     kart_id: kartId,
-                    hedef_kurum_id: h.kurum_id,
+                    birim_id: h.birim_id,
                   })
                 }
-                aria-label={`${kurumGorunenAd({ ad: h.ad, tip: h.tip })} kaldır`}
+                aria-label={`${birimGorunenAd({ ad: h.ad, tip: h.tip })} kaldır`}
               >
                 <X className="size-3" />
               </Button>
@@ -177,11 +177,11 @@ export function KartHedefKurumlar({ kartId, gosterimMod = "tam" }: Props) {
           <SelectTrigger className="flex-1">
             <SelectValue>
               {(v) => {
-                if (!v || v === HIC) return "Kurum ekle...";
+                if (!v || v === HIC) return "Birim ekle...";
                 const k = eklenebilirler.find((x) => x.id === v);
                 return k
-                  ? kurumGorunenAd({ ad: k.ad, tip: k.tip })
-                  : "Kurum ekle...";
+                  ? birimGorunenAd({ ad: k.ad, tip: k.tip })
+                  : "Birim ekle...";
               }}
             </SelectValue>
           </SelectTrigger>
@@ -189,10 +189,10 @@ export function KartHedefKurumlar({ kartId, gosterimMod = "tam" }: Props) {
             <SelectItem value={HIC}>—</SelectItem>
             {eklenebilirler.map((k) => (
               <SelectItem key={k.id} value={k.id}>
-                {kurumGorunenAd({ ad: k.ad, tip: k.tip })}
+                {birimGorunenAd({ ad: k.ad, tip: k.tip })}
                 {k.ad && (
                   <span className="text-muted-foreground ml-2 text-xs">
-                    {KURUM_TIP_LABEL[k.tip]}
+                    {BIRIM_TIP_LABEL[k.tip]}
                   </span>
                 )}
               </SelectItem>
@@ -204,7 +204,7 @@ export function KartHedefKurumlar({ kartId, gosterimMod = "tam" }: Props) {
           size="sm"
           onClick={ekle}
           disabled={!secili}
-          aria-label="Hedef kurum ekle"
+          aria-label="Hedef birim ekle"
         >
           <Plus className="size-4" /> Ekle
         </Button>

@@ -7,7 +7,7 @@ import { hata, ok, HATA_KODU, type Sonuc } from "./sonuc";
 
 type SeansBilgisi = {
   kullaniciId: string;
-  kurumId?: string;
+  birimId?: string;
   email: string;
   roller: string[];
 };
@@ -36,15 +36,15 @@ export function eylem<S extends z.ZodTypeAny | undefined, T>(
     // Runtime guard — `as` cast'i imalı, gerçek değer undefined olabilir.
     // session.user.id non-empty string değilse seans = null kabul edilir.
     const ham = oturum?.user as
-      | { id?: unknown; kurumId?: unknown; roller?: unknown }
+      | { id?: unknown; birimId?: unknown; roller?: unknown }
       | undefined;
     const hamId = ham?.id;
     const seans: SeansBilgisi | null =
       ham && typeof hamId === "string" && hamId.length > 0
         ? {
             kullaniciId: hamId,
-            kurumId:
-              typeof ham.kurumId === "string" ? ham.kurumId : undefined,
+            birimId:
+              typeof ham.birimId === "string" ? ham.birimId : undefined,
             email: oturum?.user?.email ?? "",
             roller: Array.isArray(ham.roller)
               ? (ham.roller as string[])

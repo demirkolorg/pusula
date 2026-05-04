@@ -27,6 +27,7 @@ export default defineConfig({
     // Vitest 4: poolOptions kaldirildi; tek fork yerine fileParallelism=false yeterli
     // (testler dosya bazinda seri calisir, ortak test DB'sinde yaris yok).
     pool: "forks",
+    maxWorkers: 1,
     fileParallelism: false,
     // Tur 2: globalSetup aktif — test surecleri baslamadan once `prisma migrate deploy`
     // calistirir; idempotent oldugu icin tekrar tekrar calistirilabilir.

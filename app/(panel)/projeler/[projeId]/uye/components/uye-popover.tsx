@@ -146,7 +146,7 @@ function KartUyeListe({
 }
 
 // =====================================================================
-// Proje'ye yeni üye ekleme — kuruma ait kullanıcı arama
+// Proje'ye yeni üye ekleme — sistemdeki kullanıcıları arama
 // =====================================================================
 
 function ProjeAdayAra({
@@ -197,7 +197,7 @@ function ProjeAdayAra({
           autoFocus
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Ad, soyad, email veya kurum"
+          placeholder="Ad, soyad, email veya birim"
           className="pl-7"
         />
       </div>
@@ -228,9 +228,9 @@ function ProjeAdayAra({
                   <p className="text-muted-foreground truncate text-[11px]">
                     {u.email}
                   </p>
-                  {u.kurum_ad && (
+                  {u.birim_ad && (
                     <p className="text-muted-foreground/80 truncate text-[10.5px]">
-                      {u.kurum_ad}
+                      {u.birim_ad}
                     </p>
                   )}
                 </div>

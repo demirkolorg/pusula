@@ -7,17 +7,17 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { KartHedefKurumlar } from "./kart-hedef-kurumlar";
+import { KartBirimler } from "./kart-birimler";
 
 type Props = {
   kartId: string;
   trigger: React.ReactNode;
 };
 
-// KartHedefKurumlar içeriğini popover'a sarar — kart-modal'da meta chip
-// strip'inden tetiklenir. Mevcut KartHedefKurumlar'ın iş mantığı (eklenti
+// KartBirimler içeriğini popover'a sarar — kart-modal'da meta chip
+// strip'inden tetiklenir. Mevcut KartBirimler'in iş mantığı (eklenti
 // listesi + ekleme select'i) aynen korunur, sadece sunum değişir.
-export function KartKurumPopover({ kartId, trigger }: Props) {
+export function KartBirimPopover({ kartId, trigger }: Props) {
   const [acik, setAcik] = React.useState(false);
   return (
     <Popover open={acik} onOpenChange={setAcik}>
@@ -26,9 +26,9 @@ export function KartKurumPopover({ kartId, trigger }: Props) {
         <div className="flex flex-col gap-2 p-3">
           <div className="flex items-center gap-1.5">
             <Building2Icon className="size-3.5" />
-            <p className="text-sm font-medium">Kurumlar</p>
+            <p className="text-sm font-medium">Birimler</p>
           </div>
-          <KartHedefKurumlar kartId={kartId} gosterimMod="kompakt" />
+          <KartBirimler kartId={kartId} gosterimMod="kompakt" />
         </div>
       </PopoverContent>
     </Popover>

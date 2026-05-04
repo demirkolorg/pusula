@@ -1,17 +1,17 @@
-import { PrismaClient, type KurumTipi } from "@prisma/client";
+import { PrismaClient, type BirimTipi } from "@prisma/client";
 import argon2 from "argon2";
 import {
-  KURUM_TIP_KATEGORI,
-  KURUM_TIP_LABEL,
-  KURUM_TIP_TEKIL,
-} from "../lib/constants/kurum";
+  BIRIM_TIP_KATEGORI,
+  BIRIM_TIP_LABEL,
+  BIRIM_TIP_TEKIL,
+} from "../lib/constants/birim";
 
 const db = new PrismaClient();
 
 const ROLLER = [
   { kod: "SUPER_ADMIN", ad: "Süper Yönetici", aciklama: "Sistemin tamamına yetkili" },
   { kod: "KAYMAKAM", ad: "Kaymakam", aciklama: "İlçenin tamamına yetkili" },
-  { kod: "KURUM_AMIRI", ad: "Kurum Amiri", aciklama: "Bağlı olduğu kurumda yönetici" },
+  { kod: "BIRIM_AMIRI", ad: "Birim Amiri", aciklama: "Bağlı olduğu birimda yönetici" },
   { kod: "PERSONEL", ad: "Personel", aciklama: "Standart kullanıcı" },
 ];
 
@@ -34,7 +34,7 @@ const IZINLER = [
   { kod: "audit:read", ad: "Denetim Logu Görüntüle", kategori: "ayar" },
   { kod: "errorlog:read", ad: "Hata Loglarını Görüntüle", kategori: "ayar" },
   { kod: "settings:edit", ad: "Sistem Ayarları", kategori: "ayar" },
-  { kod: "kurum:manage", ad: "Kurum Yönetimi", kategori: "ayar" },
+  { kod: "birim:manage", ad: "Birim Yönetimi", kategori: "ayar" },
   { kod: "rol:manage", ad: "Rol ve İzin Yönetimi", kategori: "ayar" },
 ];
 
@@ -61,9 +61,9 @@ const ROL_IZINLERI: Record<string, string[]> = {
     "user:approve",
     "audit:read",
     "errorlog:read",
-    "kurum:manage",
+    "birim:manage",
   ],
-  KURUM_AMIRI: [...PROJE_IZIN_GRUBU, "user:invite"],
+  BIRIM_AMIRI: [...PROJE_IZIN_GRUBU, "user:invite"],
   PERSONEL: ["kart:create", "kart:edit", "kart:move"],
 };
 
@@ -108,41 +108,41 @@ async function main() {
   }
   console.log("✓ Rol-izin matrisi yüklendi");
 
-  // Tekil kurumlar — ilçedeki tüm tekil kurumlar otomatik oluşturulur.
-  // Çoklu kurumlar (eczane, okul, cami vb.) admin tarafından eklenir.
-  const tekilTipler = Array.from(KURUM_TIP_TEKIL) as KurumTipi[];
+  // Tekil birimler — ilçedeki tüm tekil birimler otomatik oluşturulur.
+  // Çoklu birimler (eczane, okul, cami vb.) admin tarafından eklenir.
+  const tekilTipler = Array.from(BIRIM_TIP_TEKIL) as BirimTipi[];
   const il = "İstanbul";
   const ilce = "Beşiktaş";
 
-  let eklenenKurum = 0;
+  let eklenenBirim = 0;
   for (const tip of tekilTipler) {
-    const kategori = KURUM_TIP_KATEGORI[tip];
-    const mevcut = await db.kurum.findFirst({
+    const kategori = BIRIM_TIP_KATEGORI[tip];
+    const mevcut = await db.birim.findFirst({
       where: { tip, silindi_mi: false },
       select: { id: true },
     });
     if (mevcut) continue;
-    await db.kurum.create({
+    await db.birim.create({
       data: {
         kategori,
         tip,
-        ad: null, // tekil tip — görünen ad KURUM_TIP_LABEL[tip]
+        ad: null, // tekil tip — görünen ad BIRIM_TIP_LABEL[tip]
         il,
         ilce,
       },
     });
-    eklenenKurum += 1;
+    eklenenBirim += 1;
   }
   console.log(
-    `✓ Tekil kurumlar: ${eklenenKurum} yeni eklendi (toplam tekil tip: ${tekilTipler.length})`,
+    `✓ Tekil birimler: ${eklenenBirim} yeni eklendi (toplam tekil tip: ${tekilTipler.length})`,
   );
 
-  const kaymakamlik = await db.kurum.findFirst({
+  const kaymakamlik = await db.birim.findFirst({
     where: { tip: "KAYMAKAMLIK", silindi_mi: false },
     select: { id: true },
   });
   if (!kaymakamlik) {
-    throw new Error("Kaymakamlık kurum kaydı oluşturulamadı.");
+    throw new Error("Kaymakamlık birim kaydı oluşturulamadı.");
   }
 
   // Demo kullanıcılar — Süper Admin ve Kaymakam Kaymakamlık'a bağlı.
@@ -160,10 +160,10 @@ async function main() {
       parola_hash: adminParolaHash,
       aktif: true,
       onay_durumu: "ONAYLANDI",
-      kurum_id: kaymakamlik.id,
+      birim_id: null,
     },
     create: {
-      kurum_id: kaymakamlik.id,
+      birim_id: null,
       email: adminEmail,
       parola_hash: adminParolaHash,
       ad: "Sistem",
@@ -199,10 +199,10 @@ async function main() {
       parola_hash: kaymakamParolaHash,
       aktif: true,
       onay_durumu: "ONAYLANDI",
-      kurum_id: kaymakamlik.id,
+      birim_id: null,
     },
     create: {
-      kurum_id: kaymakamlik.id,
+      birim_id: null,
       email: kaymakamEmail,
       parola_hash: kaymakamParolaHash,
       ad: "Beşiktaş",
@@ -227,16 +227,16 @@ async function main() {
     });
   }
 
-  // ===== Özel Kalem (KURUM_AMIRI + PERSONEL) =====
-  const ozelKalem = await db.kurum.findFirst({
+  // ===== Özel Kalem (BIRIM_AMIRI + PERSONEL) =====
+  const ozelKalem = await db.birim.findFirst({
     where: { tip: "OZEL_KALEM", silindi_mi: false },
     select: { id: true },
   });
   if (!ozelKalem) {
-    throw new Error("Özel Kalem kurum kaydı oluşturulamadı.");
+    throw new Error("Özel Kalem birim kaydı oluşturulamadı.");
   }
 
-  const kurumAmiriRol = tumRoller.find((r) => r.kod === "KURUM_AMIRI");
+  const birimAmiriRol = tumRoller.find((r) => r.kod === "BIRIM_AMIRI");
   const personelRol = tumRoller.find((r) => r.kod === "PERSONEL");
 
   const ozelKalemAmirEmail = "ozelkalem.amir@pusula.local";
@@ -252,10 +252,10 @@ async function main() {
       parola_hash: ozelKalemParolaHash,
       aktif: true,
       onay_durumu: "ONAYLANDI",
-      kurum_id: ozelKalem.id,
+      birim_id: ozelKalem.id,
     },
     create: {
-      kurum_id: ozelKalem.id,
+      birim_id: ozelKalem.id,
       email: ozelKalemAmirEmail,
       parola_hash: ozelKalemParolaHash,
       ad: "Mehmet",
@@ -267,16 +267,16 @@ async function main() {
       email_dogrulandi: new Date(),
     },
   });
-  if (kurumAmiriRol) {
+  if (birimAmiriRol) {
     await db.kullaniciRol.upsert({
       where: {
         kullanici_id_rol_id: {
           kullanici_id: ozelKalemAmir.id,
-          rol_id: kurumAmiriRol.id,
+          rol_id: birimAmiriRol.id,
         },
       },
       update: {},
-      create: { kullanici_id: ozelKalemAmir.id, rol_id: kurumAmiriRol.id },
+      create: { kullanici_id: ozelKalemAmir.id, rol_id: birimAmiriRol.id },
     });
   }
 
@@ -286,10 +286,10 @@ async function main() {
       parola_hash: ozelKalemParolaHash,
       aktif: true,
       onay_durumu: "ONAYLANDI",
-      kurum_id: ozelKalem.id,
+      birim_id: ozelKalem.id,
     },
     create: {
-      kurum_id: ozelKalem.id,
+      birim_id: ozelKalem.id,
       email: ozelKalemMemurEmail,
       parola_hash: ozelKalemParolaHash,
       ad: "Elif",

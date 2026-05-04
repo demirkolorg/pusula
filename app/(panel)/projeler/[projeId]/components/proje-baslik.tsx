@@ -8,12 +8,14 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { kapakArkaplanSinifi } from "@/lib/kapak-renk";
 import type { ProjeDetayOzeti } from "../services";
+import { ProjePaylasimPopover } from "./proje-paylasim-popover";
 
 type Props = {
   proje: ProjeDetayOzeti;
+  paylasimYonet?: boolean;
 };
 
-export function ProjeBaslik({ proje }: Props) {
+export function ProjeBaslik({ proje, paylasimYonet = false }: Props) {
   const yol = usePathname();
   const listedeMi = yol?.endsWith("/liste");
 
@@ -64,6 +66,7 @@ export function ProjeBaslik({ proje }: Props) {
         >
           <ListIcon className="size-4" /> Liste
         </Button>
+        {paylasimYonet && <ProjePaylasimPopover projeId={proje.id} />}
       </div>
     </div>
   );

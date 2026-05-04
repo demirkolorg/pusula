@@ -26,7 +26,7 @@ const adminDb = new PrismaClient({
 let ortam: Ortam;
 
 async function bekleyenKullaniciOlustur(args: {
-  kurumId: string;
+  birimId: string;
   email: string;
   ad?: string;
   soyad?: string;
@@ -34,7 +34,7 @@ async function bekleyenKullaniciOlustur(args: {
   const parolaHash = await argon2.hash("Test1234!", { type: argon2.argon2id });
   return adminDb.kullanici.create({
     data: {
-      kurum_id: args.kurumId,
+      birim_id: args.birimId,
       email: args.email,
       parola_hash: parolaHash,
       ad: args.ad ?? "Bekleyen",
@@ -62,11 +62,11 @@ beforeEach(async () => {
 describe("bekleyenKullanicilariListele", () => {
   it("sadece BEKLIYOR durumundaki silinmemiş kullanıcıları döner", async () => {
     await bekleyenKullaniciOlustur({
-      kurumId: ortam.kurum.id,
+      birimId: ortam.birim.id,
       email: "bekleyen1@test.local",
     });
     await bekleyenKullaniciOlustur({
-      kurumId: ortam.kurum.id,
+      birimId: ortam.birim.id,
       email: "bekleyen2@test.local",
     });
 
@@ -80,11 +80,11 @@ describe("bekleyenKullanicilariListele", () => {
 
   it("ONAYLANDI ve REDDEDILDI durumlarını dışarıda bırakır", async () => {
     const o = await bekleyenKullaniciOlustur({
-      kurumId: ortam.kurum.id,
+      birimId: ortam.birim.id,
       email: "onayli@test.local",
     });
     const r = await bekleyenKullaniciOlustur({
-      kurumId: ortam.kurum.id,
+      birimId: ortam.birim.id,
       email: "reddedildi@test.local",
     });
     await kullaniciyiOnayla(o.id, ortam.superAdmin.id);
@@ -94,20 +94,20 @@ describe("bekleyenKullanicilariListele", () => {
     expect(liste).toHaveLength(0);
   });
 
-  it("kurum bilgisini içerir", async () => {
+  it("birim bilgisini içerir", async () => {
     await bekleyenKullaniciOlustur({
-      kurumId: ortam.kurum.id,
+      birimId: ortam.birim.id,
       email: "x@test.local",
     });
     const liste = await bekleyenKullanicilariListele();
-    expect(liste[0]?.kurum.id).toBe(ortam.kurum.id);
+    expect(liste[0]?.birim?.id).toBe(ortam.birim.id);
   });
 });
 
 describe("kullaniciyiOnayla", () => {
   it("onay_durumu=ONAYLANDI, aktif=true, onaylayan_id ve onay_zamani set", async () => {
     const k = await bekleyenKullaniciOlustur({
-      kurumId: ortam.kurum.id,
+      birimId: ortam.birim.id,
       email: "y@test.local",
     });
     const onceki = Date.now();
@@ -124,7 +124,7 @@ describe("kullaniciyiOnayla", () => {
 describe("kullaniciyiReddet", () => {
   it("onay_durumu=REDDEDILDI, aktif=false, red_sebebi set", async () => {
     const k = await bekleyenKullaniciOlustur({
-      kurumId: ortam.kurum.id,
+      birimId: ortam.birim.id,
       email: "z@test.local",
     });
     await kullaniciyiReddet(

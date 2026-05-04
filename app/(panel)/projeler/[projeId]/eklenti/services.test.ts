@@ -50,8 +50,8 @@ let ortam: Ortam;
 let kart: { id: string };
 let projeId: string;
 
-async function sahipliProjeOlustur(kurumId: string, sahipId: string) {
-  const p = await projeOlusturFiks(adminDb, { kurumId, olusturanId: sahipId });
+async function sahipliProjeOlustur(birimId: string, sahipId: string) {
+  const p = await projeOlusturFiks(adminDb, { birimId, olusturanId: sahipId });
   await adminDb.projeUyesi.create({
     data: { proje_id: p.id, kullanici_id: sahipId, seviye: "ADMIN" },
   });
@@ -69,7 +69,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await truncateAll(adminDb);
   ortam = await ortamKur(adminDb);
-  const proje = await sahipliProjeOlustur(ortam.kurum.id, ortam.superAdmin.id);
+  const proje = await sahipliProjeOlustur(ortam.birim.id, ortam.superAdmin.id);
   projeId = proje.id;
   const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
   kart = await kartOlusturFiks(adminDb, { listeId: liste.id });
@@ -77,7 +77,7 @@ beforeEach(async () => {
 
 describe("yuklemeBaslat", () => {
   it("izinli mime + boyut için presigned URL döner", async () => {
-    const r = await yuklemeBaslat(ortam.kurum.id, {
+    const r = await yuklemeBaslat(ortam.birim.id, {
       kart_id: kart.id,
       ad: "rapor.pdf",
       mime: "application/pdf",
@@ -90,7 +90,7 @@ describe("yuklemeBaslat", () => {
 
   it("izinsiz mime reddedilir", async () => {
     await expect(
-      yuklemeBaslat(ortam.kurum.id, {
+      yuklemeBaslat(ortam.birim.id, {
         kart_id: kart.id,
         ad: "betik.exe",
         mime: "application/x-msdownload",
@@ -101,7 +101,7 @@ describe("yuklemeBaslat", () => {
 
   it("25 MB üzeri boyut reddedilir (services seviyesinde)", async () => {
     await expect(
-      yuklemeBaslat(ortam.kurum.id, {
+      yuklemeBaslat(ortam.birim.id, {
         kart_id: kart.id,
         ad: "buyuk.pdf",
         mime: "application/pdf",
@@ -113,13 +113,13 @@ describe("yuklemeBaslat", () => {
 
 describe("yuklemeOnayla + listele", () => {
   it("metadata DB'ye yazılır, listeden döner", async () => {
-    const baslat = await yuklemeBaslat(ortam.kurum.id, {
+    const baslat = await yuklemeBaslat(ortam.birim.id, {
       kart_id: kart.id,
       ad: "rapor.pdf",
       mime: "application/pdf",
       boyut: 1024,
     });
-    const e = await yuklemeOnayla(ortam.kurum.id, ortam.superAdmin.id, {
+    const e = await yuklemeOnayla(ortam.birim.id, ortam.superAdmin.id, {
       kart_id: kart.id,
       ad: "rapor.pdf",
       mime: "application/pdf",
@@ -129,7 +129,7 @@ describe("yuklemeOnayla + listele", () => {
     expect(e.id).toBeTruthy();
     expect(e.yukleyen_id).toBe(ortam.superAdmin.id);
 
-    const liste = await kartEklentileriniListele(ortam.kurum.id, kart.id);
+    const liste = await kartEklentileriniListele(ortam.birim.id, kart.id);
     expect(liste).toHaveLength(1);
     expect(liste[0]!.ad).toBe("rapor.pdf");
     expect(liste[0]!.yukleyen.ad).toBeTruthy();
@@ -137,7 +137,7 @@ describe("yuklemeOnayla + listele", () => {
 
   it("yanlış prefix'li depolama_yolu reddedilir (path traversal)", async () => {
     await expect(
-      yuklemeOnayla(ortam.kurum.id, ortam.superAdmin.id, {
+      yuklemeOnayla(ortam.birim.id, ortam.superAdmin.id, {
         kart_id: kart.id,
         ad: "rapor.pdf",
         mime: "application/pdf",
@@ -150,41 +150,41 @@ describe("yuklemeOnayla + listele", () => {
 
 describe("eklentiIndirURL", () => {
   it("presigned GET URL döner", async () => {
-    const baslat = await yuklemeBaslat(ortam.kurum.id, {
+    const baslat = await yuklemeBaslat(ortam.birim.id, {
       kart_id: kart.id,
       ad: "rapor.pdf",
       mime: "application/pdf",
       boyut: 1024,
     });
-    const e = await yuklemeOnayla(ortam.kurum.id, ortam.superAdmin.id, {
+    const e = await yuklemeOnayla(ortam.birim.id, ortam.superAdmin.id, {
       kart_id: kart.id,
       ad: "rapor.pdf",
       mime: "application/pdf",
       boyut: 1024,
       depolama_yolu: baslat.depolama_yolu,
     });
-    const r = await eklentiIndirURL(ortam.kurum.id, e.id);
+    const r = await eklentiIndirURL(ortam.birim.id, e.id);
     expect(r.url).toContain("?get");
   });
 });
 
 describe("eklentiSil", () => {
   it("yükleyen kendi eklentisini siler (soft delete)", async () => {
-    const baslat = await yuklemeBaslat(ortam.kurum.id, {
+    const baslat = await yuklemeBaslat(ortam.birim.id, {
       kart_id: kart.id,
       ad: "x.pdf",
       mime: "application/pdf",
       boyut: 100,
     });
-    const e = await yuklemeOnayla(ortam.kurum.id, ortam.superAdmin.id, {
+    const e = await yuklemeOnayla(ortam.birim.id, ortam.superAdmin.id, {
       kart_id: kart.id,
       ad: "x.pdf",
       mime: "application/pdf",
       boyut: 100,
       depolama_yolu: baslat.depolama_yolu,
     });
-    await eklentiSil(ortam.kurum.id, ortam.superAdmin.id, e.id);
-    const liste = await kartEklentileriniListele(ortam.kurum.id, kart.id);
+    await eklentiSil(ortam.birim.id, ortam.superAdmin.id, e.id);
+    const liste = await kartEklentileriniListele(ortam.birim.id, kart.id);
     expect(liste).toEqual([]);
   });
 
@@ -193,13 +193,13 @@ describe("eklentiSil", () => {
     await adminDb.projeUyesi.create({
       data: { proje_id: projeId, kullanici_id: ortam.personel.id, seviye: "NORMAL" },
     });
-    const baslat = await yuklemeBaslat(ortam.kurum.id, {
+    const baslat = await yuklemeBaslat(ortam.birim.id, {
       kart_id: kart.id,
       ad: "x.pdf",
       mime: "application/pdf",
       boyut: 100,
     });
-    const e = await yuklemeOnayla(ortam.kurum.id, ortam.personel.id, {
+    const e = await yuklemeOnayla(ortam.birim.id, ortam.personel.id, {
       kart_id: kart.id,
       ad: "x.pdf",
       mime: "application/pdf",
@@ -208,8 +208,8 @@ describe("eklentiSil", () => {
     });
 
     // SuperAdmin (ADMIN) silebilir
-    await eklentiSil(ortam.kurum.id, ortam.superAdmin.id, e.id);
-    const liste = await kartEklentileriniListele(ortam.kurum.id, kart.id);
+    await eklentiSil(ortam.birim.id, ortam.superAdmin.id, e.id);
+    const liste = await kartEklentileriniListele(ortam.birim.id, kart.id);
     expect(liste).toEqual([]);
   });
 });

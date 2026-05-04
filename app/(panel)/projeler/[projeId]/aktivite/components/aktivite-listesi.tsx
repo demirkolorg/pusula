@@ -41,7 +41,7 @@ const KATEGORI_ETIKET: Record<AktiviteOzeti["kategori"], string> = {
   yorum: "Yorum",
   eklenti: "Eklenti",
   iliski: "İlişki",
-  "hedef-kurum": "Hedef Kurum",
+  "hedef-birim": "Birim",
   diger: "Diğer",
 };
 
@@ -100,7 +100,7 @@ const KATEGORI_IKON: Record<
   yorum: MessageSquareIcon,
   eklenti: PaperclipIcon,
   iliski: LinkIcon,
-  "hedef-kurum": Building2Icon,
+  "hedef-birim": Building2Icon,
   diger: FilePlus2Icon,
 };
 
@@ -565,7 +565,7 @@ function kategoriArkaplan(kategori: AktiviteOzeti["kategori"]): string {
       return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
     case "iliski":
       return "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300";
-    case "hedef-kurum":
+    case "hedef-birim":
       return "bg-cyan-100 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300";
     case "kart":
     case "diger":
@@ -587,7 +587,7 @@ function kategoriYazi(kategori: AktiviteOzeti["kategori"]): string {
       return "text-emerald-600 dark:text-emerald-400";
     case "iliski":
       return "text-rose-600 dark:text-rose-400";
-    case "hedef-kurum":
+    case "hedef-birim":
       return "text-cyan-600 dark:text-cyan-400";
     default:
       return "text-muted-foreground";

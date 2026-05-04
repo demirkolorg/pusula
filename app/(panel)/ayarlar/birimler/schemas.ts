@@ -1,11 +1,11 @@
 import { z } from "zod";
-import { KurumKategorisi, KurumTipi } from "@prisma/client";
-import { KURUM_TIP_TEKIL } from "@/lib/constants/kurum";
+import { BirimKategorisi, BirimTipi } from "@prisma/client";
+import { BIRIM_TIP_TEKIL } from "@/lib/constants/birim";
 
-export const kurumOlusturSemasi = z
+export const birimOlusturSemasi = z
   .object({
-    kategori: z.nativeEnum(KurumKategorisi),
-    tip: z.nativeEnum(KurumTipi),
+    kategori: z.nativeEnum(BirimKategorisi),
+    tip: z.nativeEnum(BirimTipi),
     ad: z.string().trim().max(200).optional().nullable(),
     kisa_ad: z.string().trim().max(50).optional().nullable(),
     il: z.string().trim().max(100).optional().nullable(),
@@ -13,21 +13,21 @@ export const kurumOlusturSemasi = z
   })
   .superRefine((d, ctx) => {
     // Çoklu tip ise ad zorunlu (Eczane, Okul, Cami vb.)
-    const tekil = KURUM_TIP_TEKIL.has(d.tip);
+    const tekil = BIRIM_TIP_TEKIL.has(d.tip);
     if (!tekil && (!d.ad || d.ad.length < 2)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["ad"],
-        message: "Bu kurum tipi için ad zorunlu (en az 2 karakter).",
+        message: "Bu birim tipi için ad zorunlu (en az 2 karakter).",
       });
     }
   });
 
-export const kurumGuncelleSemasi = z
+export const birimGuncelleSemasi = z
   .object({
     id: z.string().uuid(),
-    kategori: z.nativeEnum(KurumKategorisi),
-    tip: z.nativeEnum(KurumTipi),
+    kategori: z.nativeEnum(BirimKategorisi),
+    tip: z.nativeEnum(BirimTipi),
     ad: z.string().trim().max(200).optional().nullable(),
     kisa_ad: z.string().trim().max(50).optional().nullable(),
     il: z.string().trim().max(100).optional().nullable(),
@@ -35,27 +35,27 @@ export const kurumGuncelleSemasi = z
     aktif: z.boolean().optional(),
   })
   .superRefine((d, ctx) => {
-    const tekil = KURUM_TIP_TEKIL.has(d.tip);
+    const tekil = BIRIM_TIP_TEKIL.has(d.tip);
     if (!tekil && (!d.ad || d.ad.length < 2)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["ad"],
-        message: "Bu kurum tipi için ad zorunlu (en az 2 karakter).",
+        message: "Bu birim tipi için ad zorunlu (en az 2 karakter).",
       });
     }
   });
 
-export const kurumSilSemasi = z.object({ id: z.string().uuid() });
+export const birimSilSemasi = z.object({ id: z.string().uuid() });
 
-export const kurumListeSemasi = z.object({
+export const birimListeSemasi = z.object({
   sayfa: z.number().int().min(1).default(1),
   sayfaBoyutu: z.number().int().min(1).max(100).default(20),
   arama: z.string().optional(),
-  kategori: z.nativeEnum(KurumKategorisi).optional(),
-  tip: z.nativeEnum(KurumTipi).optional(),
+  kategori: z.nativeEnum(BirimKategorisi).optional(),
+  tip: z.nativeEnum(BirimTipi).optional(),
 });
 
-export type KurumOlustur = z.infer<typeof kurumOlusturSemasi>;
-export type KurumGuncelle = z.infer<typeof kurumGuncelleSemasi>;
-export type KurumSil = z.infer<typeof kurumSilSemasi>;
-export type KurumListe = z.infer<typeof kurumListeSemasi>;
+export type BirimOlustur = z.infer<typeof birimOlusturSemasi>;
+export type BirimGuncelle = z.infer<typeof birimGuncelleSemasi>;
+export type BirimSil = z.infer<typeof birimSilSemasi>;
+export type BirimListe = z.infer<typeof birimListeSemasi>;

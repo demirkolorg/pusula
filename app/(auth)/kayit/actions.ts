@@ -22,15 +22,15 @@ export const kayitOl = eylem({
       );
     }
 
-    const kurum = await db.kurum.findUnique({
-      where: { id: girdi.kurum_id },
+    const birim = await db.birim.findUnique({
+      where: { id: girdi.birim_id },
       select: { id: true, silindi_mi: true, aktif: true },
     });
-    if (!kurum || kurum.silindi_mi || !kurum.aktif) {
+    if (!birim || birim.silindi_mi || !birim.aktif) {
       throw new EylemHatasi(
-        "Seçilen kurum geçerli değil.",
+        "Seçilen birim geçerli değil.",
         HATA_KODU.GECERSIZ_GIRDI,
-        { kurum_id: "Geçersiz kurum." },
+        { birim_id: "Geçersiz birim." },
       );
     }
 
@@ -40,7 +40,7 @@ export const kayitOl = eylem({
 
     const yeni = await db.kullanici.create({
       data: {
-        kurum_id: girdi.kurum_id,
+        birim_id: girdi.birim_id,
         email,
         parola_hash: parolaHash,
         ad: girdi.ad.trim(),

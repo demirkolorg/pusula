@@ -18,9 +18,9 @@ export type KullaniciSatiri = {
   aktif: boolean;
   silindi_mi: boolean;
   son_giris_zamani: Date | null;
-  kurum_id: string;
-  kurum_ad: string | null;
-  kurum_tip: string;
+  birim_id: string | null;
+  birim_ad: string | null;
+  birim_tip: string | null;
   roller: { id: string; kod: string; ad: string }[];
 };
 
@@ -39,7 +39,7 @@ export async function kullanicilariListele(
       where.id = { in: idler };
     }
   }
-  // Tek-kurum (ADR-0007) — kurum filtresi kaldırıldı.
+  // Tek-birim (ADR-0007) — birim filtresi kaldırıldı.
   if (girdi.aktif !== undefined) where.aktif = girdi.aktif;
   if (girdi.rolId) {
     where.roller = { some: { rol_id: girdi.rolId } };
@@ -62,8 +62,8 @@ export async function kullanicilariListele(
         aktif: true,
         silindi_mi: true,
         son_giris_zamani: true,
-        kurum_id: true,
-        kurum: { select: { ad: true, tip: true } },
+        birim_id: true,
+        birim: { select: { ad: true, tip: true } },
         roller: { select: { rol: { select: { id: true, kod: true, ad: true } } } },
       },
     }),
@@ -81,9 +81,9 @@ export async function kullanicilariListele(
       aktif: k.aktif,
       silindi_mi: k.silindi_mi,
       son_giris_zamani: k.son_giris_zamani,
-      kurum_id: k.kurum_id,
-      kurum_ad: k.kurum.ad,
-      kurum_tip: k.kurum.tip,
+      birim_id: k.birim_id,
+      birim_ad: k.birim?.ad ?? null,
+      birim_tip: k.birim?.tip ?? null,
       roller: k.roller.map((r) => r.rol),
     })),
   };
@@ -108,7 +108,7 @@ export async function kullaniciyiGuncelle(
         soyad: girdi.soyad.trim(),
         unvan: girdi.unvan?.trim() || null,
         telefon: girdi.telefon?.trim() || null,
-        kurum_id: girdi.kurum_id,
+        birim_id: girdi.birim_id,
         aktif: girdi.aktif,
       },
     });
@@ -162,13 +162,13 @@ export async function davetOlustur(
     throw new Error("Bu e-posta ile zaten bir kullanıcı var.");
   }
 
-  // Davet edilen kurum mevcut mu?
-  const kurum = await db.kurum.findUnique({
-    where: { id: girdi.kurum_id },
+  // Davet edilen birim mevcut mu?
+  const birim = await db.birim.findUnique({
+    where: { id: girdi.birim_id },
     select: { id: true, silindi_mi: true, aktif: true },
   });
-  if (!kurum || kurum.silindi_mi || !kurum.aktif) {
-    throw new Error("Seçilen kurum geçerli değil.");
+  if (!birim || birim.silindi_mi || !birim.aktif) {
+    throw new Error("Seçilen birim geçerli değil.");
   }
 
   const token = tokenUret();
@@ -181,7 +181,7 @@ export async function davetOlustur(
       token,
       email,
       rol_id: girdi.rol_id || null,
-      kurum_id: girdi.kurum_id,
+      birim_id: girdi.birim_id,
       davet_eden_id: davetEdenId,
       son_kullanma: sonKullanma,
     },
@@ -213,7 +213,7 @@ export async function bekleyenKullanicilariListele() {
       telefon: true,
       unvan: true,
       olusturma_zamani: true,
-      kurum: { select: { id: true, ad: true, tip: true } },
+      birim: { select: { id: true, ad: true, tip: true } },
     },
   });
 }

@@ -60,7 +60,7 @@ export function ParolaSifirlaIstekForm() {
           inputMode="email"
           autoComplete="email"
           autoFocus
-          placeholder="ad.soyad@kurum.gov.tr"
+          placeholder="ad.soyad@birim.gov.tr"
           aria-invalid={!!errors.email}
           {...register("email")}
         />
