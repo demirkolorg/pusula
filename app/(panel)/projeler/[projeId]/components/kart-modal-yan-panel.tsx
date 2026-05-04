@@ -56,9 +56,13 @@ export function KartModalYanPanel({ kartId, projeId }: Props) {
         {aktif === "yorumlar" && (
           <KartModalYorumListesi kartId={kartId} projeId={projeId} />
         )}
-        {aktif === "aktivite" && <KartModalAktiviteListesi kartId={kartId} />}
+        {aktif === "aktivite" && (
+          <KartModalAktiviteListesi kartId={kartId} projeId={projeId} />
+        )}
         {aktif === "ekler" && <KartModalEklerListesi kartId={kartId} />}
-        {aktif === "tumu" && <KartModalTumuListesi kartId={kartId} />}
+        {aktif === "tumu" && (
+          <KartModalTumuListesi kartId={kartId} projeId={projeId} />
+        )}
       </div>
     </aside>
   );
