@@ -43,6 +43,10 @@ import { YorumListesi } from "../yorum/components/yorum-listesi";
 import { KontrolListesiPaneli } from "../kontrol-listesi/components/kontrol-listesi-paneli";
 import { useKontrolListesiOlustur, tempId as klTempId } from "../kontrol-listesi/hooks";
 import { IliskiPopover } from "../iliski/components/iliski-popover";
+import {
+  EklentiPaneli,
+  EklentiSidebarButonu,
+} from "../eklenti/components/eklenti-paneli";
 
 type Props = {
   kartId: string | null;
@@ -216,6 +220,8 @@ function KartModalIcerik({ kartId, projeId, kapat }: { kartId: string; projeId: 
 
           <KontrolListesiPaneli kartId={bulunan.kart.id} />
 
+          <EklentiPaneli kartId={bulunan.kart.id} />
+
           <YorumListesi kartId={bulunan.kart.id} />
         </div>
 
@@ -244,7 +250,7 @@ function KartModalIcerik({ kartId, projeId, kapat }: { kartId: string; projeId: 
               }
             />
             <KontrolListesiHizliEkle kartId={bulunan.kart.id} />
-            <SidebarBtn icon={PaperclipIcon} label="Eklenti" yakinda />
+            <EklentiSidebarButonu kartId={bulunan.kart.id} />
             <IliskiPopover
               kartId={bulunan.kart.id}
               projeId={projeId}
@@ -335,26 +341,3 @@ function KontrolListesiHizliEkle({ kartId }: { kartId: string }) {
   );
 }
 
-function SidebarBtn({
-  icon: Icon,
-  label,
-  yakinda,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  yakinda?: boolean;
-}) {
-  return (
-    <Button
-      variant="ghost"
-      className="justify-start"
-      disabled={yakinda}
-      onClick={() => yakinda && toast.bilgi(`${label} — yakında eklenecek (S4)`)}
-    >
-      <Icon className="size-4" /> {label}
-      {yakinda && (
-        <span className="text-muted-foreground ml-auto text-xs">Yakında</span>
-      )}
-    </Button>
-  );
-}
