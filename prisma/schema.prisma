@@ -283,6 +283,8 @@ model Kullanici {
   eklentiler          Eklenti[]        @relation("EklentiYukleyen")
   tamamlanan_maddeler KontrolMaddesi[] @relation("KontrolTamamlayan")
   atanan_maddeler     KontrolMaddesi[] @relation("KontrolAtanan")
+  bildirimler         Bildirim[]       @relation("BildirimAlici")
+  ureten_bildirimler  Bildirim[]       @relation("BildirimUreten")
 
   @@index([kurum_id])
   @@index([email])
@@ -687,4 +689,55 @@ model KontrolMaddesi {
 
   @@index([kontrol_listesi_id, sira])
   @@index([atanan_id])
+}
+
+// ============================================================
+// Bildirim (S5 — kalıcı in-app bildirim merkezi)
+// Plan: docs/plan.md Bölüm 1.5/E + Bölüm 7 S5
+// Kurallar: SKILL.md Kural 63 (kalıcı → Bildirim, geçici → Sonner)
+// ============================================================
+
+enum BildirimTipi {
+  // Yorum içinde @mention edildi
+  YORUM_MENTION
+  // Karta üye olarak atandı
+  KART_UYE_ATAMA
+  // Kontrol maddesi atandı
+  MADDE_ATAMA
+  // Kart bitiş tarihi yaklaşıyor / geçti
+  BITIS_YAKLASIYOR
+  BITIS_GECTI
+  // Karta yorum yazıldı (kart üyelerine)
+  YORUM_EKLENDI
+  // Karta eklenti yüklendi (kart üyelerine)
+  EKLENTI_YUKLENDI
+}
+
+model Bildirim {
+  id               BigInt       @id @default(autoincrement())
+  alici_id         String       @db.Uuid
+  ureten_id        String?      @db.Uuid // sistem bildiriminde null
+  tip              BildirimTipi
+  // Bildirimle ilişkili kaynak (kart/yorum/eklenti) — derin link için
+  kaynak_tip       String?
+  kaynak_id        String?      @db.Uuid
+  // Öneri: kart_id derin link için her zaman doldurulur (varsa)
+  kart_id          String?      @db.Uuid
+  proje_id         String?      @db.Uuid
+  // TR mesaj — örn "Ahmet kartta sizi etiketledi: 'Lütfen kontrol edin…'"
+  // İçerik tetikleyici tarafından dilte üretilir; çevrilmez (i18n v2'de).
+  baslik           String
+  ozet             String?
+  // Ekstra payload (UI için ek bilgi: yorum_id, eklenti_id vb.)
+  meta             Json?
+  okundu_mu        Boolean      @default(false)
+  okuma_zamani     DateTime?
+  olusturma_zamani DateTime     @default(now())
+
+  alici  Kullanici  @relation("BildirimAlici", fields: [alici_id], references: [id], onDelete: Cascade)
+  ureten Kullanici? @relation("BildirimUreten", fields: [ureten_id], references: [id])
+
+  @@index([alici_id, okundu_mu, olusturma_zamani(sort: Desc)])
+  @@index([alici_id, olusturma_zamani(sort: Desc)])
+  @@index([kart_id])
 }

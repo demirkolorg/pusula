@@ -1,6 +1,10 @@
 import { db } from "@/lib/db";
 import { EylemHatasi } from "@/lib/action-wrapper";
 import { HATA_KODU } from "@/lib/sonuc";
+import {
+  tetikleYorumEklendi,
+  tetikleYorumMention,
+} from "@/app/(panel)/bildirimler/tetikleyiciler";
 import type {
   YorumGuncelle,
   YorumOlustur,
@@ -130,6 +134,26 @@ export async function yorumOlustur(
       yazan: { select: { ad: true, soyad: true, email: true } },
     },
   });
+
+  // Bildirim tetikleyicileri — fail ederse yorum yazılır, sadece bildirim
+  // kaybolur (hata sessiz). Audit log her şeyi yakalar.
+  Promise.all([
+    tetikleYorumMention({
+      yorumId: y.id,
+      kartId: girdi.kart_id,
+      yazanId,
+      icerik: girdi.icerik,
+    }),
+    tetikleYorumEklendi({
+      yorumId: y.id,
+      kartId: girdi.kart_id,
+      yazanId,
+      icerik: girdi.icerik,
+    }),
+  ]).catch(() => {
+    /* Bildirim hatası yorum işlemini bozmaz */
+  });
+
   return y;
 }
 

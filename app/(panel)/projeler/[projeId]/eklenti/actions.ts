@@ -5,6 +5,7 @@ import { yetkiZorunlu, IZIN_KODLARI } from "@/lib/permissions";
 import { yetkiZorunluKart } from "@/lib/yetki";
 import { uploadLimiter } from "@/lib/rate-limit";
 import { HATA_KODU } from "@/lib/sonuc";
+import { tetikleEklentiYuklendi } from "@/app/(panel)/bildirimler/tetikleyiciler";
 import {
   eklentiIndirSemasi,
   eklentiSilSemasi,
@@ -68,7 +69,15 @@ export const yuklemeOnaylaEylem = eylem({
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.kart_id);
-    return yuklemeOnaylaSrv(kurumIdAl(ctx), kullaniciIdAl(ctx), girdi);
+    const yukleyenId = kullaniciIdAl(ctx);
+    const e = await yuklemeOnaylaSrv(kurumIdAl(ctx), yukleyenId, girdi);
+    tetikleEklentiYuklendi({
+      eklentiId: e.id,
+      kartId: girdi.kart_id,
+      yukleyenId,
+      ad: e.ad,
+    }).catch(() => {});
+    return e;
   },
 });
 

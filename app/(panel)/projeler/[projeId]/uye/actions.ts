@@ -4,6 +4,7 @@ import { eylem, EylemHatasi } from "@/lib/action-wrapper";
 import { yetkiZorunlu, IZIN_KODLARI } from "@/lib/permissions";
 import { yetkiZorunluProje, yetkiZorunluKart } from "@/lib/yetki";
 import { HATA_KODU } from "@/lib/sonuc";
+import { tetikleKartUyeAtama } from "@/app/(panel)/bildirimler/tetikleyiciler";
 import {
   kartaUyeEkleSemasi,
   kartaUyeKaldirSemasi,
@@ -135,7 +136,17 @@ export const kartaUyeEkleEylem = eylem({
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.kart_id);
+    const atayanId = ctx.oturum?.kullaniciId ?? null;
     await kartaUyeEkleSrv(kurumIdAl(ctx), girdi.kart_id, girdi.kullanici_id);
+    if (atayanId) {
+      tetikleKartUyeAtama({
+        kartId: girdi.kart_id,
+        atananId: girdi.kullanici_id,
+        atayanId,
+      }).catch(() => {
+        /* Bildirim hatası işlemi bozmaz */
+      });
+    }
     return { kart_id: girdi.kart_id, kullanici_id: girdi.kullanici_id };
   },
 });

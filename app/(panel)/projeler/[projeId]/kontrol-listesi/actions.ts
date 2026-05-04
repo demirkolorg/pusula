@@ -4,6 +4,7 @@ import { eylem, EylemHatasi } from "@/lib/action-wrapper";
 import { yetkiZorunlu, IZIN_KODLARI } from "@/lib/permissions";
 import { yetkiZorunluKart } from "@/lib/yetki";
 import { HATA_KODU } from "@/lib/sonuc";
+import { tetikleMaddeAtama } from "@/app/(panel)/bildirimler/tetikleyiciler";
 import {
   kontrolListeleriListeleSemasi,
   kontrolListesiGuncelleSemasi,
@@ -89,7 +90,17 @@ export const maddeOlusturEylem = eylem({
   girdi: maddeOlusturSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
-    return maddeOlusturSrv(kurumIdAl(ctx), girdi);
+    const atayanId = ctx.oturum?.kullaniciId ?? null;
+    const m = await maddeOlusturSrv(kurumIdAl(ctx), girdi);
+    if (girdi.atanan_id && atayanId) {
+      tetikleMaddeAtama({
+        maddeId: m.id,
+        metin: m.metin,
+        atananId: girdi.atanan_id,
+        atayanId,
+      }).catch(() => {});
+    }
+    return m;
   },
 });
 
@@ -98,7 +109,17 @@ export const maddeGuncelleEylem = eylem({
   girdi: maddeGuncelleSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
+    const atayanId = ctx.oturum?.kullaniciId ?? null;
     await maddeGuncelleSrv(kurumIdAl(ctx), kullaniciIdAl(ctx), girdi);
+    // atanan_id explicit verildiyse (yeni atama veya değişim) bildir.
+    if (girdi.atanan_id && atayanId) {
+      tetikleMaddeAtama({
+        maddeId: girdi.id,
+        metin: girdi.metin ?? "",
+        atananId: girdi.atanan_id,
+        atayanId,
+      }).catch(() => {});
+    }
     return { id: girdi.id };
   },
 });

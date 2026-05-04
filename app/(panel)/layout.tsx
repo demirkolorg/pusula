@@ -17,7 +17,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { auth } from "@/auth";
-import { BellIcon } from "lucide-react";
+import { BildirimDropdown } from "@/app/(panel)/bildirimler/components/bildirim-dropdown";
 
 export default async function PanelLayout({
   children,
@@ -53,16 +53,7 @@ export default async function PanelLayout({
           </div>
           <div className="flex items-center gap-1 px-4">
             <ThemeToggle />
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Bildirimler"
-              className="relative cursor-pointer"
-              nativeButton={false}
-              render={<Link href="/bildirimler" />}
-            >
-              <BellIcon className="size-4" />
-            </Button>
+            <BildirimDropdown />
             <HeaderUserMenu
               user={{
                 name: adSoyad,
