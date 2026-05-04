@@ -8,6 +8,15 @@ import type { KartAktiviteleriListele } from "./schemas";
 // Tipler
 // =====================================================================
 
+export type AlanDegisikligi = {
+  // TR alan etiketi — örn "Başlık", "Bitiş tarihi", "Liste"
+  alan: string;
+  // Format'lanmış eski/yeni değer (Date → "04.05.2026 14:30", null → "—",
+  // boolean → "Evet"/"Hayır", id → join'lenmiş ad). Uzun metin kısaltılmış.
+  eski: string | null;
+  yeni: string | null;
+};
+
 export type AktiviteOzeti = {
   id: string; // BigInt → string (JSON safe)
   zaman: Date;
@@ -32,6 +41,10 @@ export type AktiviteOzeti = {
   // (KartEtiket, KartUyesi, KartHedefKurumu). Tümü sekmesinde inline yorum/ek
   // eşleştirmesi için kullanılır.
   kaynak_id: string | null;
+  // UPDATE event'lerinde alan-bazlı diff (eski → yeni). UI 2. satırda gösterir.
+  // Anlamsız alanlar (sira, guncelleme_zamani, silindi_mi, arsiv_mi vb.)
+  // ana mesajda ifade edildiği için listede yer almaz.
+  degisiklikler: AlanDegisikligi[] | null;
 };
 
 // =====================================================================
@@ -173,10 +186,12 @@ export async function kartAktiviteleriniListele(
     : [];
   const kullaniciMap = new Map(kullanicilar.map((k) => [k.id, k]));
 
-  // Etiket / kullanıcı / kurum id'lerini join için topla
+  // Etiket / kullanıcı / kurum / liste id'lerini join için topla
   const etiketIdler = new Set<string>();
   const atananIdler = new Set<string>();
   const kurumIdler = new Set<string>();
+  const listeIdler = new Set<string>();
+  const eklentiIdler = new Set<string>();
   for (const a of ham) {
     if (a.kaynak_tip === "KartEtiket") {
       const ePost = (a.yeni_veri as { etiket_id?: string } | null)?.etiket_id;
@@ -198,9 +213,23 @@ export async function kartAktiviteleriniListele(
       if (kPost) kurumIdler.add(kPost);
       if (kPre) kurumIdler.add(kPre);
     }
+    // Diff içinden id alanlarını topla (kart taşıma, atan değişimi, kapak)
+    const diff = a.diff as Record<string, { eski: unknown; yeni: unknown }> | null;
+    if (diff) {
+      const idAlan = (k: string, set: Set<string>) => {
+        const e = diff[k]?.eski;
+        const y = diff[k]?.yeni;
+        if (typeof e === "string") set.add(e);
+        if (typeof y === "string") set.add(y);
+      };
+      idAlan("liste_id", listeIdler);
+      idAlan("atanan_id", atananIdler);
+      idAlan("tamamlayan_id", atananIdler);
+      idAlan("kapak_dosya_id", eklentiIdler);
+    }
   }
 
-  const [etiketler, atananlar, kurumlar] = await Promise.all([
+  const [etiketler, atananlar, kurumlar, listeler, eklentiAdlar] = await Promise.all([
     etiketIdler.size > 0
       ? db.etiket.findMany({
           where: { id: { in: Array.from(etiketIdler) } },
@@ -219,17 +248,49 @@ export async function kartAktiviteleriniListele(
           select: { id: true, ad: true, kisa_ad: true, tip: true },
         })
       : Promise.resolve([]),
+    listeIdler.size > 0
+      ? db.liste.findMany({
+          where: { id: { in: Array.from(listeIdler) } },
+          select: { id: true, ad: true },
+        })
+      : Promise.resolve([]),
+    eklentiIdler.size > 0
+      ? db.eklenti.findMany({
+          where: { id: { in: Array.from(eklentiIdler) } },
+          select: { id: true, ad: true },
+        })
+      : Promise.resolve([]),
   ]);
   const etiketMap = new Map(etiketler.map((e) => [e.id, e]));
   const atananMap = new Map(atananlar.map((u) => [u.id, u]));
   const kurumMap = new Map(
     kurumlar.map((k) => [k.id, kurumGoruntu(k)] as const),
   );
+  const listeMap = new Map(listeler.map((l) => [l.id, l.ad] as const));
+  const eklentiAdMap = new Map(
+    eklentiAdlar.map((e) => [e.id, e.ad] as const),
+  );
+
+  // Atan kullanıcısı ad/soyad'ı da string olarak hazır olsun (degisiklikler
+  // formatlamasında kullanılır)
+  const idMaplar: IdMaplar = {
+    liste: listeMap,
+    kullanici: new Map(atananlar.map((u) => [u.id, `${u.ad} ${u.soyad}`])),
+    eklenti: eklentiAdMap,
+    kurum: kurumMap,
+  };
 
   return ham.map((a) =>
-    aktiviteOzetle(a, kullaniciMap, etiketMap, atananMap, kurumMap),
+    aktiviteOzetle(a, kullaniciMap, etiketMap, atananMap, kurumMap, idMaplar),
   );
 }
+
+type IdMaplar = {
+  liste: Map<string, string>;
+  kullanici: Map<string, string>;
+  eklenti: Map<string, string>;
+  kurum: Map<string, string>;
+};
 
 function kurumGoruntu(k: {
   ad: string | null;
@@ -279,6 +340,7 @@ function aktiviteOzetle(
   etiketMap: Map<string, { id: string; ad: string; renk: string }>,
   atananMap: Map<string, { id: string; ad: string; soyad: string }>,
   kurumMap: Map<string, string>,
+  idMaplar: IdMaplar,
 ): AktiviteOzeti {
   const islem = (a.islem === "CREATE" || a.islem === "UPDATE" || a.islem === "DELETE"
     ? a.islem
@@ -288,12 +350,16 @@ function aktiviteOzetle(
     ? kullaniciMap.get(a.kullanici_id) ?? null
     : null;
 
+  const degisiklikler =
+    islem === "UPDATE" ? degisiklikleriHazirla(a, idMaplar) : null;
+
   const ortak = {
     id: a.id.toString(),
     zaman: a.zaman,
     kullanici,
     islem,
     kaynak_id: a.kaynak_id,
+    degisiklikler,
   };
 
   switch (a.kaynak_tip) {
@@ -370,8 +436,11 @@ function kartMesaji(
       detay: null,
     };
   }
-  if (alanlar.includes("liste_id") || alanlar.includes("sira")) {
+  if (alanlar.includes("liste_id")) {
     return { kategori: "kart", mesaj: "kartı taşıdı", detay: null };
+  }
+  if (alanlar.includes("sira")) {
+    return { kategori: "kart", mesaj: "kartı yeniden sıraladı", detay: null };
   }
   // Genel alan değişikliği
   const onemli = alanlar.find((k) => KART_ALAN_ETIKETI[k]);
@@ -474,17 +543,24 @@ function kontrolMaddesiMesaji(
   return { kategori: "kontrol-maddesi", mesaj: "kontrol maddesini güncelledi", detay: metin };
 }
 
+// Why: Composite-PK ilişki tablolarında (KartUyesi/KartEtiket/KartHedefKurumu)
+// idempotent ekleme için `upsert` kullanılıyor. Audit middleware geçmişte
+// upsert'i UPDATE olarak loglardı; bu yüzden yeni ekleme bile "kaldırıldı"
+// görünüyordu. Bu fonksiyonlar artık islem yerine veri varlığına bakar:
+// yeni_veri'de kayıt id'si varsa ekleme, yalnız eski_veri'de varsa kaldırma.
+// Audit middleware artık doğru CREATE yazıyor (lib/audit-middleware.ts), ama
+// bu kontrol geçmiş yanlış kayıtları da otomatik düzeltir.
 function kartEtiketMesaji(
   a: HamAktivite,
   islem: AktiviteOzeti["islem"],
   etiketMap: Map<string, { id: string; ad: string; renk: string }>,
 ): Pick<AktiviteOzeti, "kategori" | "mesaj" | "detay"> {
-  const etiketId =
-    jsonAlan<string>(a.yeni_veri, "etiket_id") ??
-    jsonAlan<string>(a.eski_veri, "etiket_id") ??
-    null;
+  const yeniId = jsonAlan<string>(a.yeni_veri, "etiket_id");
+  const eskiId = jsonAlan<string>(a.eski_veri, "etiket_id");
+  const etiketId = yeniId ?? eskiId ?? null;
   const ad = etiketId ? etiketMap.get(etiketId)?.ad ?? null : null;
-  if (islem === "CREATE") {
+  const eklendi = yeniId ? true : islem === "CREATE";
+  if (eklendi) {
     return { kategori: "etiket", mesaj: "etiket ekledi", detay: ad };
   }
   return { kategori: "etiket", mesaj: "etiketi kaldırdı", detay: ad };
@@ -495,13 +571,13 @@ function kartUyesiMesaji(
   islem: AktiviteOzeti["islem"],
   atananMap: Map<string, { id: string; ad: string; soyad: string }>,
 ): Pick<AktiviteOzeti, "kategori" | "mesaj" | "detay"> {
-  const uId =
-    jsonAlan<string>(a.yeni_veri, "kullanici_id") ??
-    jsonAlan<string>(a.eski_veri, "kullanici_id") ??
-    null;
+  const yeniId = jsonAlan<string>(a.yeni_veri, "kullanici_id");
+  const eskiId = jsonAlan<string>(a.eski_veri, "kullanici_id");
+  const uId = yeniId ?? eskiId ?? null;
   const u = uId ? atananMap.get(uId) : null;
   const ad = u ? `${u.ad} ${u.soyad}` : null;
-  if (islem === "CREATE") {
+  const eklendi = yeniId ? true : islem === "CREATE";
+  if (eklendi) {
     return { kategori: "uye", mesaj: "üye atadı", detay: ad };
   }
   return { kategori: "uye", mesaj: "üyeyi kaldırdı", detay: ad };
@@ -511,10 +587,9 @@ function kartIliskisiMesaji(
   a: HamAktivite,
   islem: AktiviteOzeti["islem"],
 ): Pick<AktiviteOzeti, "kategori" | "mesaj" | "detay"> {
-  const tip =
-    jsonAlan<string>(a.yeni_veri, "tip") ??
-    jsonAlan<string>(a.eski_veri, "tip") ??
-    null;
+  const yeniTip = jsonAlan<string>(a.yeni_veri, "tip");
+  const eskiTip = jsonAlan<string>(a.eski_veri, "tip");
+  const tip = yeniTip ?? eskiTip ?? null;
   const tipAd =
     tip === "BLOCKS"
       ? "engelliyor"
@@ -523,7 +598,8 @@ function kartIliskisiMesaji(
         : tip === "DUPLICATES"
           ? "tekrarı"
           : null;
-  if (islem === "CREATE") {
+  const eklendi = yeniTip ? true : islem === "CREATE";
+  if (eklendi) {
     return { kategori: "iliski", mesaj: "kart ilişkisi kurdu", detay: tipAd };
   }
   return { kategori: "iliski", mesaj: "kart ilişkisini kaldırdı", detay: tipAd };
@@ -534,12 +610,12 @@ function hedefKurumMesaji(
   islem: AktiviteOzeti["islem"],
   kurumMap: Map<string, string>,
 ): Pick<AktiviteOzeti, "kategori" | "mesaj" | "detay"> {
-  const kurumId =
-    jsonAlan<string>(a.yeni_veri, "kurum_id") ??
-    jsonAlan<string>(a.eski_veri, "kurum_id") ??
-    null;
+  const yeniId = jsonAlan<string>(a.yeni_veri, "kurum_id");
+  const eskiId = jsonAlan<string>(a.eski_veri, "kurum_id");
+  const kurumId = yeniId ?? eskiId ?? null;
   const ad = kurumId ? kurumMap.get(kurumId) ?? null : null;
-  if (islem === "CREATE") {
+  const eklendi = yeniId ? true : islem === "CREATE";
+  if (eklendi) {
     return { kategori: "hedef-kurum", mesaj: "hedef kurum ekledi", detay: ad };
   }
   return { kategori: "hedef-kurum", mesaj: "hedef kurumu kaldırdı", detay: ad };
@@ -548,3 +624,145 @@ function hedefKurumMesaji(
 function kisalt(s: string, n: number): string {
   return s.length <= n ? s : s.slice(0, n - 1) + "…";
 }
+
+// =====================================================================
+// Diff → Alan değişikliği listesi
+// =====================================================================
+
+// Anlamsız alanlar (UI'a gösterilmez): zamanlar, sıralama, sistem flag'leri
+const YOKSAY_ALANLAR = new Set([
+  "olusturma_zamani",
+  "guncelleme_zamani",
+  "tamamlama_zamani",
+  "eklenme_zamani",
+  "silinme_zamani",
+  "sira",
+  // Bu alanlar ana mesajda zaten ifade ediliyor, çift göstermeyelim
+  "silindi_mi",
+  "arsiv_mi",
+  "tamamlandi_mi",
+  "duzenlendi_mi",
+  // Anti-noise: meta-alanlar
+  "id",
+  "kart_id",
+  "proje_id",
+  "kontrol_listesi_id",
+  "olusturan_id",
+]);
+
+// Kaynak tip + alan adı → TR etiket
+const ALAN_ETIKETI: Record<string, Record<string, string>> = {
+  Kart: {
+    baslik: "Başlık",
+    aciklama: "Açıklama",
+    bitis: "Bitiş tarihi",
+    baslangic: "Başlangıç tarihi",
+    kapak_renk: "Kapak rengi",
+    kapak_dosya_id: "Kapak görseli",
+    liste_id: "Liste",
+  },
+  Yorum: {
+    icerik: "İçerik",
+  },
+  Eklenti: {
+    ad: "Dosya adı",
+  },
+  KontrolListesi: {
+    ad: "Ad",
+  },
+  KontrolMaddesi: {
+    metin: "Metin",
+    atanan_id: "Atanan",
+    bitis: "Bitiş",
+    tamamlayan_id: "Tamamlayan",
+  },
+  Etiket: {
+    ad: "Ad",
+    renk: "Renk",
+  },
+  ProjeUyesi: {
+    seviye: "Yetki seviyesi",
+  },
+};
+
+function degisiklikleriHazirla(
+  a: HamAktivite,
+  idMaplar: IdMaplar,
+): AlanDegisikligi[] | null {
+  const diff = a.diff as Record<string, { eski: unknown; yeni: unknown }> | null;
+  if (!diff) return null;
+
+  const tipEtiketleri = ALAN_ETIKETI[a.kaynak_tip] ?? {};
+  const sonuc: AlanDegisikligi[] = [];
+
+  for (const [alan, deger] of Object.entries(diff)) {
+    if (YOKSAY_ALANLAR.has(alan)) continue;
+    // Sadece bilinen anlamlı alanları göster — meta-alanları gizle
+    const etiket = tipEtiketleri[alan];
+    if (!etiket) continue;
+    sonuc.push({
+      alan: etiket,
+      eski: degerFormatla(alan, deger.eski, idMaplar),
+      yeni: degerFormatla(alan, deger.yeni, idMaplar),
+    });
+  }
+  return sonuc.length > 0 ? sonuc : null;
+}
+
+function degerFormatla(
+  alan: string,
+  v: unknown,
+  idMaplar: IdMaplar,
+): string | null {
+  if (v === null || v === undefined || v === "") return null;
+
+  // Id alanları → ad join
+  if (alan === "liste_id" && typeof v === "string") {
+    return idMaplar.liste.get(v) ?? "(silinmiş liste)";
+  }
+  if (
+    (alan === "atanan_id" || alan === "tamamlayan_id" || alan === "olusturan_id" || alan === "yukleyen_id") &&
+    typeof v === "string"
+  ) {
+    return idMaplar.kullanici.get(v) ?? "(kullanıcı)";
+  }
+  if (alan === "kapak_dosya_id" && typeof v === "string") {
+    return idMaplar.eklenti.get(v) ?? "(görsel)";
+  }
+  if (alan === "kurum_id" && typeof v === "string") {
+    return idMaplar.kurum.get(v) ?? "(kurum)";
+  }
+
+  // Boolean
+  if (typeof v === "boolean") return v ? "Evet" : "Hayır";
+
+  // Tarih (ISO string veya Date)
+  if (v instanceof Date) return TARIH_FORMAT.format(v);
+  if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T/.test(v)) {
+    const d = new Date(v);
+    if (!isNaN(d.getTime())) return TARIH_FORMAT.format(d);
+  }
+
+  // Number
+  if (typeof v === "number") return String(v);
+
+  // String — uzunsa kısalt
+  if (typeof v === "string") return kisalt(v, 80);
+
+  // Fallback: JSON
+  try {
+    return kisalt(JSON.stringify(v), 80);
+  } catch {
+    return null;
+  }
+}
+
+// Kural 8: dd.MM.yyyy HH:mm, Europe/Istanbul
+const TARIH_FORMAT = new Intl.DateTimeFormat("tr-TR", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "Europe/Istanbul",
+});

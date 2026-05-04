@@ -275,8 +275,43 @@ function AktiviteSatiri({ aktivite }: { aktivite: AktiviteOzeti }) {
         >
           {TARIH_KISA.format(new Date(aktivite.zaman))}
         </time>
+        {aktivite.degisiklikler && aktivite.degisiklikler.length > 0 && (
+          <ul className="mt-1 flex flex-col gap-0.5">
+            {aktivite.degisiklikler.map((d, i) => (
+              <li
+                key={i}
+                className="text-muted-foreground/90 text-[11.5px] leading-snug"
+              >
+                <span className="text-muted-foreground/70 mr-1">{d.alan}:</span>
+                <DegerEtiketi v={d.eski} eski />
+                <span className="text-muted-foreground/60 mx-1">→</span>
+                <DegerEtiketi v={d.yeni} />
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
+  );
+}
+
+function DegerEtiketi({ v, eski }: { v: string | null; eski?: boolean }) {
+  if (v === null) {
+    return (
+      <span className="text-muted-foreground/60 italic">—</span>
+    );
+  }
+  return (
+    <span
+      className={cn(
+        "bg-muted/70 inline-block max-w-[180px] truncate rounded px-1 py-0 align-middle text-[11px]",
+        eski
+          ? "text-muted-foreground/80 line-through decoration-from-font"
+          : "text-foreground",
+      )}
+    >
+      {v}
+    </span>
   );
 }
 

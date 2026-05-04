@@ -312,6 +312,78 @@ describe("Etiket / Üye aktiviteleri", () => {
     expect(ekle?.detay).toBeTruthy();
     expect(ekle!.detay!.length).toBeGreaterThan(0);
   });
+
+  // Why: Geçmişte audit middleware `upsert`'i UPDATE olarak loglardı; bu
+  // yüzden üye eklendiğinde aktivite "üyeyi kaldırdı" görünüyordu (üretim
+  // logu). Mesaj fonksiyonu artık veri varlığına göre karar verir: yeni_veri
+  // doluysa eklendi, yalnız eski_veri doluysa kaldırıldı.
+  it("KartUyesi UPDATE + yeni_veri dolu → 'üye atadı' (upsert geriye dönük)", async () => {
+    await adminDb.projeUyesi.create({
+      data: {
+        proje_id: projeId,
+        kullanici_id: ortam.personel.id,
+        seviye: "NORMAL",
+      },
+    });
+    await aktiviteEkle({
+      kullaniciId: ortam.superAdmin.id,
+      islem: "UPDATE",
+      kaynakTip: "KartUyesi",
+      yeniVeri: { kart_id: kart.id, kullanici_id: ortam.personel.id },
+    });
+    const r = await kartAktiviteleriniListele(ortam.kurum.id, {
+      kart_id: kart.id,
+      limit: 50,
+    });
+    const ekle = r.find(
+      (a) => a.kategori === "uye" && a.mesaj === "üye atadı",
+    );
+    expect(ekle).toBeDefined();
+  });
+
+  it("KartUyesi DELETE (yalnız eski_veri) → 'üyeyi kaldırdı'", async () => {
+    await adminDb.projeUyesi.create({
+      data: {
+        proje_id: projeId,
+        kullanici_id: ortam.personel.id,
+        seviye: "NORMAL",
+      },
+    });
+    await aktiviteEkle({
+      kullaniciId: ortam.superAdmin.id,
+      islem: "DELETE",
+      kaynakTip: "KartUyesi",
+      eskiVeri: { kart_id: kart.id, kullanici_id: ortam.personel.id },
+    });
+    const r = await kartAktiviteleriniListele(ortam.kurum.id, {
+      kart_id: kart.id,
+      limit: 50,
+    });
+    const kaldir = r.find(
+      (a) => a.kategori === "uye" && a.mesaj === "üyeyi kaldırdı",
+    );
+    expect(kaldir).toBeDefined();
+  });
+
+  it("KartEtiket UPDATE + yeni_veri dolu → 'etiket ekledi' (upsert geriye dönük)", async () => {
+    const e = await adminDb.etiket.create({
+      data: { proje_id: projeId, ad: "Kritik", renk: "#f59e0b" },
+    });
+    await aktiviteEkle({
+      kullaniciId: ortam.superAdmin.id,
+      islem: "UPDATE",
+      kaynakTip: "KartEtiket",
+      yeniVeri: { kart_id: kart.id, etiket_id: e.id },
+    });
+    const r = await kartAktiviteleriniListele(ortam.kurum.id, {
+      kart_id: kart.id,
+      limit: 50,
+    });
+    const ekle = r.find(
+      (a) => a.kategori === "etiket" && a.mesaj === "etiket ekledi",
+    );
+    expect(ekle?.detay).toBe("Kritik");
+  });
 });
 
 // =====================================================================
