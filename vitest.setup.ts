@@ -1,6 +1,20 @@
 import "@testing-library/jest-dom/vitest";
-import { afterEach, vi } from "vitest";
+import { afterEach, beforeEach, vi } from "vitest";
 import { cleanup } from "@testing-library/react";
+
+// Audit middleware (Kural 58 KATİ AUDIT GUARD): kullaniciId yoksa yazımı
+// reddediyor. Test fixture'ları (ortamKur, projeOlusturFiks vb.) eylem()
+// wrapper dışında çalışıyor. Her test başında AsyncLocalStorage'a bypass
+// flag'i yapıştırılır — bu test boyunca tüm db.create çağrıları izinli.
+// Production/dev davranışı korunur (sadece VITEST=true ortamında bypass).
+import "@/lib/audit-context"; // Storage init için side-effect import
+
+beforeEach(() => {
+  const storage = globalThis.__auditCtxStorage;
+  if (storage) {
+    storage.enterWith({ bypass: true });
+  }
+});
 
 // Her test sonrasi DOM'u temizle (test izolasyonu).
 afterEach(() => {

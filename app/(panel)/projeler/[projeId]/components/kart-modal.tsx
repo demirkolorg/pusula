@@ -4,19 +4,6 @@
 
 import * as React from "react";
 import {
-  CalendarIcon,
-  CheckSquareIcon,
-  LinkIcon,
-  PaperclipIcon,
-  TagIcon,
-  Trash2Icon,
-  UsersIcon,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
   ResponsiveDialog,
   ResponsiveDialogContent,
   ResponsiveDialogDescription,
@@ -32,21 +19,13 @@ import {
   useProjeDetay,
 } from "../hooks/detay-sorgulari";
 import type { ListeKartOzeti, ProjeDetayOzeti } from "../services";
-import { KartHedefKurumlar } from "./kart-hedef-kurumlar";
-import { EtiketPopover } from "../etiket/components/etiket-popover";
-import { EtiketRozet } from "../etiket/components/etiket-rozet";
-import { useEtiketler, useKartEtiketleri } from "../etiket/hooks";
-import { UyePopover } from "../uye/components/uye-popover";
-import { UyeAvatar } from "../uye/components/uye-avatar";
-import { useKartUyeleri } from "../uye/hooks";
-import { YorumListesi } from "../yorum/components/yorum-listesi";
-import { KontrolListesiPaneli } from "../kontrol-listesi/components/kontrol-listesi-paneli";
-import { useKontrolListesiOlustur, tempId as klTempId } from "../kontrol-listesi/hooks";
-import { IliskiPopover } from "../iliski/components/iliski-popover";
-import {
-  EklentiPaneli,
-  EklentiSidebarButonu,
-} from "../eklenti/components/eklenti-paneli";
+import { KartModalHeader } from "./kart-modal-header";
+import { KartModalAksiyonMenusu } from "./kart-modal-aksiyon-menusu";
+import { KartModalBaslik } from "./kart-modal-baslik";
+import { KartModalMetaChips } from "./kart-modal-meta-chips";
+import { KartModalAciklama } from "./kart-modal-aciklama";
+import { KartModalKontrolBlogu } from "./kart-modal-kontrol-blogu";
+import { KartModalYanPanel } from "./kart-modal-yan-panel";
 
 type Props = {
   kartId: string | null;
@@ -57,27 +36,31 @@ type Props = {
 function kartiBul(
   detay: ProjeDetayOzeti | undefined,
   kartId: string | null,
-): { kart: ListeKartOzeti; liste_ad: string } | null {
+): {
+  kart: ListeKartOzeti;
+  liste_ad: string;
+  proje_ad: string;
+} | null {
   if (!detay || !kartId) return null;
   for (const l of detay.listeler) {
     const k = l.kartlar.find((x) => x.id === kartId);
-    if (k) return { kart: k, liste_ad: l.ad };
+    if (k) return { kart: k, liste_ad: l.ad, proje_ad: detay.ad };
   }
   return null;
-}
-
-function tarihInputDegeri(d: Date | null): string {
-  if (!d) return "";
-  const dt = d instanceof Date ? d : new Date(d);
-  return dt.toISOString().slice(0, 10);
 }
 
 export function KartModal({ kartId, projeId, kapat }: Props) {
   return (
     <ResponsiveDialog open={!!kartId} onOpenChange={(a) => !a && kapat()}>
-      {/* Trello-tarzı geniş modal — Kural 13 desktop center modal,
-          Kural 9 mobile-first: mobil'de Sheet (alttan), desktop'ta Dialog (max-w-4xl). */}
-      <ResponsiveDialogContent className="flex max-h-[90vh] w-full flex-col gap-0 overflow-hidden p-0 sm:!max-w-4xl">
+      {/* Modal viewport'un %70'ini kaplar (genişlik + yükseklik). DialogContent
+          default'undaki `sm:max-w-sm` üzerine yazmak için inline style ile
+          genişlik zorlanır; max-w override'ı da none ile temizlenir.
+          Kural 13 — mobilde Sheet (alttan), desktop'ta center modal. */}
+      <ResponsiveDialogContent
+        showCloseButton={false}
+        style={{ width: "70vw", maxWidth: "1200px", height: "85vh", maxHeight: "85vh" }}
+        className="flex flex-col gap-0 overflow-hidden p-0 sm:!max-w-none"
+      >
         {kartId ? (
           <KartModalIcerik kartId={kartId} projeId={projeId} kapat={kapat} />
         ) : null}
@@ -86,7 +69,15 @@ export function KartModal({ kartId, projeId, kapat }: Props) {
   );
 }
 
-function KartModalIcerik({ kartId, projeId, kapat }: { kartId: string; projeId: string; kapat: () => void }) {
+function KartModalIcerik({
+  kartId,
+  projeId,
+  kapat,
+}: {
+  kartId: string;
+  projeId: string;
+  kapat: () => void;
+}) {
   const anahtar = React.useMemo(() => projeDetayKey(projeId), [projeId]);
   const sorgu = useProjeDetay(projeId);
   const bulunan = kartiBul(sorgu.data, kartId);
@@ -99,9 +90,6 @@ function KartModalIcerik({ kartId, projeId, kapat }: { kartId: string; projeId: 
   const [aciklama, setAciklama] = React.useState(
     bulunan?.kart.aciklama ?? "",
   );
-  const [bitis, setBitis] = React.useState<string>(
-    tarihInputDegeri(bulunan?.kart.bitis ?? null),
-  );
 
   const ozelKartId = bulunan?.kart.id;
   // Kart id değişince form'u sıfırla; aynı kart için her render'da reset etme.
@@ -109,51 +97,67 @@ function KartModalIcerik({ kartId, projeId, kapat }: { kartId: string; projeId: 
     if (!bulunan) return;
     setBaslik(bulunan.kart.baslik);
     setAciklama(bulunan.kart.aciklama ?? "");
-    setBitis(tarihInputDegeri(bulunan.kart.bitis));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 'bulunan' bilerek dependency'de yok
   }, [ozelKartId]);
 
   if (!bulunan) {
     return (
-      <>
-        <ResponsiveDialogHeader className="border-b p-4">
-          <ResponsiveDialogTitle>Kart bulunamadı</ResponsiveDialogTitle>
-          <ResponsiveDialogDescription>
-            Bu kart silinmiş veya başka bir projeye taşınmış olabilir.
-          </ResponsiveDialogDescription>
-        </ResponsiveDialogHeader>
-      </>
+      <ResponsiveDialogHeader className="border-b p-4">
+        <ResponsiveDialogTitle>Kart bulunamadı</ResponsiveDialogTitle>
+        <ResponsiveDialogDescription>
+          Bu kart silinmiş veya başka bir projeye taşınmış olabilir.
+        </ResponsiveDialogDescription>
+      </ResponsiveDialogHeader>
     );
   }
 
+  const kart = bulunan.kart;
+
   const baslikKaydet = () => {
-    if (!baslik.trim() || baslik === bulunan.kart.baslik) return;
-    guncelle.mutate({ id: bulunan.kart.id, baslik: baslik.trim() });
+    if (!baslik.trim() || baslik === kart.baslik) return;
+    guncelle.mutate({ id: kart.id, baslik: baslik.trim() });
   };
 
   const aciklamaKaydet = () => {
-    if (aciklama === (bulunan.kart.aciklama ?? "")) return;
-    guncelle.mutate({
-      id: bulunan.kart.id,
-      aciklama: aciklama || null,
-    });
+    if (aciklama === (kart.aciklama ?? "")) return;
+    guncelle.mutate({ id: kart.id, aciklama: aciklama || null });
   };
 
-  const bitisKaydet = () => {
-    const yeni = bitis ? new Date(bitis) : null;
-    const eski = bulunan.kart.bitis
-      ? new Date(bulunan.kart.bitis).toISOString().slice(0, 10)
-      : "";
-    if (bitis === eski) return;
-    guncelle.mutate({ id: bulunan.kart.id, bitis: yeni });
+  const bitisKaydet = (yeni: Date | null) => {
+    guncelle.mutate({ id: kart.id, bitis: yeni });
+  };
+
+  const baglantiKopyala = () => {
+    try {
+      const url = `${window.location.origin}/projeler/${projeId}?kart=${kart.id}`;
+      void navigator.clipboard.writeText(url);
+      toast.basari("Kart bağlantısı kopyalandı");
+    } catch {
+      toast.hata("Bağlantı kopyalanamadı");
+    }
+  };
+
+  const kodKopyala = () => {
+    try {
+      void navigator.clipboard.writeText(kart.id);
+      toast.basari("Kart kodu kopyalandı");
+    } catch {
+      toast.hata("Kod kopyalanamadı");
+    }
+  };
+
+  const arsivToggle = () => {
+    const sonraki = !kart.arsiv_mi;
+    guncelle.mutate({ id: kart.id, arsiv_mi: sonraki });
+    toast.bilgi(sonraki ? "Kart arşivlendi" : "Kart arşivden çıkarıldı");
   };
 
   const sileBas = () => {
-    sil.mutate({ id: bulunan.kart.id });
+    sil.mutate({ id: kart.id });
     toast.gerial("Kart silindi", {
       onUndo: () =>
         geriYukle.mutate(
-          { id: bulunan.kart.id },
+          { id: kart.id },
           { onSuccess: () => toast.basari("Kart geri yüklendi") },
         ),
     });
@@ -162,182 +166,64 @@ function KartModalIcerik({ kartId, projeId, kapat }: { kartId: string; projeId: 
 
   return (
     <>
-      <ResponsiveDialogHeader className="border-b p-4">
-        <p className="text-muted-foreground text-xs">{bulunan.liste_ad}</p>
-        <ResponsiveDialogTitle className="sr-only">
-          {bulunan.kart.baslik}
-        </ResponsiveDialogTitle>
-        <Input
-          aria-label="Kart başlığı"
-          value={baslik}
-          onChange={(e) => setBaslik(e.target.value)}
-          onBlur={baslikKaydet}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              (e.target as HTMLInputElement).blur();
-            }
-          }}
-          className="!h-auto border-0 bg-transparent !px-0 !py-1 text-base font-semibold shadow-none focus-visible:ring-0 sm:text-lg"
-        />
-        <KartEtiketRozetleri kartId={bulunan.kart.id} projeId={projeId} />
-        <KartUyeRozetleri kartId={bulunan.kart.id} />
-        <ResponsiveDialogDescription className="sr-only">
-          Kart detayları — başlık, açıklama, hedef kurumlar ve diğer alanlar.
-        </ResponsiveDialogDescription>
-      </ResponsiveDialogHeader>
+      {/* Erişilebilirlik: KartModalBaslik görsel başlığı; aria gereksinimleri
+          için Title/Description sr-only kalıyor. */}
+      <ResponsiveDialogTitle className="sr-only">
+        {kart.baslik}
+      </ResponsiveDialogTitle>
+      <ResponsiveDialogDescription className="sr-only">
+        Kart detayları — başlık, açıklama, üyeler, etiketler, kontrol listesi,
+        ekler ve yorumlar.
+      </ResponsiveDialogDescription>
 
-      <div className="grid flex-1 grid-cols-1 gap-0 overflow-hidden md:grid-cols-[1fr_220px]">
-        {/* Sol kolon: ana içerik */}
-        <div className="flex flex-col gap-4 overflow-y-auto p-4">
-          <div className="grid gap-2">
-            <Label htmlFor="kart-aciklama">Açıklama</Label>
-            <Textarea
-              id="kart-aciklama"
-              rows={5}
-              value={aciklama}
-              onChange={(e) => setAciklama(e.target.value)}
-              onBlur={aciklamaKaydet}
-              placeholder="Kart hakkında not..."
+      <KartModalHeader
+        projeAd={bulunan.proje_ad}
+        listeAd={bulunan.liste_ad}
+        baglantiKopyala={baglantiKopyala}
+        aksiyonMenu={
+          <KartModalAksiyonMenusu
+            arsivMi={kart.arsiv_mi}
+            baglantiKopyala={baglantiKopyala}
+            kodKopyala={kodKopyala}
+            arsivToggle={arsivToggle}
+            sileBas={sileBas}
+          />
+        }
+      />
+
+      <div className="grid flex-1 grid-cols-1 gap-0 overflow-hidden md:grid-cols-[1fr_360px]">
+        {/* Sol kolon: başlık scroll içinde sticky kalır, scroll edildikçe
+            kart başlığı görünürlüğü kaybolmasın. */}
+        <div className="flex flex-col overflow-y-auto">
+          <div className="bg-background sticky top-0 z-10 px-4 pt-4 pb-2 sm:px-6 sm:pt-5">
+            <KartModalBaslik
+              baslik={baslik}
+              setBaslik={setBaslik}
+              kaydet={baslikKaydet}
             />
           </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="kart-bitis">
-              <CalendarIcon className="mr-1 inline size-3" /> Bitiş Tarihi
-            </Label>
-            <Input
-              id="kart-bitis"
-              type="date"
-              value={bitis}
-              onChange={(e) => setBitis(e.target.value)}
-              onBlur={bitisKaydet}
-              className="max-w-xs"
+          <div className="flex flex-col gap-[22px] px-4 pb-4 sm:px-6 sm:pb-5">
+            <KartModalMetaChips
+              kartId={kart.id}
+              projeId={projeId}
+              bitis={kart.bitis}
+              bitisKaydet={bitisKaydet}
             />
+
+            <KartModalAciklama
+              aciklama={aciklama}
+              setAciklama={setAciklama}
+              kaydet={aciklamaKaydet}
+            />
+
+            <KartModalKontrolBlogu kartId={kart.id} />
           </div>
-
-          <KartHedefKurumlar kartId={bulunan.kart.id} />
-
-          <KontrolListesiPaneli kartId={bulunan.kart.id} />
-
-          <EklentiPaneli kartId={bulunan.kart.id} />
-
-          <YorumListesi kartId={bulunan.kart.id} />
         </div>
 
-        {/* Sağ sidebar: Trello "Add to card" panel — S4 modülleri buraya bağlanacak */}
-        <aside className="flex flex-col gap-3 border-t bg-muted/30 p-4 md:border-l md:border-t-0">
-          <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-            Karta Ekle
-          </p>
-          <div className="flex flex-col gap-1.5">
-            <EtiketPopover
-              kartId={bulunan.kart.id}
-              projeId={projeId}
-              trigger={
-                <Button variant="ghost" className="justify-start">
-                  <TagIcon className="size-4" /> Etiketler
-                </Button>
-              }
-            />
-            <UyePopover
-              kartId={bulunan.kart.id}
-              projeId={projeId}
-              trigger={
-                <Button variant="ghost" className="justify-start">
-                  <UsersIcon className="size-4" /> Üyeler
-                </Button>
-              }
-            />
-            <KontrolListesiHizliEkle kartId={bulunan.kart.id} />
-            <EklentiSidebarButonu kartId={bulunan.kart.id} />
-            <IliskiPopover
-              kartId={bulunan.kart.id}
-              projeId={projeId}
-              trigger={
-                <Button variant="ghost" className="justify-start">
-                  <LinkIcon className="size-4" /> İlişkili Kart
-                </Button>
-              }
-            />
-          </div>
-
-          <p className="text-muted-foreground mt-2 text-xs font-medium uppercase tracking-wide">
-            İşlemler
-          </p>
-          <Button
-            variant="ghost"
-            className="justify-start text-destructive hover:text-destructive"
-            onClick={sileBas}
-          >
-            <Trash2Icon className="size-4" /> Kartı Sil
-          </Button>
-        </aside>
+        {/* Sağ sidebar: sekmeli yan panel (Yorumlar / Aktivite / Ekler / Tümü) */}
+        <KartModalYanPanel kartId={kart.id} projeId={projeId} />
       </div>
     </>
   );
 }
-
-function KartEtiketRozetleri({
-  kartId,
-  projeId,
-}: {
-  kartId: string;
-  projeId: string;
-}) {
-  const tum = useEtiketler(projeId);
-  const seciliQ = useKartEtiketleri(kartId);
-  const seciliSet = React.useMemo(
-    () => new Set(seciliQ.data ?? []),
-    [seciliQ.data],
-  );
-  const seciliEtiketler = React.useMemo(
-    () => (tum.data ?? []).filter((e) => seciliSet.has(e.id)),
-    [tum.data, seciliSet],
-  );
-  if (seciliEtiketler.length === 0) return null;
-  return (
-    <div className="mt-1 flex flex-wrap gap-1">
-      {seciliEtiketler.map((e) => (
-        <EtiketRozet key={e.id} etiket={e} />
-      ))}
-    </div>
-  );
-}
-
-function KartUyeRozetleri({ kartId }: { kartId: string }) {
-  const sorgu = useKartUyeleri(kartId);
-  if (!sorgu.data || sorgu.data.length === 0) return null;
-  return (
-    <div className="mt-1 flex flex-wrap items-center gap-1">
-      {sorgu.data.map((u) => (
-        <UyeAvatar
-          key={u.kullanici_id}
-          ad={u.ad}
-          soyad={u.soyad}
-          title={`${u.ad} ${u.soyad}`.trim()}
-        />
-      ))}
-    </div>
-  );
-}
-
-function KontrolListesiHizliEkle({ kartId }: { kartId: string }) {
-  const olustur = useKontrolListesiOlustur(kartId);
-  return (
-    <Button
-      variant="ghost"
-      className="justify-start"
-      onClick={() =>
-        olustur.mutate({
-          id_taslak: klTempId(),
-          kart_id: kartId,
-          ad: "Kontrol Listesi",
-        })
-      }
-    >
-      <CheckSquareIcon className="size-4" /> Kontrol Listesi
-    </Button>
-  );
-}
-

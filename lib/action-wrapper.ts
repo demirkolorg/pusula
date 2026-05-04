@@ -33,17 +33,34 @@ export function eylem<S extends z.ZodTypeAny | undefined, T>(
     const istekCtx = await istekContextAl();
     const oturum = await auth();
 
-    const seans: SeansBilgisi | null = oturum?.user
-      ? {
-          kullaniciId: (oturum.user as { id: string }).id,
-          kurumId: (oturum.user as { kurumId?: string }).kurumId,
-          email: oturum.user.email ?? "",
-          roller: (oturum.user as { roller?: string[] }).roller ?? [],
-        }
-      : null;
+    // Runtime guard — `as` cast'i imalı, gerçek değer undefined olabilir.
+    // session.user.id non-empty string değilse seans = null kabul edilir.
+    const ham = oturum?.user as
+      | { id?: unknown; kurumId?: unknown; roller?: unknown }
+      | undefined;
+    const hamId = ham?.id;
+    const seans: SeansBilgisi | null =
+      ham && typeof hamId === "string" && hamId.length > 0
+        ? {
+            kullaniciId: hamId,
+            kurumId:
+              typeof ham.kurumId === "string" ? ham.kurumId : undefined,
+            email: oturum?.user?.email ?? "",
+            roller: Array.isArray(ham.roller)
+              ? (ham.roller as string[])
+              : [],
+          }
+        : null;
 
-    if (cfg.girisGerekli !== false && !seans) {
-      return hata("Bu işlem için giriş yapmalısınız.", HATA_KODU.GIRIS_YOK);
+    // Why: NextAuth eski bir JWT'de `token.id` yoksa session.user.id undefined
+    // dönebilir. Bu durumda seans truthy olur ama kullaniciId boş kalır →
+    // audit log'a kullanici_id null yazılır ("Sistem" görünür). Burada bunu
+    // yakalayıp kullanıcıyı yeniden login'e yönlendiriyoruz; audit kirletilmez.
+    if (cfg.girisGerekli !== false && (!seans || !seans.kullaniciId)) {
+      return hata(
+        "Oturum bilgisi eksik. Lütfen yeniden giriş yapın.",
+        HATA_KODU.GIRIS_YOK,
+      );
     }
 
     const auditCtx: AuditContext = {
@@ -53,6 +70,11 @@ export function eylem<S extends z.ZodTypeAny | undefined, T>(
       userAgent: istekCtx.userAgent,
       httpMetod: "ACTION",
       httpYol: cfg.ad,
+      // Anonim akışlar (kayit, parola-sifirla, davet-kabul) için kullaniciId
+      // null olur. KATİ AUDIT GUARD'ı bu durumda bypass et — yeni oluşacak
+      // kullanıcının id'si henüz yok. Audit log'a kayıt yazılmaz, ama
+      // domain işlemi (Kullanici.create) gerçekleşebilir.
+      bypass: !seans?.kullaniciId && cfg.girisGerekli === false,
     };
 
     return auditContext.run(auditCtx, async () => {

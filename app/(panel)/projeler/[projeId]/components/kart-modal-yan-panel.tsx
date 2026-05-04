@@ -13,36 +13,53 @@ import { KartModalTumuListesi } from "./kart-modal-tumu-listesi";
 
 type Sekme = "yorumlar" | "aktivite" | "ekler" | "tumu";
 
-type Props = { kartId: string };
+// projeId opsiyonel — verilirse @mention autocomplete + yorum render
+// kullanıcı adlarıyla zenginleşir.
+type Props = { kartId: string; projeId?: string };
 
 // Sancak referansı: sağ kolon — sekme strip (Yorumlar / Aktivite / Ekler /
 // Tümü), composer (yalnızca Yorumlar sekmesinde) ve sekme içeriği.
 // Tutarlılık: tüm sekmelerde sayı rozeti var (boş ise 0). Tümü = aktivite
 // log'u (her audit event), yorum/ek için inline içerik zenginleştirilir.
-export function KartModalYanPanel({ kartId }: Props) {
+export function KartModalYanPanel({ kartId, projeId }: Props) {
   const [aktif, setAktif] = React.useState<Sekme>("yorumlar");
   const yorumQ = useKartYorumlari(kartId);
   const eklerQ = useKartEklentileri(kartId);
   const aktiviteQ = useKartAktiviteleri(kartId);
 
+  const yorumSayisi = yorumQ.data?.length ?? 0;
+  const aktiviteSayisi = aktiviteQ.data?.length ?? 0;
+  const eklerSayisi = eklerQ.data?.length ?? 0;
+
   const sekmeler: { id: Sekme; etiket: string; sayi: number }[] = [
-    { id: "yorumlar", etiket: "Yorumlar", sayi: yorumQ.data?.length ?? 0 },
-    { id: "aktivite", etiket: "Aktivite", sayi: aktiviteQ.data?.length ?? 0 },
-    { id: "ekler", etiket: "Ekler", sayi: eklerQ.data?.length ?? 0 },
-    // Tümü = aktivite log'u (yorum/ek dahil her olay) — sayı aktivite ile aynı.
-    { id: "tumu", etiket: "Tümü", sayi: aktiviteQ.data?.length ?? 0 },
+    { id: "yorumlar", etiket: "Yorumlar", sayi: yorumSayisi },
+    { id: "aktivite", etiket: "Aktivite", sayi: aktiviteSayisi },
+    { id: "ekler", etiket: "Ekler", sayi: eklerSayisi },
+    // Tümü = üç sekmenin toplamı (yorum + aktivite + ek). Aktivite log'u
+    // yorum/ek olaylarını ayrı event olarak zaten içerir; sayım UX'i için
+    // sekme sayılarının toplamını gösteriyoruz.
+    { id: "tumu", etiket: "Tümü", sayi: yorumSayisi + aktiviteSayisi + eklerSayisi },
   ];
 
   return (
-    <aside className="bg-muted/40 flex flex-col gap-3 overflow-y-auto border-t p-4 md:border-t-0 md:border-l sm:p-[18px]">
-      <SekmeStrip aktif={aktif} setAktif={setAktif} sekmeler={sekmeler} />
+    <aside className="bg-muted/40 relative flex flex-col overflow-y-auto border-t md:border-t-0 md:border-l">
+      {/* Sticky header — scroll sırasında sekme strip + composer üstte sabit
+          kalır. bg-muted/40 + backdrop-blur ile alttaki içerik şeffaf görünür. */}
+      <div className="bg-muted/40 sticky top-0 z-10 flex flex-col gap-3 p-4 backdrop-blur sm:p-[18px]">
+        <SekmeStrip aktif={aktif} setAktif={setAktif} sekmeler={sekmeler} />
+        {aktif === "yorumlar" && (
+          <KartModalYorumComposer kartId={kartId} projeId={projeId} />
+        )}
+      </div>
 
-      {aktif === "yorumlar" && <KartModalYorumComposer kartId={kartId} />}
-
-      {aktif === "yorumlar" && <KartModalYorumListesi kartId={kartId} />}
-      {aktif === "aktivite" && <KartModalAktiviteListesi kartId={kartId} />}
-      {aktif === "ekler" && <KartModalEklerListesi kartId={kartId} />}
-      {aktif === "tumu" && <KartModalTumuListesi kartId={kartId} />}
+      <div className="flex flex-col gap-3 px-4 pb-4 sm:px-[18px] sm:pb-[18px]">
+        {aktif === "yorumlar" && (
+          <KartModalYorumListesi kartId={kartId} projeId={projeId} />
+        )}
+        {aktif === "aktivite" && <KartModalAktiviteListesi kartId={kartId} />}
+        {aktif === "ekler" && <KartModalEklerListesi kartId={kartId} />}
+        {aktif === "tumu" && <KartModalTumuListesi kartId={kartId} />}
+      </div>
     </aside>
   );
 }
