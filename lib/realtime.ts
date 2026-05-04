@@ -9,7 +9,7 @@
 import { auditContext } from "./audit-context";
 import type { EventZarfi, SocketEventAdi } from "./socket-events";
 
-const SOCKET_URL = process.env.SOCKET_INTERNAL_URL ?? "http://localhost:3001";
+const SOCKET_URL = process.env.SOCKET_INTERNAL_URL ?? "http://localhost:2501";
 const TOKEN = process.env.SOCKET_INTERNAL_TOKEN ?? "dev-internal-token";
 const TIMEOUT_MS = 2000;
 

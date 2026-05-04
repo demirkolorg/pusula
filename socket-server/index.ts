@@ -2,7 +2,7 @@
 //
 // Mimari:
 // - Pusula Next.js app port 2500'de
-// - Bu server port 3001'de
+// - Bu server port 2501'de (aynı seri — proje bağlamı)
 // - Frontend her ikisine bağlanır
 // - Auth: NextAuth session cookie → /api/oturum endpoint forward
 // - Room yetki: kullanıcı sadece üye olduğu projelerin room'una katılır
@@ -11,7 +11,7 @@
 //
 // Çalıştırma: `bun run dev:socket`
 // Ortam değişkenleri:
-//   SOCKET_PORT (default 3001)
+//   SOCKET_PORT (default 2501)
 //   APP_URL (default http://localhost:2500) — auth doğrulama için
 //   SOCKET_INTERNAL_TOKEN — broadcast endpoint koruma anahtarı
 
@@ -20,7 +20,7 @@ import { Server, type Socket } from "socket.io";
 import { db } from "@/lib/db";
 import { SOCKET, room } from "@/lib/socket-events";
 
-const PORT = Number(process.env.SOCKET_PORT ?? 3001);
+const PORT = Number(process.env.SOCKET_PORT ?? 2501);
 const APP_URL = process.env.APP_URL ?? "http://localhost:2500";
 const INTERNAL_TOKEN = process.env.SOCKET_INTERNAL_TOKEN ?? "dev-internal-token";
 

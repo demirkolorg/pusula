@@ -10,7 +10,7 @@ import { useOturumKullanicisi } from "@/hooks/use-oturum";
 // içinde uygulanır.
 
 const SOCKET_URL =
-  process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:3001";
+  process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:2501";
 
 let _socket: Socket | null = null;
 let _socketRef = 0;
