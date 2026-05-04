@@ -27,15 +27,21 @@ type IslemTipi =
   | "delete"
   | "deleteMany";
 
-function islemKodu(op: IslemTipi): string {
+function islemKodu(
+  op: IslemTipi,
+  eskiVeri: Record<string, unknown> | undefined,
+): string {
   switch (op) {
     case "create":
     case "createMany":
       return "CREATE";
     case "update":
     case "updateMany":
-    case "upsert":
       return "UPDATE";
+    case "upsert":
+      // upsert ekleme dalına girdiyse (önceki kayıt yok) CREATE,
+      // güncelleme dalına girdiyse UPDATE.
+      return eskiVeri ? "UPDATE" : "CREATE";
     case "delete":
     case "deleteMany":
       return "DELETE";
@@ -121,6 +127,30 @@ export const auditExtension = Prisma.defineExtension((client) => {
             }
           }
 
+          // Kural 58 — KATİ AUDIT GUARD: yazım operasyonu var ama audit
+          // context yoksa veya kullaniciId boşsa, hiçbir yazıma izin verme.
+          // Sessiz null kabul = "Sistem" görünen kayıtların kaynağı; bu yola
+          // hard fail koyarak eksik sarmalama bug'ını anında görünür yapıyoruz.
+          //
+          // İstisna kaçışları:
+          //  - `auditContext.run({ bypass: true, ... })` → cron/seed/migration
+          //  - `auditContext.run({ kullaniciId: <SISTEM_USER_ID> })` → otomatik
+          //    sistem işlemi için açık sistem kullanıcısı atama
+          //
+          // İki seçenek de YOKSA → throw. AktiviteLogu.kullanici_id = null
+          // satırı bir daha asla yazılmaz.
+          if (!ctx?.kullaniciId) {
+            throw new Error(
+              `[audit] Yazım reddedildi: ${model}.${operation} ` +
+                `audit-context dışından çağrıldı (kullaniciId yok). ` +
+                `Çağrıyı eylem() wrapper içine alın veya auditContext.run({ ` +
+                `kullaniciId, ... }) / { bypass: true } ile sarmalayın. ` +
+                `İPUCU: auditContext.run callback'i ZORUNLU async olmalı ve ` +
+                `içindeki tüm DB çağrıları await edilmeli — sync callback ` +
+                `lazy Promise döndürünce context erkenden kapanır.`,
+            );
+          }
+
           const sonuc = await query(args as Parameters<typeof query>[0]);
 
           try {
@@ -138,14 +168,16 @@ export const auditExtension = Prisma.defineExtension((client) => {
             await parent.aktiviteLogu.create({
               data: {
                 zaman: new Date(),
-                kullanici_id: ctx?.kullaniciId ?? null,
+                // Yukarıdaki KATİ AUDIT GUARD nedeniyle ctx.kullaniciId
+                // burada her zaman doludur — null olamaz.
+                kullanici_id: ctx.kullaniciId,
                 oturum_id: ctx?.oturumId ?? null,
                 ip: ctx?.ip ?? null,
                 user_agent: ctx?.userAgent ?? null,
                 request_id: ctx?.requestId ?? null,
                 http_metod: ctx?.httpMetod ?? null,
                 http_yol: ctx?.httpYol ?? null,
-                islem: islemKodu(op),
+                islem: islemKodu(op, eskiVeri),
                 kaynak_tip: model,
                 kaynak_id: kaynakId ?? null,
                 eski_veri: (eskiVeri as Prisma.InputJsonValue) ?? Prisma.JsonNull,
