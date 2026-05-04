@@ -169,9 +169,10 @@ export async function kartAktiviteleriniListele(
     : [];
   const kullaniciMap = new Map(kullanicilar.map((k) => [k.id, k]));
 
-  // Etiket ve kullanıcı id'lerini join için topla (etiket adı, üye adı için)
+  // Etiket / kullanıcı / kurum id'lerini join için topla
   const etiketIdler = new Set<string>();
   const atananIdler = new Set<string>();
+  const kurumIdler = new Set<string>();
   for (const a of ham) {
     if (a.kaynak_tip === "KartEtiket") {
       const ePost = (a.yeni_veri as { etiket_id?: string } | null)?.etiket_id;
@@ -187,9 +188,15 @@ export async function kartAktiviteleriniListele(
       if (uPost) atananIdler.add(uPost);
       if (uPre) atananIdler.add(uPre);
     }
+    if (a.kaynak_tip === "KartHedefKurumu") {
+      const kPost = (a.yeni_veri as { kurum_id?: string } | null)?.kurum_id;
+      const kPre = (a.eski_veri as { kurum_id?: string } | null)?.kurum_id;
+      if (kPost) kurumIdler.add(kPost);
+      if (kPre) kurumIdler.add(kPre);
+    }
   }
 
-  const [etiketler, atananlar] = await Promise.all([
+  const [etiketler, atananlar, kurumlar] = await Promise.all([
     etiketIdler.size > 0
       ? db.etiket.findMany({
           where: { id: { in: Array.from(etiketIdler) } },
@@ -202,13 +209,30 @@ export async function kartAktiviteleriniListele(
           select: { id: true, ad: true, soyad: true },
         })
       : Promise.resolve([]),
+    kurumIdler.size > 0
+      ? db.kurum.findMany({
+          where: { id: { in: Array.from(kurumIdler) } },
+          select: { id: true, ad: true, kisa_ad: true, tip: true },
+        })
+      : Promise.resolve([]),
   ]);
   const etiketMap = new Map(etiketler.map((e) => [e.id, e]));
   const atananMap = new Map(atananlar.map((u) => [u.id, u]));
+  const kurumMap = new Map(
+    kurumlar.map((k) => [k.id, kurumGoruntu(k)] as const),
+  );
 
   return ham.map((a) =>
-    aktiviteOzetle(a, kullaniciMap, etiketMap, atananMap),
+    aktiviteOzetle(a, kullaniciMap, etiketMap, atananMap, kurumMap),
   );
+}
+
+function kurumGoruntu(k: {
+  ad: string | null;
+  kisa_ad: string | null;
+  tip: string;
+}): string {
+  return k.kisa_ad ?? k.ad ?? k.tip;
 }
 
 // =====================================================================
@@ -250,6 +274,7 @@ function aktiviteOzetle(
   kullaniciMap: Map<string, { id: string; ad: string; soyad: string }>,
   etiketMap: Map<string, { id: string; ad: string; renk: string }>,
   atananMap: Map<string, { id: string; ad: string; soyad: string }>,
+  kurumMap: Map<string, string>,
 ): AktiviteOzeti {
   const islem = (a.islem === "CREATE" || a.islem === "UPDATE" || a.islem === "DELETE"
     ? a.islem
@@ -284,7 +309,7 @@ function aktiviteOzetle(
     case "KartIliskisi":
       return { ...ortak, ...kartIliskisiMesaji(a, islem) };
     case "KartHedefKurumu":
-      return { ...ortak, ...hedefKurumMesaji(a, islem) };
+      return { ...ortak, ...hedefKurumMesaji(a, islem, kurumMap) };
     default:
       return {
         ...ortak,
@@ -500,13 +525,19 @@ function kartIliskisiMesaji(
 }
 
 function hedefKurumMesaji(
-  _a: HamAktivite,
+  a: HamAktivite,
   islem: AktiviteOzeti["islem"],
+  kurumMap: Map<string, string>,
 ): Pick<AktiviteOzeti, "kategori" | "mesaj" | "detay"> {
+  const kurumId =
+    jsonAlan<string>(a.yeni_veri, "kurum_id") ??
+    jsonAlan<string>(a.eski_veri, "kurum_id") ??
+    null;
+  const ad = kurumId ? kurumMap.get(kurumId) ?? null : null;
   if (islem === "CREATE") {
-    return { kategori: "hedef-kurum", mesaj: "hedef kurum ekledi", detay: null };
+    return { kategori: "hedef-kurum", mesaj: "hedef kurum ekledi", detay: ad };
   }
-  return { kategori: "hedef-kurum", mesaj: "hedef kurumu kaldırdı", detay: null };
+  return { kategori: "hedef-kurum", mesaj: "hedef kurumu kaldırdı", detay: ad };
 }
 
 function kisalt(s: string, n: number): string {
