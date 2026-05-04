@@ -29,6 +29,7 @@ export const KURUM_KATEGORI_LABEL: Record<KurumKategorisi, string> = {
 export const KURUM_TIP_LABEL: Record<KurumTipi, string> = {
   // MULKI_IDARE
   KAYMAKAMLIK: "Kaymakamlık",
+  OZEL_KALEM: "Özel Kalem",
   YAZI_ISLERI_MUDURLUGU: "Yazı İşleri Müdürlüğü",
   ILCE_IDARE_KURULU: "İlçe İdare Kurulu",
   HUKUK_ISLERI: "Hukuk İşleri",
@@ -207,6 +208,7 @@ export const KURUM_TIP_LABEL: Record<KurumTipi, string> = {
 export const KURUM_TIP_KATEGORI: Record<KurumTipi, KurumKategorisi> = {
   // MULKI_IDARE
   KAYMAKAMLIK: "MULKI_IDARE",
+  OZEL_KALEM: "MULKI_IDARE",
   YAZI_ISLERI_MUDURLUGU: "MULKI_IDARE",
   ILCE_IDARE_KURULU: "MULKI_IDARE",
   HUKUK_ISLERI: "MULKI_IDARE",
@@ -405,6 +407,7 @@ export function kurumTipininKategorisi(tip: KurumTipi): KurumKategorisi {
 export const KURUM_TIP_TEKIL: ReadonlySet<KurumTipi> = new Set<KurumTipi>([
   // MULKI_IDARE
   "KAYMAKAMLIK",
+  "OZEL_KALEM",
   "YAZI_ISLERI_MUDURLUGU",
   "ILCE_IDARE_KURULU",
   "HUKUK_ISLERI",
