@@ -28,6 +28,10 @@ export type AktiviteOzeti = {
   mesaj: string;
   // Opsiyonel ikincil bilgi (ad, eski/yeni değer kısa özeti)
   detay: string | null;
+  // Kaynak modelin id'si — composite PK olan tablolarda null
+  // (KartEtiket, KartUyesi, KartHedefKurumu). Tümü sekmesinde inline yorum/ek
+  // eşleştirmesi için kullanılır.
+  kaynak_id: string | null;
 };
 
 // =====================================================================
@@ -289,6 +293,7 @@ function aktiviteOzetle(
     zaman: a.zaman,
     kullanici,
     islem,
+    kaynak_id: a.kaynak_id,
   };
 
   switch (a.kaynak_tip) {
