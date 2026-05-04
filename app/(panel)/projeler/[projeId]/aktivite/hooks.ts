@@ -2,12 +2,10 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { kartAktiviteleriEylem } from "./actions";
-
-export const KART_AKTIVITELERI_KEY = "kart-aktiviteleri";
-
-export function kartAktiviteleriKey(kartId: string) {
-  return [KART_AKTIVITELERI_KEY, kartId] as const;
-}
+// Saf key tanımları ayrı dosyada — diğer hook'lar `ekInvalidate` için bu
+// modülü import edebilir; aktivite/actions zincirini test ortamına çekmez.
+export { KART_AKTIVITELERI_KEY, kartAktiviteleriKey } from "./keys";
+import { kartAktiviteleriKey } from "./keys";
 
 // Read-only — optimistic mutation yok (Kural 113 kapsamı dışı zaten;
 // audit log'a kullanıcı doğrudan yazmaz, mutation'lar arka planda yazar).
@@ -16,7 +14,7 @@ export function useKartAktiviteleri(kartId: string | null) {
     queryKey: kartAktiviteleriKey(kartId ?? ""),
     enabled: !!kartId,
     queryFn: async () => {
-      const r = await kartAktiviteleriEylem({ kart_id: kartId!, limit: 50 });
+      const r = await kartAktiviteleriEylem({ kart_id: kartId! });
       if (!r.basarili) throw new Error(r.hata);
       return r.veri;
     },
