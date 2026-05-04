@@ -14,6 +14,7 @@ function kart(id: string): ListeKartOzeti {
     aciklama: null,
     sira: id,
     kapak_renk: null,
+    kapak: null,
     bitis: null,
     arsiv_mi: false,
     silindi_mi: false,

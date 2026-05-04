@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { DownloadIcon, FileIcon, ImageIcon, Loader2Icon, PaperclipIcon, Trash2Icon, UploadIcon } from "lucide-react";
+import { DownloadIcon, FileIcon, ImageIcon, ImagePlusIcon, Loader2Icon, PaperclipIcon, Trash2Icon, UploadIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/toast";
@@ -13,12 +13,18 @@ import {
   useKartEklentileri,
 } from "../hooks";
 import type { EklentiOzeti } from "../services";
+import { useKapagiAyarla } from "../../kapak/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { useOturumKullanicisi } from "@/hooks/use-oturum";
 
-type Props = { kartId: string };
+type Props = {
+  kartId: string;
+  // Verilirse görsel eklentilerde "Kapak yap" butonu görünür ve kapak ayarlama
+  // ProjeDetay cache'ini optimistic patch'ler. Yokken kapak özelliği kapalı.
+  projeId?: string;
+};
 
-export function EklentiPaneli({ kartId }: Props) {
+export function EklentiPaneli({ kartId, projeId }: Props) {
   const sorgu = useKartEklentileri(kartId);
   const sil = useEklentiSil(kartId);
   const istemci = useQueryClient();
@@ -163,6 +169,13 @@ export function EklentiPaneli({ kartId }: Props) {
                   {boyutBicim(e.boyut)} · {e.yukleyen.ad} {e.yukleyen.soyad[0]}.
                 </p>
               </div>
+              {projeId && e.mime.startsWith("image/") && (
+                <KapakYapButonu
+                  kartId={kartId}
+                  projeId={projeId}
+                  eklenti={e}
+                />
+              )}
               <Button
                 variant="ghost"
                 size="icon-sm"
@@ -184,6 +197,54 @@ export function EklentiPaneli({ kartId }: Props) {
         </ul>
       )}
     </div>
+  );
+}
+
+function KapakYapButonu({
+  kartId,
+  projeId,
+  eklenti,
+}: {
+  kartId: string;
+  projeId: string;
+  eklenti: EklentiOzeti;
+}) {
+  const ayarla = useKapagiAyarla(projeId);
+  const [yukleniyor, setYukleniyor] = React.useState(false);
+
+  const tikla = async () => {
+    setYukleniyor(true);
+    try {
+      // Optimistic için presigned URL gerekli — eklenti.depolama_yolu'ndan
+      // client-side üretemediğimiz için server'dan çekiyoruz (eklentiIndir
+      // helper'ı zaten presigned GET döner).
+      const url = await eklentiIndir(eklenti.id);
+      if (!url) {
+        toast.hata("Kapak ayarlanamadı (URL alınamadı).");
+        return;
+      }
+      ayarla.mutate({
+        kart_id: kartId,
+        eklenti_id: eklenti.id,
+        kapak_url: url,
+        kapak_mime: eklenti.mime,
+      });
+    } finally {
+      setYukleniyor(false);
+    }
+  };
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      onClick={tikla}
+      disabled={yukleniyor || ayarla.isPending}
+      aria-label="Kart kapağı yap"
+      title="Kart kapağı yap"
+    >
+      <ImagePlusIcon className="size-3.5" />
+    </Button>
   );
 }
 

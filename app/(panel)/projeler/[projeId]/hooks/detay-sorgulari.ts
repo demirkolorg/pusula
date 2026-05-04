@@ -45,7 +45,7 @@ export function projeKartlarKey(projeId: string) {
   return [PROJE_KARTLAR_KEY, projeId] as const;
 }
 
-type DetayKey = ReturnType<typeof projeDetayKey>;
+export type DetayKey = ReturnType<typeof projeDetayKey>;
 
 // ============================================================
 // Sorgular
@@ -254,6 +254,7 @@ export function useKartOlustur(anahtar: DetayKey) {
             aciklama: vars.aciklama ?? null,
             sira: siraSonuna(sonSira),
             kapak_renk: null,
+            kapak: null,
             bitis: null,
             arsiv_mi: false,
             silindi_mi: false,

@@ -102,6 +102,7 @@ function ornekKart(p: Partial<ListeKartOzeti> = {}): ListeKartOzeti {
     aciklama: p.aciklama ?? null,
     sira: p.sira ?? "M",
     kapak_renk: p.kapak_renk ?? null,
+    kapak: p.kapak ?? null,
     bitis: p.bitis ?? null,
     arsiv_mi: p.arsiv_mi ?? false,
     silindi_mi: p.silindi_mi ?? false,

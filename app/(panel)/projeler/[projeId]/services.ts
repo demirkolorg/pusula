@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { siraArasi, siraSonuna } from "@/lib/sira";
 import { EylemHatasi } from "@/lib/action-wrapper";
 import { HATA_KODU } from "@/lib/sonuc";
+import { presignedDownload } from "@/lib/storage";
 import type {
   KartGuncelle,
   KartOlustur,
@@ -15,12 +16,22 @@ import type {
 // Tipler
 // ============================================================
 
+export type KartKapakOzeti = {
+  url: string;
+  mime: string;
+};
+
 export type ListeKartOzeti = {
   id: string;
   baslik: string;
   aciklama: string | null;
   sira: string;
   kapak_renk: string | null;
+  // Eklenti'den ayarlanmış görsel kapak — server-side presigned URL.
+  // Hem renk hem görsel doluysa görsel öncelikli (services kapak ayarlanırken
+  // renk null'lar). KartMini bu nesneyi varsa <img> ile, yoksa kapak_renk
+  // varsa renkli div ile, ikisi de yoksa kapak göstermez.
+  kapak: KartKapakOzeti | null;
   bitis: Date | null;
   arsiv_mi: boolean;
   silindi_mi: boolean;
@@ -136,6 +147,7 @@ export async function projeDetayiniGetir(
               aciklama: true,
               sira: true,
               kapak_renk: true,
+              kapak_dosya_id: true,
               bitis: true,
               arsiv_mi: true,
               silindi_mi: true,
@@ -150,6 +162,36 @@ export async function projeDetayiniGetir(
   if (!proje) {
     throw new EylemHatasi("Proje bulunamadı.", HATA_KODU.BULUNAMADI);
   }
+
+  // Kapak görselleri — kart_kapak_dosya_id'leri toplu çek, presigned URL üret.
+  // N+1 yerine tek query + paralel presign (Kural 43).
+  const kapakIdler = Array.from(
+    new Set(
+      proje.listeler.flatMap((l) =>
+        l.kartlar.map((k) => k.kapak_dosya_id).filter((x): x is string => !!x),
+      ),
+    ),
+  );
+  const kapakDosyalar = kapakIdler.length
+    ? await db.eklenti.findMany({
+        where: { id: { in: kapakIdler }, silindi_mi: false },
+        select: { id: true, depolama_yolu: true, mime: true },
+      })
+    : [];
+  const kapakUrlEntries = await Promise.all(
+    kapakDosyalar.map(async (e) => {
+      try {
+        const url = await presignedDownload(e.depolama_yolu);
+        return [e.id, { url, mime: e.mime }] as const;
+      } catch {
+        // Storage erişilemezse kapak yokmuş gibi davran — kart yine görünür.
+        return null;
+      }
+    }),
+  );
+  const kapakMap = new Map(
+    kapakUrlEntries.filter((x): x is readonly [string, { url: string; mime: string }] => !!x),
+  );
 
   return {
     id: proje.id,
@@ -172,6 +214,7 @@ export async function projeDetayiniGetir(
         aciklama: k.aciklama,
         sira: k.sira,
         kapak_renk: k.kapak_renk,
+        kapak: k.kapak_dosya_id ? kapakMap.get(k.kapak_dosya_id) ?? null : null,
         bitis: k.bitis,
         arsiv_mi: k.arsiv_mi,
         silindi_mi: k.silindi_mi,
@@ -367,6 +410,7 @@ export async function kartOlustur(
     aciklama: yeni.aciklama,
     sira: yeni.sira,
     kapak_renk: yeni.kapak_renk,
+    kapak: null,
     bitis: yeni.bitis,
     arsiv_mi: yeni.arsiv_mi,
     silindi_mi: yeni.silindi_mi,
@@ -566,6 +610,9 @@ export async function projedeTumKartlar(
     aciklama: k.aciklama,
     sira: k.sira,
     kapak_renk: k.kapak_renk,
+    // Liste görünümü tablo — kapak görseli MVP'de gösterilmez (DataTable
+    // satır yüksekliği uniform). Tip uyumu için null.
+    kapak: null,
     bitis: k.bitis,
     arsiv_mi: k.arsiv_mi,
     silindi_mi: k.silindi_mi,

@@ -101,9 +101,22 @@ export function KartMini({ kart, listeId, yetkili, onAc }: Props) {
         </div>
       ) : (
         <>
-          {kapakSinifi && (
+          {/* Görsel kapak öncelikli — Trello tarzı geniş bant. Kapağın
+              hem görseli hem rengi varsa görsel gösterilir (services
+              kapak ayarlarken renk null'ler — defansif kontrol). */}
+          {kart.kapak ? (
+            // eslint-disable-next-line @next/next/no-img-element -- presigned URL,
+            // remotePatterns whitelist'i kuruluma bağlı; <img> ile basit kalır.
+            <img
+              src={kart.kapak.url}
+              alt=""
+              className="-mx-2 -mt-2 mb-1 h-24 w-[calc(100%+1rem)] rounded-t-md object-cover"
+              loading="lazy"
+              draggable={false}
+            />
+          ) : kapakSinifi ? (
             <div className={cn("-mx-2 -mt-2 mb-1 h-6 rounded-t-md", kapakSinifi)} />
-          )}
+          ) : null}
           <span className="line-clamp-3 font-medium leading-snug">
             {kart.baslik}
           </span>
