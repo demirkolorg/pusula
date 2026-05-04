@@ -2,6 +2,8 @@ import { db } from "@/lib/db";
 import { EylemHatasi } from "@/lib/action-wrapper";
 import { HATA_KODU } from "@/lib/sonuc";
 import { siraSonuna } from "@/lib/sira";
+import { yayinla } from "@/lib/realtime";
+import { SOCKET, room } from "@/lib/socket-events";
 import type {
   KontrolListesiGuncelle,
   KontrolListesiOlustur,
@@ -177,6 +179,10 @@ export async function kontrolListesiOlustur(
     data: { kart_id: girdi.kart_id, ad: girdi.ad, sira },
     select: { id: true, kart_id: true, ad: true, sira: true },
   });
+  yayinla(SOCKET.KONTROL_LISTESI_OLUSTUR, room.kart(girdi.kart_id), {
+    kart_id: girdi.kart_id,
+    kontrol_listesi: yeni,
+  }).catch(() => {});
   return { ...yeni, maddeler: [] };
 }
 
@@ -184,20 +190,28 @@ export async function kontrolListesiGuncelle(
   kurumId: string,
   girdi: KontrolListesiGuncelle,
 ): Promise<void> {
-  await kontrolListesiBulVeKart(kurumId, girdi.id);
+  const { kart_id } = await kontrolListesiBulVeKart(kurumId, girdi.id);
   await db.kontrolListesi.update({
     where: { id: girdi.id },
     data: { ad: girdi.ad },
   });
+  yayinla(SOCKET.KONTROL_LISTESI_GUNCELLE, room.kart(kart_id), {
+    kart_id,
+    kontrol_listesi_id: girdi.id,
+  }).catch(() => {});
 }
 
 export async function kontrolListesiSil(
   kurumId: string,
   id: string,
 ): Promise<void> {
-  await kontrolListesiBulVeKart(kurumId, id);
+  const { kart_id } = await kontrolListesiBulVeKart(kurumId, id);
   // Maddeler onDelete: Cascade ile birlikte gider.
   await db.kontrolListesi.delete({ where: { id } });
+  yayinla(SOCKET.KONTROL_LISTESI_SIL, room.kart(kart_id), {
+    kart_id,
+    kontrol_listesi_id: id,
+  }).catch(() => {});
 }
 
 // =====================================================================
@@ -254,6 +268,17 @@ export async function maddeOlustur(
       atanan: { select: { ad: true, soyad: true } },
     },
   });
+  // kart_id için kontrol listesi'ne tekrar bak (madde'nin parent zinciri)
+  const kl = await db.kontrolListesi.findUnique({
+    where: { id: girdi.kontrol_listesi_id },
+    select: { kart_id: true },
+  });
+  if (kl) {
+    yayinla(SOCKET.MADDE_OLUSTUR, room.kart(kl.kart_id), {
+      kart_id: kl.kart_id,
+      madde: yeni,
+    }).catch(() => {});
+  }
   return yeni;
 }
 
@@ -262,7 +287,7 @@ export async function maddeGuncelle(
   yapanId: string,
   girdi: MaddeGuncelle,
 ): Promise<void> {
-  const { proje_id } = await maddeBul(kurumId, girdi.id);
+  const { proje_id, kart_id } = await maddeBul(kurumId, girdi.id);
   if (girdi.atanan_id) {
     const uye = await db.projeUyesi.findUnique({
       where: {
@@ -290,9 +315,17 @@ export async function maddeGuncelle(
 
   if (Object.keys(veri).length === 0) return;
   await db.kontrolMaddesi.update({ where: { id: girdi.id }, data: veri });
+  yayinla(SOCKET.MADDE_GUNCELLE, room.kart(kart_id), {
+    kart_id,
+    madde_id: girdi.id,
+  }).catch(() => {});
 }
 
 export async function maddeSil(kurumId: string, id: string): Promise<void> {
-  await maddeBul(kurumId, id);
+  const { kart_id } = await maddeBul(kurumId, id);
   await db.kontrolMaddesi.delete({ where: { id } });
+  yayinla(SOCKET.MADDE_SIL, room.kart(kart_id), {
+    kart_id,
+    madde_id: id,
+  }).catch(() => {});
 }

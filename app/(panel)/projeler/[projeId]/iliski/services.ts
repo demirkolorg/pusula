@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
 import { EylemHatasi } from "@/lib/action-wrapper";
 import { HATA_KODU } from "@/lib/sonuc";
+import { yayinla } from "@/lib/realtime";
+import { SOCKET, room } from "@/lib/socket-events";
 import type {
   IliskiOlustur,
   KartIliskiTipi,
@@ -146,6 +148,19 @@ export async function iliskiOlustur(
       },
       select: { id: true },
     });
+    // İki kartın da room'una yayınla — her iki tarafta da görünür
+    yayinla(SOCKET.ILISKI_OLUSTUR, room.kart(girdi.kart_a_id), {
+      iliski_id: r.id,
+      kart_a_id: girdi.kart_a_id,
+      kart_b_id: girdi.kart_b_id,
+      tip: girdi.tip,
+    }).catch(() => {});
+    yayinla(SOCKET.ILISKI_OLUSTUR, room.kart(girdi.kart_b_id), {
+      iliski_id: r.id,
+      kart_a_id: girdi.kart_a_id,
+      kart_b_id: girdi.kart_b_id,
+      tip: girdi.tip,
+    }).catch(() => {});
     return r;
   } catch (err) {
     if (
@@ -170,6 +185,8 @@ export async function iliskiSil(
   const r = await db.kartIliskisi.findUnique({
     where: { id: iliskiId },
     select: {
+      kart_a_id: true,
+      kart_b_id: true,
       kart_a: { select: { liste: { select: { proje: { select: { kurum_id: true } } } } } },
     },
   });
@@ -177,6 +194,12 @@ export async function iliskiSil(
     throw new EylemHatasi("İlişki bulunamadı.", HATA_KODU.BULUNAMADI);
   }
   await db.kartIliskisi.delete({ where: { id: iliskiId } });
+  yayinla(SOCKET.ILISKI_SIL, room.kart(r.kart_a_id), {
+    iliski_id: iliskiId,
+  }).catch(() => {});
+  yayinla(SOCKET.ILISKI_SIL, room.kart(r.kart_b_id), {
+    iliski_id: iliskiId,
+  }).catch(() => {});
 }
 
 // =====================================================================

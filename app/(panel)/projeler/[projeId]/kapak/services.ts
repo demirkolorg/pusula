@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
 import { EylemHatasi } from "@/lib/action-wrapper";
 import { HATA_KODU } from "@/lib/sonuc";
+import { yayinla } from "@/lib/realtime";
+import { SOCKET, room } from "@/lib/socket-events";
 
 // =====================================================================
 // Erişim doğrulama
@@ -61,6 +63,10 @@ export async function kapagiAyarla(
     where: { id: kartId },
     data: { kapak_dosya_id: eklentiId, kapak_renk: null },
   });
+  yayinla(SOCKET.KAPAK_AYARLA, room.kart(kartId), {
+    kart_id: kartId,
+    eklenti_id: eklentiId,
+  }).catch(() => {});
 }
 
 // =====================================================================
@@ -76,4 +82,7 @@ export async function kapagiKaldir(
     where: { id: kartId },
     data: { kapak_dosya_id: null },
   });
+  yayinla(SOCKET.KAPAK_KALDIR, room.kart(kartId), { kart_id: kartId }).catch(
+    () => {},
+  );
 }

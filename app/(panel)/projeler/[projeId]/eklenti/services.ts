@@ -10,6 +10,8 @@ import {
   presignedDownload,
   presignedUpload,
 } from "@/lib/storage";
+import { yayinla } from "@/lib/realtime";
+import { SOCKET, room } from "@/lib/socket-events";
 import type { YuklemeBaslat, YuklemeOnayla } from "./schemas";
 
 export type EklentiOzeti = {
@@ -148,7 +150,7 @@ export async function yuklemeOnayla(
     );
   }
 
-  return db.eklenti.create({
+  const yeni = await db.eklenti.create({
     data: {
       kart_id: girdi.kart_id,
       yukleyen_id: yukleyenId,
@@ -169,6 +171,11 @@ export async function yuklemeOnayla(
       yukleyen: { select: { ad: true, soyad: true } },
     },
   });
+  yayinla(SOCKET.EKLENTI_OLUSTUR, room.kart(girdi.kart_id), {
+    kart_id: girdi.kart_id,
+    eklenti_id: yeni.id,
+  }).catch(() => {});
+  return yeni;
 }
 
 // =====================================================================
@@ -226,6 +233,10 @@ export async function eklentiSil(
     where: { id: eklentiId },
     data: { silindi_mi: true, silinme_zamani: new Date() },
   });
+  yayinla(SOCKET.EKLENTI_SIL, room.kart(e.kart_id), {
+    kart_id: e.kart_id,
+    eklenti_id: eklentiId,
+  }).catch(() => {});
   try {
     await objeyiSil(e.depolama_yolu);
   } catch {

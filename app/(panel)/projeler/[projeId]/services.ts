@@ -3,6 +3,8 @@ import { siraArasi, siraSonuna } from "@/lib/sira";
 import { EylemHatasi } from "@/lib/action-wrapper";
 import { HATA_KODU } from "@/lib/sonuc";
 import { presignedDownload } from "@/lib/storage";
+import { yayinla } from "@/lib/realtime";
+import { SOCKET, room } from "@/lib/socket-events";
 import type {
   KartGuncelle,
   KartOlustur,
@@ -258,6 +260,10 @@ export async function listeOlustur(
     },
   });
 
+  yayinla(SOCKET.LISTE_OLUSTUR, room.proje(girdi.proje_id), {
+    proje_id: girdi.proje_id,
+    liste: yeni,
+  }).catch(() => {});
   return { ...yeni, kartlar: [] };
 }
 
@@ -273,6 +279,10 @@ export async function listeGuncelle(
   if (girdi.arsiv_mi !== undefined) veri.arsiv_mi = girdi.arsiv_mi;
   if (girdi.wip_limit !== undefined) veri.wip_limit = girdi.wip_limit;
   await db.liste.update({ where: { id: girdi.id }, data: veri });
+  yayinla(SOCKET.LISTE_GUNCELLE, room.proje(proje_id), {
+    proje_id,
+    liste_id: girdi.id,
+  }).catch(() => {});
 }
 
 export async function listeSil(kurumId: string, id: string): Promise<void> {
@@ -281,6 +291,10 @@ export async function listeSil(kurumId: string, id: string): Promise<void> {
   // Liste tamamen kaldırılır (kartlar onDelete: Cascade ile birlikte gider).
   // Çöp kutusu liste düzeyinde MVP dışında, ileride eklenebilir.
   await db.liste.delete({ where: { id } });
+  yayinla(SOCKET.LISTE_SIL, room.proje(proje_id), {
+    proje_id,
+    liste_id: id,
+  }).catch(() => {});
 }
 
 async function projeListeleriniRebalance(projeId: string): Promise<void> {
@@ -360,6 +374,11 @@ export async function listeyeSiraVer(
   }
 
   await db.liste.update({ where: { id: girdi.id }, data: { sira: yeniSira } });
+  yayinla(SOCKET.LISTE_SIRALA, room.proje(girdi.proje_id), {
+    proje_id: girdi.proje_id,
+    liste_id: girdi.id,
+    sira: yeniSira,
+  }).catch(() => {});
   return { sira: yeniSira };
 }
 
@@ -403,7 +422,7 @@ export async function kartOlustur(
     },
   });
 
-  return {
+  const sonuc = {
     id: yeni.id,
     liste_id: yeni.liste_id,
     baslik: yeni.baslik,
@@ -417,6 +436,11 @@ export async function kartOlustur(
     uye_sayisi: 0,
     etiket_sayisi: 0,
   };
+  yayinla(SOCKET.KART_OLUSTUR, room.proje(proje_id), {
+    proje_id,
+    kart: sonuc,
+  }).catch(() => {});
+  return sonuc;
 }
 
 export async function kartGuncelle(
@@ -435,6 +459,10 @@ export async function kartGuncelle(
   if (girdi.arsiv_mi !== undefined) veri.arsiv_mi = girdi.arsiv_mi;
 
   await db.kart.update({ where: { id: girdi.id }, data: veri });
+  yayinla(SOCKET.KART_GUNCELLE, room.proje(proje_id), {
+    proje_id,
+    kart_id: girdi.id,
+  }).catch(() => {});
 }
 
 export async function kartSil(kurumId: string, id: string): Promise<void> {
@@ -444,6 +472,10 @@ export async function kartSil(kurumId: string, id: string): Promise<void> {
     where: { id },
     data: { silindi_mi: true, silinme_zamani: new Date() },
   });
+  yayinla(SOCKET.KART_SIL, room.proje(proje_id), {
+    proje_id,
+    kart_id: id,
+  }).catch(() => {});
 }
 
 export async function kartGeriYukle(
@@ -456,6 +488,10 @@ export async function kartGeriYukle(
     where: { id },
     data: { silindi_mi: false, silinme_zamani: null },
   });
+  yayinla(SOCKET.KART_GERI_YUKLE, room.proje(proje_id), {
+    proje_id,
+    kart_id: id,
+  }).catch(() => {});
 }
 
 // LexoRank "0" tabanına ulaşıldığında bir listenin tüm kartlarını yeniden
@@ -565,6 +601,12 @@ export async function kartiTasi(
       sira: yeniSira,
     },
   });
+  yayinla(SOCKET.KART_TASI, room.proje(hedefProjeId), {
+    proje_id: hedefProjeId,
+    kart_id: girdi.id,
+    liste_id: girdi.hedef_liste_id,
+    sira: yeniSira,
+  }).catch(() => {});
 
   return { sira: yeniSira, liste_id: girdi.hedef_liste_id };
 }
