@@ -38,6 +38,14 @@ type OptimisticConfig<TVars, TVeri, TBaglam> = {
   // Sunucudan gerçek veri gelince geçici kaydı swap et (Kural 109).
   // `sunucuYaniti` Sonuc<X> sarmalayıcısı çözülmüş hâlidir (X).
   swap?: (oldData: unknown, vars: TVars, sunucuYaniti: Cikti<TVeri>) => unknown;
+  // İkincil cache'leri tazele — optimistic uygulanmaz, sadece onSettled'da
+  // invalidate edilir. Kullanım: kart üzerinde yapılan değişikliklerin aktivite
+  // log'una canlı düşmesi (`kartAktiviteleriKey(kart.id)`), sekme rozet
+  // sayılarının sunucuyla senkron kalması, vb.
+  // Statik (her zaman aynı key) veya dinamik (vars'a bağlı) kullanılabilir.
+  ekInvalidate?:
+    | ReadonlyArray<Anahtar>
+    | ((vars: TVars) => ReadonlyArray<Anahtar>);
   // ek context callbacks
   onSettledExtra?: () => void;
   ekstra?: Omit<
@@ -141,11 +149,20 @@ export function useOptimisticMutation<TVars, TVeri>(
       }
     },
 
-    onSettled: () => {
+    onSettled: (_yanit, _hata, vars) => {
       const tumKeyler = cfg.optimisticMap
         ? cfg.optimisticMap.map((m) => m.queryKey)
         : anahtarlar(cfg.queryKey);
       for (const k of tumKeyler) {
+        void istemci.invalidateQueries({ queryKey: k });
+      }
+      // Ek invalidate'ler — optimistic kapsamı dışında ama mutation sonrası
+      // tazelenmesi gereken cache'ler (örn. kart-aktiviteleri).
+      const ekKeyler =
+        typeof cfg.ekInvalidate === "function"
+          ? cfg.ekInvalidate(vars)
+          : (cfg.ekInvalidate ?? []);
+      for (const k of ekKeyler) {
         void istemci.invalidateQueries({ queryKey: k });
       }
       cfg.onSettledExtra?.();

@@ -29,17 +29,18 @@ export type IliskiOzeti = {
 // =====================================================================
 
 async function kartiBulVeProjeAl(
-  kurumId: string,
+  _kurumId: string,
   kartId: string,
 ): Promise<{ proje_id: string; liste_id: string }> {
+  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
   const k = await db.kart.findUnique({
     where: { id: kartId },
     select: {
       liste_id: true,
-      liste: { select: { proje_id: true, proje: { select: { kurum_id: true } } } },
+      liste: { select: { proje_id: true } },
     },
   });
-  if (!k || k.liste.proje.kurum_id !== kurumId) {
+  if (!k) {
     throw new EylemHatasi("Kart bulunamadı.", HATA_KODU.BULUNAMADI);
   }
   return { proje_id: k.liste.proje_id, liste_id: k.liste_id };
@@ -179,18 +180,18 @@ export async function iliskiOlustur(
 }
 
 export async function iliskiSil(
-  kurumId: string,
+  _kurumId: string,
   iliskiId: string,
 ): Promise<void> {
+  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
   const r = await db.kartIliskisi.findUnique({
     where: { id: iliskiId },
     select: {
       kart_a_id: true,
       kart_b_id: true,
-      kart_a: { select: { liste: { select: { proje: { select: { kurum_id: true } } } } } },
     },
   });
-  if (!r || r.kart_a.liste.proje.kurum_id !== kurumId) {
+  if (!r) {
     throw new EylemHatasi("İlişki bulunamadı.", HATA_KODU.BULUNAMADI);
   }
   await db.kartIliskisi.delete({ where: { id: iliskiId } });
@@ -207,14 +208,15 @@ export async function iliskiSil(
 // =====================================================================
 
 export async function projedeKartiAra(
-  kurumId: string,
+  _kurumId: string,
   girdi: ProjeKartiAra,
 ): Promise<Array<{ id: string; baslik: string; liste_ad: string }>> {
+  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
   const proje = await db.proje.findUnique({
     where: { id: girdi.proje_id },
-    select: { kurum_id: true },
+    select: { id: true },
   });
-  if (!proje || proje.kurum_id !== kurumId) {
+  if (!proje) {
     throw new EylemHatasi("Proje bulunamadı.", HATA_KODU.BULUNAMADI);
   }
   const aramaQ = girdi.q?.trim() ?? "";

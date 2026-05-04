@@ -159,6 +159,18 @@ function ProjeAdayAra({
   const [q, setQ] = React.useState("");
   const sorgu = useProjeAdayKullanicilar(projeId, q);
   const ekle = useProjeyeUyeEkle(projeId);
+  // Why: aday cache invalidation server cevabını beklerken kullanıcı aynı
+  // satıra tekrar tıklarsa P2002 (zaten üyesi) hatası alıyordu. Mevcut proje
+  // üyelerini client-side filtreleyip bu yarış durumunu kapatıyoruz.
+  const projeUyeleri = useProjeUyeleri(projeId);
+  const eklenenSet = React.useMemo(
+    () => new Set((projeUyeleri.data ?? []).map((u) => u.kullanici_id)),
+    [projeUyeleri.data],
+  );
+  const filtreliAdaylar = React.useMemo(
+    () => (sorgu.data ?? []).filter((u) => !eklenenSet.has(u.id)),
+    [sorgu.data, eklenenSet],
+  );
 
   return (
     <div className="flex flex-col gap-2 p-3">
@@ -185,34 +197,42 @@ function ProjeAdayAra({
           autoFocus
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Ad, soyad veya email"
+          placeholder="Ad, soyad, email veya kurum"
           className="pl-7"
         />
       </div>
 
       {sorgu.isLoading && q ? (
         <p className="text-muted-foreground text-xs">Aranıyor…</p>
-      ) : (sorgu.data?.length ?? 0) === 0 ? (
+      ) : filtreliAdaylar.length === 0 ? (
         <p className="text-muted-foreground text-xs">
           {q ? "Eşleşen kullanıcı yok." : "Kullanıcı aramaya başlayın."}
         </p>
       ) : (
         <ul className="flex max-h-60 flex-col gap-0.5 overflow-y-auto">
-          {sorgu.data?.map((u) => (
+          {filtreliAdaylar.map((u) => (
             <li key={u.id}>
               <button
                 type="button"
+                disabled={ekle.isPending}
                 onClick={() =>
                   ekle.mutate({ proje_id: projeId, kullanici_id: u.id, seviye: "NORMAL" })
                 }
-                className="hover:bg-accent flex w-full items-center gap-2 rounded px-2 py-1.5 text-left"
+                className="hover:bg-accent flex w-full items-center gap-2 rounded px-2 py-1.5 text-left disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <UyeAvatar ad={u.ad} soyad={u.soyad} />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm">{u.ad} {u.soyad}</p>
+                  <p className="truncate text-sm">
+                    {u.ad} {u.soyad}
+                  </p>
                   <p className="text-muted-foreground truncate text-[11px]">
                     {u.email}
                   </p>
+                  {u.kurum_ad && (
+                    <p className="text-muted-foreground/80 truncate text-[10.5px]">
+                      {u.kurum_ad}
+                    </p>
+                  )}
                 </div>
                 <PlusIcon className="text-muted-foreground size-3.5 shrink-0" />
               </button>

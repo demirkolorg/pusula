@@ -17,18 +17,19 @@ export type KartHedefKurumOzeti = {
 };
 
 async function kartiBulVeProjeAl(
-  kurumId: string,
+  _kurumId: string,
   kartId: string,
 ): Promise<{ proje_id: string }> {
+  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
   const k = await db.kart.findUnique({
     where: { id: kartId },
     select: {
       liste: {
-        select: { proje: { select: { id: true, kurum_id: true } } },
+        select: { proje: { select: { id: true } } },
       },
     },
   });
-  if (!k || k.liste.proje.kurum_id !== kurumId) {
+  if (!k) {
     throw new EylemHatasi("Kart bulunamadı.", HATA_KODU.BULUNAMADI);
   }
   return { proje_id: k.liste.proje.id };

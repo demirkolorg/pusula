@@ -89,19 +89,78 @@ describe("useMentionInput", () => {
     expect(result.current.durum.acik).toBe(false);
   });
 
-  it("secimYap UUID insert eder ve durumu kapatır", () => {
+  it("secimYap textarea'ya ad insert eder ve durumu kapatır", () => {
     const { result } = setup();
     act(() => {
       result.current.onMetinDegisti(changeEvent("Selam @ah"));
     });
     expect(result.current.durum.acik).toBe(true);
     act(() => {
-      result.current.secimYap("00000000-0000-0000-0000-000000000001");
+      result.current.secimYap(
+        "00000000-0000-0000-0000-000000000001",
+        "Ahmet Yılmaz",
+      );
     });
-    expect(result.current.metin).toBe(
-      "Selam @00000000-0000-0000-0000-000000000001 ",
-    );
+    // Storage formatı yerine kullanıcıya okunaklı ad yazılır
+    expect(result.current.metin).toBe("Selam @Ahmet Yılmaz ");
     expect(result.current.durum.acik).toBe(false);
+  });
+
+  it("cozumle metindeki @AdSoyad'ı @<uuid>'ye dönüştürür", () => {
+    const { result } = setup();
+    act(() => {
+      result.current.onMetinDegisti(changeEvent("Selam @ah"));
+    });
+    act(() => {
+      result.current.secimYap(
+        "00000000-0000-0000-0000-000000000001",
+        "Ahmet Yılmaz",
+      );
+    });
+    // Submit öncesi cozumle çağrılır → uuid formatına döner
+    const cozulen = result.current.cozumle(result.current.metin + "nasilsin?");
+    expect(cozulen).toBe(
+      "Selam @00000000-0000-0000-0000-000000000001 nasilsin?",
+    );
+  });
+
+  it("cozumle birden fazla mention'ı uzunluğa göre sıralı işler", () => {
+    const { result } = setup();
+    // Önce kısa ad seç
+    act(() => {
+      result.current.onMetinDegisti(changeEvent("@Al", 3));
+    });
+    act(() => {
+      result.current.secimYap(
+        "00000000-0000-0000-0000-000000000001",
+        "Ali",
+      );
+    });
+    // Mevcut metne ek satır + @Ali Veli mention'ı
+    act(() => {
+      result.current.onMetinDegisti(
+        changeEvent(result.current.metin + "ve @Ali", result.current.metin.length + 7),
+      );
+    });
+    act(() => {
+      result.current.secimYap(
+        "00000000-0000-0000-0000-000000000002",
+        "Ali Veli",
+      );
+    });
+    const cozulen = result.current.cozumle(result.current.metin);
+    // "Ali Veli" pattern'i "Ali"'den önce eşleşmeli (uzunluğa göre sıralı)
+    expect(cozulen).toContain("@00000000-0000-0000-0000-000000000001");
+    expect(cozulen).toContain("@00000000-0000-0000-0000-000000000002");
+    // "Ali Veli" pattern'i bozulmadan dönüşmeli
+    expect(cozulen).not.toContain("@Ali Veli");
+    expect(cozulen).not.toContain("@Ali ");
+  });
+
+  it("cozumle eşleşmeyen @ifadeleri olduğu gibi bırakır", () => {
+    const { result } = setup();
+    const cozulen = result.current.cozumle("Sadece düz metin @kimse-yok");
+    expect(cozulen).toBe("Sadece düz metin @kimse-yok");
   });
 
   it("ortada @ — caret pozisyonuna duyarlı", () => {

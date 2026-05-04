@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { eylemMutasyonu, useOptimisticMutation } from "@/lib/optimistic";
 import { tempId } from "@/lib/temp-id";
+import { kartAktiviteleriKey } from "../aktivite/keys";
 import {
   yorumGuncelleEylem,
   yorumlariListeleEylem,
@@ -74,6 +75,8 @@ export function useYorumOlustur(kartId: string) {
       const liste = (eski as YorumOzeti[] | undefined) ?? [];
       return liste.map((y) => (y.id === vars.id_taslak ? yanit : y));
     },
+    // Yorum yazma audit log'a düşer; Aktivite/Tümü sekmeleri canlı yansısın.
+    ekInvalidate: [kartAktiviteleriKey(kartId)],
     hataMesaji: "Yorum gönderilemedi",
   });
 }
@@ -95,6 +98,7 @@ export function useYorumGuncelle(kartId: string) {
           : y,
       );
     },
+    ekInvalidate: [kartAktiviteleriKey(kartId)],
     hataMesaji: "Yorum güncellenemedi",
   });
 }
@@ -107,6 +111,7 @@ export function useYorumSil(kartId: string) {
       const liste = (eski as YorumOzeti[] | undefined) ?? [];
       return liste.filter((y) => y.id !== vars.id);
     },
+    ekInvalidate: [kartAktiviteleriKey(kartId)],
     hataMesaji: "Yorum silinemedi",
   });
 }

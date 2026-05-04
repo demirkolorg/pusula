@@ -37,25 +37,27 @@ export type KontrolListesiOzeti = {
 // =====================================================================
 
 async function kartiBulVeProjeAl(
-  kurumId: string,
+  _kurumId: string,
   kartId: string,
 ): Promise<{ proje_id: string }> {
+  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
   const k = await db.kart.findUnique({
     where: { id: kartId },
     select: {
-      liste: { select: { proje_id: true, proje: { select: { kurum_id: true } } } },
+      liste: { select: { proje_id: true } },
     },
   });
-  if (!k || k.liste.proje.kurum_id !== kurumId) {
+  if (!k) {
     throw new EylemHatasi("Kart bulunamadı.", HATA_KODU.BULUNAMADI);
   }
   return { proje_id: k.liste.proje_id };
 }
 
 async function kontrolListesiBulVeKart(
-  kurumId: string,
+  _kurumId: string,
   klId: string,
 ): Promise<{ kart_id: string; proje_id: string }> {
+  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
   const kl = await db.kontrolListesi.findUnique({
     where: { id: klId },
     select: {
@@ -63,22 +65,23 @@ async function kontrolListesiBulVeKart(
       kart: {
         select: {
           liste: {
-            select: { proje_id: true, proje: { select: { kurum_id: true } } },
+            select: { proje_id: true },
           },
         },
       },
     },
   });
-  if (!kl || kl.kart.liste.proje.kurum_id !== kurumId) {
+  if (!kl) {
     throw new EylemHatasi("Kontrol listesi bulunamadı.", HATA_KODU.BULUNAMADI);
   }
   return { kart_id: kl.kart_id, proje_id: kl.kart.liste.proje_id };
 }
 
 async function maddeBul(
-  kurumId: string,
+  _kurumId: string,
   maddeId: string,
 ): Promise<{ kontrol_listesi_id: string; kart_id: string; proje_id: string }> {
+  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
   const m = await db.kontrolMaddesi.findUnique({
     where: { id: maddeId },
     select: {
@@ -91,7 +94,6 @@ async function maddeBul(
               liste: {
                 select: {
                   proje_id: true,
-                  proje: { select: { kurum_id: true } },
                 },
               },
             },
@@ -100,7 +102,7 @@ async function maddeBul(
       },
     },
   });
-  if (!m || m.kontrol_listesi.kart.liste.proje.kurum_id !== kurumId) {
+  if (!m) {
     throw new EylemHatasi("Madde bulunamadı.", HATA_KODU.BULUNAMADI);
   }
   return {

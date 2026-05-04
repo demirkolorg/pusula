@@ -233,7 +233,11 @@ export function KurumFormSheet({ acik, kapat, baslangic, basaridaTetikle }: Prop
               onValueChange={(v) => kategoriDegistir(v as KurumKategorisi)}
             >
               <SelectTrigger id="kategori">
-                <SelectValue />
+                <SelectValue>
+                  {(v) =>
+                    v ? (KURUM_KATEGORI_LABEL[v as KurumKategorisi] ?? "") : ""
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {kategoriler.map((k) => (
@@ -252,7 +256,9 @@ export function KurumFormSheet({ acik, kapat, baslangic, basaridaTetikle }: Prop
               onValueChange={(v) => tipDegistir(v as KurumTipi)}
             >
               <SelectTrigger id="tip">
-                <SelectValue />
+                <SelectValue>
+                  {(v) => (v ? (KURUM_TIP_LABEL[v as KurumTipi] ?? "") : "")}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {aktifTipler.map((t) => (

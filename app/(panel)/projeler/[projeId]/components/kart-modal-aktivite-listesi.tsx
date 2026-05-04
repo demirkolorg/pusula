@@ -11,6 +11,15 @@ import { AktiviteListesi } from "../aktivite/components/aktivite-listesi";
 // kayıtları çeker (kart, yorum, eklenti, kontrol-listesi/maddesi,
 // etiket-bağı, üye-bağı, ilişki, hedef-kurum). Kullanıcı bilgisi
 // audit-context'ten geliyor (Server Action içinde otomatik dolar).
-export function KartModalAktiviteListesi({ kartId }: { kartId: string }) {
-  return <AktiviteListesi kartId={kartId} />;
+//
+// projeId opsiyonel: verildiğinde yorum aktivitelerinin detay alanındaki
+// `@<uuid>` mention'ları kullanıcı adlarıyla zenginleşir.
+export function KartModalAktiviteListesi({
+  kartId,
+  projeId,
+}: {
+  kartId: string;
+  projeId?: string;
+}) {
+  return <AktiviteListesi kartId={kartId} projeId={projeId} />;
 }

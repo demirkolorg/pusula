@@ -103,11 +103,24 @@ describe("projeyeUyeEkle", () => {
     ).rejects.toMatchObject({ kod: "GECERSIZ_GIRDI" });
   });
 
-  it("başka kurumun kullanıcısı eklenemez", async () => {
+  it("farklı kurum kullanıcısı projeye eklenebilir (sistem geneli atama)", async () => {
+    // Mimari karar: aday havuzu sistem geneli, projeye farklı kurum
+    // kullanıcısı atanabilir. İzolasyon proje üyeliği seviyesinde değil
+    // proje erişimi seviyesindedir.
+    const yeni = await projeyeUyeEkle(ortam.kurum.id, {
+      proje_id: proje.id,
+      kullanici_id: ortam.digerKullanici.id,
+      seviye: "NORMAL",
+    });
+    expect(yeni.kullanici_id).toBe(ortam.digerKullanici.id);
+    expect(yeni.seviye).toBe("NORMAL");
+  });
+
+  it("var olmayan/silinmiş kullanıcı eklenemez", async () => {
     await expect(
       projeyeUyeEkle(ortam.kurum.id, {
         proje_id: proje.id,
-        kullanici_id: ortam.digerKullanici.id,
+        kullanici_id: "00000000-0000-0000-0000-000000000000",
         seviye: "NORMAL",
       }),
     ).rejects.toMatchObject({ kod: "BULUNAMADI" });
@@ -168,13 +181,58 @@ describe("projeUyesiSeviyeGuncelle", () => {
 });
 
 describe("projeAdayKullanicilariniAra", () => {
-  it("proje üyesi olmayanları döner, üyeleri filtreler", async () => {
+  it("proje üyesi olmayanları sistem genelinden döner (kurum sınırı yok)", async () => {
     const adaylar = await projeAdayKullanicilariniAra(ortam.kurum.id, {
       proje_id: proje.id,
     });
+    // Proje üyesi olan superAdmin filtreli
     expect(adaylar.find((a) => a.id === ortam.superAdmin.id)).toBeUndefined();
+    // Aynı kurum personeli aday
     expect(adaylar.find((a) => a.id === ortam.personel.id)).toBeDefined();
-    expect(adaylar.find((a) => a.id === ortam.digerKullanici.id)).toBeUndefined();
+    // Farklı kurum kullanıcısı da aday (sistem geneli)
+    expect(adaylar.find((a) => a.id === ortam.digerKullanici.id)).toBeDefined();
+  });
+
+  it("kurum adına göre arama eşleşir", async () => {
+    // Why: kullanıcı "Test Kurum B" yazıp digerKurum'daki kullanıcılara
+    // hızlıca süzebilmeli — kurum.ad ve kurum.kisa_ad da OR'da.
+    const adaylar = await projeAdayKullanicilariniAra(ortam.kurum.id, {
+      proje_id: proje.id,
+      q: "Test Kurum B",
+    });
+    expect(adaylar.find((a) => a.id === ortam.digerKullanici.id)).toBeDefined();
+    // Aynı kurum personeli kurum filtresine takılmaz (Test Kurum eşleşse
+    // bile B harfi yoksa eşleşmez — fixture: ortam.kurum "Test Kurum")
+    expect(adaylar.find((a) => a.id === ortam.personel.id)).toBeUndefined();
+  });
+
+  it("ad/email araması eşleşir", async () => {
+    const personel = await adminDb.kullanici.findUnique({
+      where: { id: ortam.personel.id },
+      select: { ad: true, email: true },
+    });
+    if (!personel) throw new Error("personel bulunamadı");
+    const adAramasi = await projeAdayKullanicilariniAra(ortam.kurum.id, {
+      proje_id: proje.id,
+      q: personel.ad.slice(0, 3),
+    });
+    expect(adAramasi.find((a) => a.id === ortam.personel.id)).toBeDefined();
+
+    const emailAramasi = await projeAdayKullanicilariniAra(ortam.kurum.id, {
+      proje_id: proje.id,
+      q: personel.email.split("@")[0]!,
+    });
+    expect(emailAramasi.find((a) => a.id === ortam.personel.id)).toBeDefined();
+  });
+
+  it("aday satırında kurum bilgisi de döner", async () => {
+    const adaylar = await projeAdayKullanicilariniAra(ortam.kurum.id, {
+      proje_id: proje.id,
+    });
+    const personel = adaylar.find((a) => a.id === ortam.personel.id);
+    expect(personel).toBeDefined();
+    expect(typeof personel?.kurum_ad).toBe("string");
+    expect(personel?.kurum_ad?.length ?? 0).toBeGreaterThan(0);
   });
 });
 

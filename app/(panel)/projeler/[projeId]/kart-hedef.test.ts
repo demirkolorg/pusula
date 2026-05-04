@@ -115,17 +115,17 @@ describe("kartHedefKurumEkle", () => {
     ).rejects.toThrow(/geçerli değil/);
   });
 
-  it("başka kurumun kartına eklenemez (cross-tenant)", async () => {
+  it("farklı kurum oturumu da karta hedef ekleyebilir (tek-kurum mimarisi)", async () => {
+    // ADR-0007 — kurum izolasyonu kaldırıldı; erişim ProjeUyesi seviyesinde
+    // (test fixtures sahibi superAdmin proje üyesi olduğu için ekleme başarılı).
     const hedef = await kurumOlustur({
       kategori: "SAGLIK",
       tip: "ECZANE",
       ad: "X",
     });
-
-    // Başka kurumun kartına erişim — kart digerKurum'da olduğunu varsay
     await expect(
       kartHedefKurumEkle(ortam.digerKurum.id, kartId, hedef.id),
-    ).rejects.toThrow(/Kart bulunamadı/);
+    ).resolves.not.toThrow();
   });
 });
 

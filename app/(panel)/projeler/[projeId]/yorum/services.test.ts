@@ -150,7 +150,7 @@ describe("yorumSil", () => {
   });
 
   it("ne yazan ne admin başkasının yorumunu silemez", async () => {
-    // diger kullanıcı (başka kurumdan) -> kart erişimi BULUNAMADI
+    // Yorum sahibi superAdmin; personel yazan değil → YETKISIZ.
     const y = await yorumOlustur(ortam.kurum.id, ortam.superAdmin.id, {
       kart_id: kart.id,
       icerik: "Sahip",

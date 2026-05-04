@@ -3,6 +3,7 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { eylemMutasyonu, useOptimisticMutation } from "@/lib/optimistic";
 import { tempId } from "@/lib/temp-id";
+import { kartAktiviteleriKey } from "../aktivite/keys";
 import {
   iliskiOlusturEylem,
   iliskiSilEylem,
@@ -100,6 +101,7 @@ export function useIliskiOlustur(kartId: string) {
       const liste = (eski as IliskiOzeti[] | undefined) ?? [];
       return liste.map((r) => (r.id === vars.id_taslak ? { ...r, id: yanit.id } : r));
     },
+    ekInvalidate: [kartAktiviteleriKey(kartId)],
     hataMesaji: "İlişki oluşturulamadı",
   });
 }
@@ -112,6 +114,7 @@ export function useIliskiSil(kartId: string) {
       const liste = (eski as IliskiOzeti[] | undefined) ?? [];
       return liste.filter((r) => r.id !== vars.id);
     },
+    ekInvalidate: [kartAktiviteleriKey(kartId)],
     hataMesaji: "İlişki silinemedi",
   });
 }

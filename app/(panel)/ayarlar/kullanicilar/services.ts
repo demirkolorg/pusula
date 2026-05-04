@@ -39,7 +39,7 @@ export async function kullanicilariListele(
       where.id = { in: idler };
     }
   }
-  if (girdi.kurumId) where.kurum_id = girdi.kurumId;
+  // Tek-kurum (ADR-0007) — kurum filtresi kaldırıldı.
   if (girdi.aktif !== undefined) where.aktif = girdi.aktif;
   if (girdi.rolId) {
     where.roller = { some: { rol_id: girdi.rolId } };

@@ -19,11 +19,12 @@ export default async function ProjeListeGorunumu({ params }: SayfaProps) {
   const kullanici = oturum.user as { id: string; kurumId?: string };
   if (!kullanici.kurumId) redirect("/giris");
 
+  // Tek-kurum (ADR-0007) — kurum sahiplik kontrolü düştü.
   const sahiplik = await db.proje.findUnique({
     where: { id: projeId },
-    select: { kurum_id: true, silindi_mi: true },
+    select: { silindi_mi: true },
   });
-  if (!sahiplik || sahiplik.kurum_id !== kullanici.kurumId || sahiplik.silindi_mi) {
+  if (!sahiplik || sahiplik.silindi_mi) {
     notFound();
   }
 

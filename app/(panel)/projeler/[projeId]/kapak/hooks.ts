@@ -2,6 +2,7 @@
 
 import { eylemMutasyonu, useOptimisticMutation } from "@/lib/optimistic";
 import { projeDetayKey } from "../hooks/detay-sorgulari";
+import { kartAktiviteleriKey } from "../aktivite/keys";
 import type { ProjeDetayOzeti } from "../services";
 import { kapagiAyarlaEylem, kapagiKaldirEylem } from "./actions";
 import type { KapagiAyarla, KapagiKaldir } from "./schemas";
@@ -43,6 +44,7 @@ export function useKapagiAyarla(projeId: string) {
           ),
         })),
       })),
+    ekInvalidate: (vars) => [kartAktiviteleriKey(vars.kart_id)],
     hataMesaji: "Kapak ayarlanamadı",
   });
 }
@@ -61,6 +63,7 @@ export function useKapagiKaldir(projeId: string) {
           ),
         })),
       })),
+    ekInvalidate: (vars) => [kartAktiviteleriKey(vars.kart_id)],
     hataMesaji: "Kapak kaldırılamadı",
   });
 }

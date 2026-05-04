@@ -140,7 +140,15 @@ export function DavetGonderSheet({ acik, kapat, basaridaTetikle }: Props) {
               onValueChange={(v) => form.setValue("kurum_id", v ?? "")}
             >
               <SelectTrigger id="davet_kurum">
-                <SelectValue placeholder="Kurum seçin" />
+                <SelectValue>
+                  {(v) => {
+                    if (!v) return "Kurum seçin";
+                    const k = (kurumSorgu.data ?? []).find((x) => x.id === v);
+                    return k
+                      ? kurumGorunenAd({ ad: k.ad, tip: k.tip })
+                      : "Kurum seçin";
+                  }}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {(kurumSorgu.data ?? []).map((k) => (
@@ -171,7 +179,13 @@ export function DavetGonderSheet({ acik, kapat, basaridaTetikle }: Props) {
               }
             >
               <SelectTrigger>
-                <SelectValue placeholder="Rol yok" />
+                <SelectValue>
+                  {(v) => {
+                    if (!v || v === HIC) return "Rol yok";
+                    const r = (rolSorgu.data ?? []).find((x) => x.id === v);
+                    return r ? r.ad : "Rol yok";
+                  }}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={HIC}>Rol yok</SelectItem>

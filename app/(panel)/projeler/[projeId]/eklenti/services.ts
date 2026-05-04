@@ -31,25 +31,27 @@ export type EklentiOzeti = {
 // =====================================================================
 
 async function kartiBulVeProjeAl(
-  kurumId: string,
+  _kurumId: string,
   kartId: string,
 ): Promise<{ proje_id: string }> {
+  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
   const k = await db.kart.findUnique({
     where: { id: kartId },
     select: {
-      liste: { select: { proje_id: true, proje: { select: { kurum_id: true } } } },
+      liste: { select: { proje_id: true } },
     },
   });
-  if (!k || k.liste.proje.kurum_id !== kurumId) {
+  if (!k) {
     throw new EylemHatasi("Kart bulunamadı.", HATA_KODU.BULUNAMADI);
   }
   return { proje_id: k.liste.proje_id };
 }
 
 async function eklentiyiBul(
-  kurumId: string,
+  _kurumId: string,
   eklentiId: string,
 ): Promise<{ kart_id: string; depolama_yolu: string; yukleyen_id: string }> {
+  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
   const e = await db.eklenti.findUnique({
     where: { id: eklentiId },
     select: {
@@ -57,14 +59,9 @@ async function eklentiyiBul(
       depolama_yolu: true,
       yukleyen_id: true,
       silindi_mi: true,
-      kart: {
-        select: {
-          liste: { select: { proje: { select: { kurum_id: true } } } },
-        },
-      },
     },
   });
-  if (!e || e.silindi_mi || e.kart.liste.proje.kurum_id !== kurumId) {
+  if (!e || e.silindi_mi) {
     throw new EylemHatasi("Eklenti bulunamadı.", HATA_KODU.BULUNAMADI);
   }
   return {

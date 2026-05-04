@@ -17,6 +17,7 @@ import {
   projeDetayEylem,
   projeKartlarEylem,
 } from "../actions";
+import { kartAktiviteleriKey } from "../aktivite/keys";
 import type {
   ListeKartOzeti,
   ListeOzeti,
@@ -305,6 +306,9 @@ export function useKartGuncelle(anahtar: DetayKey) {
           ),
         })),
       })),
+    // Kart alanı (başlık/açıklama/bitiş/kapak/arşiv) audit log'a düşer; modal
+    // açıkken yan paneldeki Aktivite/Tümü sekmesi anında yansısın.
+    ekInvalidate: (vars) => [kartAktiviteleriKey(vars.id)],
     hataMesaji: "Kart güncellenemedi",
   });
 }
@@ -321,6 +325,7 @@ export function useKartSil(anahtar: DetayKey) {
           kartlar: l.kartlar.filter((k) => k.id !== vars.id),
         })),
       })),
+    ekInvalidate: (vars) => [kartAktiviteleriKey(vars.id)],
     hataMesaji: "Kart silinemedi",
   });
 }
@@ -330,6 +335,7 @@ export function useKartGeriYukle(anahtar: DetayKey) {
     queryKey: anahtar,
     mutationFn: eylemMutasyonu(kartGeriYukleEylem),
     optimistic: (eski) => eski, // veriyi geri yükledikten sonra invalidate getirir
+    ekInvalidate: (vars) => [kartAktiviteleriKey(vars.id)],
     hataMesaji: "Kart geri yüklenemedi",
   });
 }
@@ -357,6 +363,8 @@ export function useKartTasi(anahtar: DetayKey) {
         sonraki_id,
       }),
     // optimistic YOK — wrapper snapshot almaz, otomatik rollback yapmaz
+    // Kart taşıma da audit log'a düşer; aktivite log'u canlı yansısın.
+    ekInvalidate: (vars) => [kartAktiviteleriKey(vars.id)],
     hataMesaji: "Kart taşınamadı",
   });
 }

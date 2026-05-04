@@ -112,7 +112,9 @@ export function IliskiPopover({ kartId, projeId, trigger }: Props) {
             </p>
             <Select value={tip} onValueChange={(v) => setTip(v as KartIliskiTipi)}>
               <SelectTrigger size="sm">
-                <SelectValue />
+                <SelectValue>
+                  {(v) => ILISKI_TIP_ETIKETI[v as KartIliskiTipi] ?? ""}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {KART_ILISKI_TIPLERI.map((t) => (

@@ -11,7 +11,7 @@ type Props = {
   projeId: string;
   query: string;
   acik: boolean;
-  onSec: (uuid: string) => void;
+  onSec: (uuid: string, ad: string) => void;
   onIptal: () => void;
 };
 
@@ -59,7 +59,7 @@ export function MentionDropdown({
       } else if (e.key === "Enter" || e.key === "Tab") {
         e.preventDefault();
         const u = filtreli[aktifIdx];
-        if (u) onSec(u.kullanici_id);
+        if (u) onSec(u.kullanici_id, `${u.ad} ${u.soyad}`.trim());
       } else if (e.key === "Escape") {
         e.preventDefault();
         onIptal();
@@ -73,7 +73,7 @@ export function MentionDropdown({
 
   if (filtreli.length === 0) {
     return (
-      <div className="bg-popover absolute bottom-full left-0 z-50 mb-1 w-64 rounded-md border p-2 shadow-md">
+      <div className="bg-popover absolute left-0 top-full z-50 mt-1 w-64 rounded-md border p-2 shadow-md">
         <p className="text-muted-foreground px-2 py-1 text-xs">
           {query ? `"${query}" eşleşen üye yok` : "Proje üyesi yok"}
         </p>
@@ -83,7 +83,7 @@ export function MentionDropdown({
 
   return (
     <div
-      className="bg-popover absolute bottom-full left-0 z-50 mb-1 w-72 overflow-hidden rounded-md border shadow-md"
+      className="bg-popover absolute left-0 top-full z-50 mt-1 w-72 overflow-hidden rounded-md border shadow-md"
       role="listbox"
       aria-label="Üye seç"
     >
@@ -95,7 +95,7 @@ export function MentionDropdown({
               role="option"
               aria-selected={i === aktifIdx}
               onMouseEnter={() => setAktifIdx(i)}
-              onClick={() => onSec(u.kullanici_id)}
+              onClick={() => onSec(u.kullanici_id, `${u.ad} ${u.soyad}`.trim())}
               className={cn(
                 "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12.5px]",
                 i === aktifIdx ? "bg-accent" : "hover:bg-accent/50",

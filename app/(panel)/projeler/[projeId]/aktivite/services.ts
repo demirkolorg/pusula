@@ -52,16 +52,17 @@ export type AktiviteOzeti = {
 // =====================================================================
 
 async function kartiBulVeProjeAl(
-  kurumId: string,
+  _kurumId: string,
   kartId: string,
 ): Promise<{ proje_id: string }> {
+  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
   const k = await db.kart.findUnique({
     where: { id: kartId },
     select: {
-      liste: { select: { proje_id: true, proje: { select: { kurum_id: true } } } },
+      liste: { select: { proje_id: true } },
     },
   });
-  if (!k || k.liste.proje.kurum_id !== kurumId) {
+  if (!k) {
     throw new EylemHatasi("Kart bulunamadı.", HATA_KODU.BULUNAMADI);
   }
   return { proje_id: k.liste.proje_id };
@@ -158,7 +159,9 @@ export async function kartAktiviteleriniListele(
   const ham = await db.aktiviteLogu.findMany({
     where,
     orderBy: { id: "desc" },
-    take: girdi.limit,
+    // limit verilmezse karta bağlı tüm aktiviteler — yan panel sekmelerinde
+    // gerçek sayım için tam liste çekilir; cursor ile sayfalama opsiyonel.
+    ...(girdi.limit !== undefined ? { take: girdi.limit } : {}),
     select: {
       id: true,
       zaman: true,
@@ -316,6 +319,10 @@ type HamAktivite = {
   diff: unknown;
 };
 
+// Why: silindi_mi/arsiv_mi diff'in başında özel mesajlara ayrıştırılır
+// (çöp kutusuna taşıdı / geri yükledi / arşivledi / arşivden çıkardı), bu
+// yüzden bu eşlemenin içinde yer almazlar — aksi halde generic "değiştirdi"
+// fallback'ine düşme riski olur.
 const KART_ALAN_ETIKETI: Record<string, string> = {
   baslik: "başlığı",
   aciklama: "açıklamayı",
@@ -323,8 +330,6 @@ const KART_ALAN_ETIKETI: Record<string, string> = {
   baslangic: "başlangıç tarihini",
   kapak_renk: "kapak rengini",
   kapak_dosya_id: "kapak görselini",
-  arsiv_mi: "arşiv durumunu",
-  silindi_mi: "silme durumunu",
 };
 
 function jsonAlan<T = unknown>(j: unknown, alan: string): T | undefined {
@@ -415,27 +420,31 @@ function kartMesaji(
   }
   // UPDATE — diff'e bak, hangi alan değişti
   const diff = a.diff as Record<string, { eski: unknown; yeni: unknown }> | null;
-  if (!diff) {
-    return { kategori: "kart", mesaj: "kartı güncelledi", detay: null };
-  }
-  const alanlar = Object.keys(diff);
-  // Soft-delete özel
-  if (alanlar.includes("silindi_mi")) {
-    const yeni = diff.silindi_mi?.yeni;
+  // Why: audit middleware findUnique başarısız olursa eskiVeri undefined kalır
+  // → diff hesaplanamaz. Bu savunmacı kontrol soft-delete/arşivin yeni_veri
+  // değerinden de tespit edilmesini sağlar; diff null olsa bile mesaj doğru.
+  const yeniSilindi = jsonAlan<boolean>(a.yeni_veri, "silindi_mi");
+  const yeniArsiv = jsonAlan<boolean>(a.yeni_veri, "arsiv_mi");
+  if (diff?.silindi_mi || (diff === null && typeof yeniSilindi === "boolean")) {
+    const yeni = diff?.silindi_mi?.yeni ?? yeniSilindi;
     return {
       kategori: "kart",
       mesaj: yeni ? "kartı çöp kutusuna taşıdı" : "kartı geri yükledi",
       detay: null,
     };
   }
-  if (alanlar.includes("arsiv_mi")) {
-    const yeni = diff.arsiv_mi?.yeni;
+  if (diff?.arsiv_mi || (diff === null && typeof yeniArsiv === "boolean")) {
+    const yeni = diff?.arsiv_mi?.yeni ?? yeniArsiv;
     return {
       kategori: "kart",
       mesaj: yeni ? "kartı arşivledi" : "kartı arşivden çıkardı",
       detay: null,
     };
   }
+  if (!diff) {
+    return { kategori: "kart", mesaj: "kartı güncelledi", detay: null };
+  }
+  const alanlar = Object.keys(diff);
   if (alanlar.includes("liste_id")) {
     return { kategori: "kart", mesaj: "kartı taşıdı", detay: null };
   }
@@ -462,9 +471,14 @@ function yorumMesaji(
     const ic = jsonAlan<string>(a.yeni_veri, "icerik") ?? "";
     return { kategori: "yorum", mesaj: "yorum yazdı", detay: kisalt(ic, 80) };
   }
-  // UPDATE içinde silindi_mi=true varsa → silme
   const diff = a.diff as Record<string, { eski: unknown; yeni: unknown }> | null;
+  // Yorum tek yönlü silinir — UI'da geri yükleme yok, bu yüzden silindi_mi
+  // değişikliği = silme. Diff null savunması da yeni_veri'den tespit eder.
   if (diff?.silindi_mi?.yeni === true) {
+    return { kategori: "yorum", mesaj: "yorumunu sildi", detay: null };
+  }
+  const yeniSilindi = jsonAlan<boolean>(a.yeni_veri, "silindi_mi");
+  if (diff === null && yeniSilindi === true) {
     return { kategori: "yorum", mesaj: "yorumunu sildi", detay: null };
   }
   if (diff?.icerik) {
@@ -487,13 +501,21 @@ function eklentiMesaji(
       detay: jsonAlan<string>(a.yeni_veri, "ad") ?? null,
     };
   }
-  // soft delete
+  // soft delete — diff varsa ondan, yoksa yeni_veri'den tespit et (savunma)
   const diff = a.diff as Record<string, { eski: unknown; yeni: unknown }> | null;
-  if (diff?.silindi_mi?.yeni === true || islem === "DELETE") {
+  const yeniSilindi = jsonAlan<boolean>(a.yeni_veri, "silindi_mi");
+  if (
+    diff?.silindi_mi?.yeni === true ||
+    islem === "DELETE" ||
+    (diff === null && yeniSilindi === true)
+  ) {
     return {
       kategori: "eklenti",
       mesaj: "dosyayı sildi",
-      detay: jsonAlan<string>(a.eski_veri, "ad") ?? null,
+      detay:
+        jsonAlan<string>(a.eski_veri, "ad") ??
+        jsonAlan<string>(a.yeni_veri, "ad") ??
+        null,
     };
   }
   return { kategori: "eklenti", mesaj: "dosyayı güncelledi", detay: null };
@@ -512,6 +534,17 @@ function kontrolListesiMesaji(
   }
   if (islem === "DELETE") {
     return { kategori: "kontrol-listesi", mesaj: "kontrol listesini sildi", detay: ad };
+  }
+  // Why: drag-drop sıralama her hareket için audit UPDATE üretir; "düzenledi"
+  // mesajı yanıltıcı. Sıra-only diff ayrı mesaj alır; ad değişikliği
+  // varsa düzenleme olarak gösterilir.
+  const diff = a.diff as Record<string, { eski: unknown; yeni: unknown }> | null;
+  const alanlar = diff ? Object.keys(diff) : [];
+  if (alanlar.length > 0 && alanlar.every((k) => k === "sira" || k === "guncelleme_zamani")) {
+    return { kategori: "kontrol-listesi", mesaj: "kontrol listesini yeniden sıraladı", detay: ad };
+  }
+  if (diff?.ad) {
+    return { kategori: "kontrol-listesi", mesaj: "kontrol listesinin adını değiştirdi", detay: ad };
   }
   return { kategori: "kontrol-listesi", mesaj: "kontrol listesini düzenledi", detay: ad };
 }
@@ -539,6 +572,19 @@ function kontrolMaddesiMesaji(
       mesaj: yeni ? "kontrol maddesini tamamladı" : "kontrol maddesini geri açtı",
       detay: metin,
     };
+  }
+  // Why: drag-drop ile sıra her hareketinde UPDATE üretir; "güncelledi" mesajı
+  // yanıltıcı. Sıra-only diff için ayrı mesaj; metin değişikliği varsa daha
+  // spesifik mesaj.
+  const alanlar = diff ? Object.keys(diff) : [];
+  const yardimciAlanlar = new Set(["sira", "guncelleme_zamani", "tamamlama_zamani", "tamamlayan_id"]);
+  if (alanlar.length > 0 && alanlar.every((k) => yardimciAlanlar.has(k))) {
+    if (alanlar.includes("sira")) {
+      return { kategori: "kontrol-maddesi", mesaj: "kontrol maddesini yeniden sıraladı", detay: metin };
+    }
+  }
+  if (diff?.metin) {
+    return { kategori: "kontrol-maddesi", mesaj: "kontrol maddesinin metnini değiştirdi", detay: metin };
   }
   return { kategori: "kontrol-maddesi", mesaj: "kontrol maddesini güncelledi", detay: metin };
 }
@@ -746,12 +792,13 @@ function degerFormatla(
   // Number
   if (typeof v === "number") return String(v);
 
-  // String — uzunsa kısalt
-  if (typeof v === "string") return kisalt(v, 80);
+  // String — TAM gösterim (modal'da kırpma yok; istemci truncate ister
+  // sadece liste UI bağlamında uygular).
+  if (typeof v === "string") return v;
 
-  // Fallback: JSON
+  // Fallback: JSON — yine tam
   try {
-    return kisalt(JSON.stringify(v), 80);
+    return JSON.stringify(v);
   } catch {
     return null;
   }

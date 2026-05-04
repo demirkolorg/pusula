@@ -227,12 +227,100 @@ async function main() {
     });
   }
 
+  // ===== Özel Kalem (KURUM_AMIRI + PERSONEL) =====
+  const ozelKalem = await db.kurum.findFirst({
+    where: { tip: "OZEL_KALEM", silindi_mi: false },
+    select: { id: true },
+  });
+  if (!ozelKalem) {
+    throw new Error("Özel Kalem kurum kaydı oluşturulamadı.");
+  }
+
+  const kurumAmiriRol = tumRoller.find((r) => r.kod === "KURUM_AMIRI");
+  const personelRol = tumRoller.find((r) => r.kod === "PERSONEL");
+
+  const ozelKalemAmirEmail = "ozelkalem.amir@pusula.local";
+  const ozelKalemMemurEmail = "ozelkalem.memur@pusula.local";
+  const ozelKalemParola = "Pusula2026!";
+  const ozelKalemParolaHash = await argon2.hash(ozelKalemParola, {
+    type: argon2.argon2id,
+  });
+
+  const ozelKalemAmir = await db.kullanici.upsert({
+    where: { email: ozelKalemAmirEmail },
+    update: {
+      parola_hash: ozelKalemParolaHash,
+      aktif: true,
+      onay_durumu: "ONAYLANDI",
+      kurum_id: ozelKalem.id,
+    },
+    create: {
+      kurum_id: ozelKalem.id,
+      email: ozelKalemAmirEmail,
+      parola_hash: ozelKalemParolaHash,
+      ad: "Mehmet",
+      soyad: "Yıldız",
+      unvan: "Özel Kalem Müdürü",
+      aktif: true,
+      onay_durumu: "ONAYLANDI",
+      onay_zamani: new Date(),
+      email_dogrulandi: new Date(),
+    },
+  });
+  if (kurumAmiriRol) {
+    await db.kullaniciRol.upsert({
+      where: {
+        kullanici_id_rol_id: {
+          kullanici_id: ozelKalemAmir.id,
+          rol_id: kurumAmiriRol.id,
+        },
+      },
+      update: {},
+      create: { kullanici_id: ozelKalemAmir.id, rol_id: kurumAmiriRol.id },
+    });
+  }
+
+  const ozelKalemMemur = await db.kullanici.upsert({
+    where: { email: ozelKalemMemurEmail },
+    update: {
+      parola_hash: ozelKalemParolaHash,
+      aktif: true,
+      onay_durumu: "ONAYLANDI",
+      kurum_id: ozelKalem.id,
+    },
+    create: {
+      kurum_id: ozelKalem.id,
+      email: ozelKalemMemurEmail,
+      parola_hash: ozelKalemParolaHash,
+      ad: "Elif",
+      soyad: "Kaya",
+      unvan: "Özel Kalem Memuru",
+      aktif: true,
+      onay_durumu: "ONAYLANDI",
+      onay_zamani: new Date(),
+      email_dogrulandi: new Date(),
+    },
+  });
+  if (personelRol) {
+    await db.kullaniciRol.upsert({
+      where: {
+        kullanici_id_rol_id: {
+          kullanici_id: ozelKalemMemur.id,
+          rol_id: personelRol.id,
+        },
+      },
+      update: {},
+      create: { kullanici_id: ozelKalemMemur.id, rol_id: personelRol.id },
+    });
+  }
+
   console.log("");
   console.log("==========================================");
   console.log("Demo kullanıcılar:");
-  console.log("  Süper Admin : " + adminEmail + " / " + adminParola);
-  console.log("  Kaymakam    : " + kaymakamEmail + " / " + kaymakamParola);
-  console.log("  Kurum       : " + KURUM_TIP_LABEL.KAYMAKAMLIK);
+  console.log("  Süper Admin       : " + adminEmail + " / " + adminParola);
+  console.log("  Kaymakam          : " + kaymakamEmail + " / " + kaymakamParola);
+  console.log("  Özel Kalem Amiri  : " + ozelKalemAmirEmail + " / " + ozelKalemParola);
+  console.log("  Özel Kalem Memuru : " + ozelKalemMemurEmail + " / " + ozelKalemParola);
   console.log("==========================================");
 }
 

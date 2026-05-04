@@ -67,44 +67,47 @@ export type ProjeDetayOzeti = {
 // ============================================================
 
 async function projeyeErisimDogrula(
-  kurumId: string,
+  _kurumId: string,
   projeId: string,
 ): Promise<void> {
+  // Tek-kurum (ADR-0007) — kurum eşleşme reddi düştü; varlık + soft-delete kontrolü.
   const p = await db.proje.findUnique({
     where: { id: projeId },
-    select: { kurum_id: true, silindi_mi: true },
+    select: { silindi_mi: true },
   });
-  if (!p || p.kurum_id !== kurumId || p.silindi_mi) {
+  if (!p || p.silindi_mi) {
     throw new EylemHatasi("Proje bulunamadı.", HATA_KODU.BULUNAMADI);
   }
 }
 
 async function listeyiBulVeProjeAl(
-  kurumId: string,
+  _kurumId: string,
   listeId: string,
 ): Promise<{ proje_id: string }> {
+  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
   const l = await db.liste.findUnique({
     where: { id: listeId },
-    select: { proje_id: true, proje: { select: { kurum_id: true } } },
+    select: { proje_id: true },
   });
-  if (!l || l.proje.kurum_id !== kurumId) {
+  if (!l) {
     throw new EylemHatasi("Liste bulunamadı.", HATA_KODU.BULUNAMADI);
   }
   return { proje_id: l.proje_id };
 }
 
 async function kartiBulVeProjeAl(
-  kurumId: string,
+  _kurumId: string,
   kartId: string,
 ): Promise<{ liste_id: string; proje_id: string }> {
+  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
   const k = await db.kart.findUnique({
     where: { id: kartId },
     select: {
       liste_id: true,
-      liste: { select: { proje_id: true, proje: { select: { kurum_id: true } } } },
+      liste: { select: { proje_id: true } },
     },
   });
-  if (!k || k.liste.proje.kurum_id !== kurumId) {
+  if (!k) {
     throw new EylemHatasi("Kart bulunamadı.", HATA_KODU.BULUNAMADI);
   }
   return { liste_id: k.liste_id, proje_id: k.liste.proje_id };
