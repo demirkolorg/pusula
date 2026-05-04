@@ -37,6 +37,17 @@ export async function girisYap(formData: FormData): Promise<GirisSonucu> {
     });
     return { basarili: true };
   } catch (hata) {
+    // NEXT_REDIRECT framework tarafından handle edilmeli, rethrow zorunlu.
+    if (
+      hata &&
+      typeof hata === "object" &&
+      "digest" in hata &&
+      typeof (hata as { digest?: unknown }).digest === "string" &&
+      (hata as { digest: string }).digest.startsWith("NEXT_REDIRECT")
+    ) {
+      throw hata;
+    }
+
     if (hata instanceof AuthError) {
       switch (hata.type) {
         case "CredentialsSignin":
@@ -53,6 +64,12 @@ export async function girisYap(formData: FormData): Promise<GirisSonucu> {
           };
       }
     }
-    throw hata;
+
+    console.error("[giris] Beklenmedik hata:", hata);
+    return {
+      basarili: false,
+      hata: "Sunucu hatası, lütfen tekrar deneyin",
+      kod: "UNEXPECTED_ERROR",
+    };
   }
 }

@@ -83,16 +83,7 @@ describe("kontrolListesiOlustur + listele", () => {
     expect(liste[0]!.maddeler).toEqual([]);
   });
 
-  it("başka kurumun kartında kontrol listesi okuma BULUNAMADI", async () => {
-    const yabanci = await projeOlusturFiks(adminDb, {
-      kurumId: ortam.digerKurum.id,
-    });
-    const liste = await listeOlusturFiks(adminDb, { projeId: yabanci.id });
-    const ykart = await kartOlusturFiks(adminDb, { listeId: liste.id });
-    await expect(
-      kartKontrolListeleriniListele(ortam.kurum.id, ykart.id),
-    ).rejects.toMatchObject({ kod: "BULUNAMADI" });
-  });
+  // Cross-tenant testi ADR-0007 tek-kurum geçişiyle kaldırıldı (kurum izolasyonu yok).
 });
 
 describe("kontrolListesiSil", () => {

@@ -80,21 +80,7 @@ beforeEach(async () => {
 // Erişim
 // =====================================================================
 
-describe("kartAktiviteleriniListele — erişim", () => {
-  it("başka kurumun kartı BULUNAMADI", async () => {
-    const yabanci = await projeOlusturFiks(adminDb, {
-      kurumId: ortam.digerKurum.id,
-    });
-    const liste = await listeOlusturFiks(adminDb, { projeId: yabanci.id });
-    const ykart = await kartOlusturFiks(adminDb, { listeId: liste.id });
-    await expect(
-      kartAktiviteleriniListele(ortam.kurum.id, {
-        kart_id: ykart.id,
-        limit: 50,
-      }),
-    ).rejects.toMatchObject({ kod: "BULUNAMADI" });
-  });
-});
+// Erişim describe bloğu ADR-0007 tek-kurum geçişiyle kaldırıldı (kurum izolasyonu yok).
 
 // =====================================================================
 // Kart kendisi
@@ -339,6 +325,65 @@ describe("Etiket / Üye aktiviteleri", () => {
       (a) => a.kategori === "uye" && a.mesaj === "üye atadı",
     );
     expect(ekle).toBeDefined();
+  });
+
+  // Why: audit middleware eskiVeri çekemediğinde diff null kalır; yeni_veri
+  // üzerinden soft-delete tespiti olmazsa "kartı güncelledi" yanlış mesajı çıkar.
+  it("Kart UPDATE (diff null + yeni_veri.silindi_mi=true) → 'çöp kutusuna taşıdı'", async () => {
+    await aktiviteEkle({
+      kullaniciId: ortam.superAdmin.id,
+      islem: "UPDATE",
+      kaynakTip: "Kart",
+      kaynakId: kart.id,
+      yeniVeri: { id: kart.id, silindi_mi: true },
+      // diff null
+    });
+    const r = await kartAktiviteleriniListele(ortam.kurum.id, {
+      kart_id: kart.id,
+      limit: 50,
+    });
+    expect(r[0]!.mesaj).toBe("kartı çöp kutusuna taşıdı");
+  });
+
+it("KontrolMaddesi UPDATE diff.sira → 'yeniden sıraladı' (drag-drop gürültüsü değil)", async () => {
+    const kl = await adminDb.kontrolListesi.create({
+      data: { kart_id: kart.id, ad: "L", sira: "M" },
+    });
+    await aktiviteEkle({
+      kullaniciId: ortam.superAdmin.id,
+      islem: "UPDATE",
+      kaynakTip: "KontrolMaddesi",
+      yeniVeri: { kontrol_listesi_id: kl.id, metin: "yap" },
+      diff: { sira: { eski: "M", yeni: "T" } },
+    });
+    const r = await kartAktiviteleriniListele(ortam.kurum.id, {
+      kart_id: kart.id,
+      limit: 50,
+    });
+    const sira = r.find((a) => a.mesaj === "kontrol maddesini yeniden sıraladı");
+    expect(sira).toBeDefined();
+  });
+
+  it("KontrolListesi UPDATE diff.ad → 'adını değiştirdi'", async () => {
+    const kl = await adminDb.kontrolListesi.create({
+      data: { kart_id: kart.id, ad: "Eski", sira: "M" },
+    });
+    await aktiviteEkle({
+      kullaniciId: ortam.superAdmin.id,
+      islem: "UPDATE",
+      kaynakTip: "KontrolListesi",
+      kaynakId: kl.id,
+      yeniVeri: { kart_id: kart.id, ad: "Yeni" },
+      diff: { ad: { eski: "Eski", yeni: "Yeni" } },
+    });
+    const r = await kartAktiviteleriniListele(ortam.kurum.id, {
+      kart_id: kart.id,
+      limit: 50,
+    });
+    const adDegistir = r.find(
+      (a) => a.mesaj === "kontrol listesinin adını değiştirdi",
+    );
+    expect(adDegistir?.detay).toBe("Yeni");
   });
 
   it("KartUyesi DELETE (yalnız eski_veri) → 'üyeyi kaldırdı'", async () => {

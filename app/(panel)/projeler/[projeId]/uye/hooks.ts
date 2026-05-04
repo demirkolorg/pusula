@@ -3,6 +3,7 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { eylemMutasyonu, useOptimisticMutation } from "@/lib/optimistic";
 import { projeDetayKey } from "../hooks/detay-sorgulari";
+import { kartAktiviteleriKey } from "../aktivite/keys";
 import type { ProjeDetayOzeti } from "../services";
 import {
   kartaUyeEkleEylem,
@@ -193,6 +194,7 @@ export function useKartaUyeEkle(kartId: string, projeId: string) {
         update: (eski, vars) => bumpUyeSayisi(eski, vars.kart_id, +1),
       },
     ],
+    ekInvalidate: [kartAktiviteleriKey(kartId)],
     hataMesaji: "Üye eklenemedi",
   });
 }
@@ -220,6 +222,7 @@ export function useKartaUyeKaldir(kartId: string, projeId: string) {
         update: (eski, vars) => bumpUyeSayisi(eski, vars.kart_id, -1),
       },
     ],
+    ekInvalidate: [kartAktiviteleriKey(kartId)],
     hataMesaji: "Üye kaldırılamadı",
   });
 }

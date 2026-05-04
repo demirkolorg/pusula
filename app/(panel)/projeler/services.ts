@@ -26,8 +26,10 @@ export type ProjeKart = {
   olusturma_zamani: Date;
 };
 
-function whereYap(kurumId: string, girdi: ProjeListe): Prisma.ProjeWhereInput {
-  const taban: Prisma.ProjeWhereInput = { kurum_id: kurumId };
+function whereYap(_kurumId: string, girdi: ProjeListe): Prisma.ProjeWhereInput {
+  // Tek-kurum mimari (ADR-0007): kurum_id veri filtresi kaldırıldı.
+  // Erişim resource-level RBAC + ProjeUyesi seviyesinde sağlanır.
+  const taban: Prisma.ProjeWhereInput = {};
   switch (girdi.filtre) {
     case "yildizli":
       taban.yildizli_mi = true;
@@ -103,9 +105,9 @@ export async function projeOlustur(
   olusturanId: string,
   girdi: ProjeOlustur,
 ): Promise<ProjeKart> {
-  // Sonraki sıra: en sondaki proje + bir adım.
+  // Sonraki sıra: en sondaki proje + bir adım. Tek-kurum (ADR-0007) — filtre yok.
   const son = await db.proje.findFirst({
-    where: { kurum_id: kurumId, silindi_mi: false },
+    where: { silindi_mi: false },
     orderBy: { sira: "desc" },
     select: { sira: true },
   });
@@ -144,14 +146,15 @@ export async function projeOlustur(
 }
 
 async function projeyiBulVeKurumDogrula(
-  kurumId: string,
+  _kurumId: string,
   id: string,
 ): Promise<void> {
+  // Tek-kurum (ADR-0007) — kurum eşleşme reddi düştü; sadece varlık kontrolü.
   const p = await db.proje.findUnique({
     where: { id },
-    select: { kurum_id: true },
+    select: { id: true },
   });
-  if (!p || p.kurum_id !== kurumId) {
+  if (!p) {
     throw new EylemHatasi("Proje bulunamadı.", HATA_KODU.BULUNAMADI);
   }
 }
@@ -199,9 +202,10 @@ export async function projeGeriYukle(kurumId: string, id: string): Promise<void>
   });
 }
 
-async function kurumProjeleriniRebalance(kurumId: string): Promise<void> {
+async function kurumProjeleriniRebalance(_kurumId: string): Promise<void> {
+  // Tek-kurum (ADR-0007) — kurum filtresi düştü, tüm projeleri rebalance eder.
   const projeler = await db.proje.findMany({
-    where: { kurum_id: kurumId, silindi_mi: false },
+    where: { silindi_mi: false },
     orderBy: { sira: "asc" },
     select: { id: true },
   });
@@ -233,22 +237,17 @@ export async function projeyeSiraVer(
       girdi.onceki_id
         ? db.proje.findUnique({
             where: { id: girdi.onceki_id },
-            select: { sira: true, kurum_id: true },
+            select: { sira: true },
           })
         : null,
       girdi.sonraki_id
         ? db.proje.findUnique({
             where: { id: girdi.sonraki_id },
-            select: { sira: true, kurum_id: true },
+            select: { sira: true },
           })
         : null,
     ]);
-    if (onceki && onceki.kurum_id !== kurumId) {
-      throw new EylemHatasi("Önceki kayıt bu kurumdan değil.", HATA_KODU.YETKISIZ);
-    }
-    if (sonraki && sonraki.kurum_id !== kurumId) {
-      throw new EylemHatasi("Sonraki kayıt bu kurumdan değil.", HATA_KODU.YETKISIZ);
-    }
+    // Tek-kurum (ADR-0007) — komşuların kurum eşleşme kontrolü düştü.
     return { onceki, sonraki };
   }
 

@@ -25,7 +25,6 @@ import {
   type Ortam,
 } from "@/tests/fixtures/proje";
 import { truncateAll } from "@/tests/db/setup";
-import { EylemHatasi } from "@/lib/action-wrapper";
 
 // Etiket modülü — pg-test integration. Mock yasak (Kural 80).
 
@@ -75,14 +74,7 @@ describe("etiketleriListele", () => {
     expect(liste[1]!.renk).toBe("#3b82f6");
   });
 
-  it("baska kurumun projesinden etiket okuma BULUNAMADI verir", async () => {
-    const yabanci = await projeOlusturFiks(adminDb, {
-      kurumId: ortam.digerKurum.id,
-    });
-    await expect(
-      etiketleriListele(ortam.kurum.id, yabanci.id),
-    ).rejects.toBeInstanceOf(EylemHatasi);
-  });
+  // Cross-tenant testi ADR-0007 tek-kurum geçişiyle kaldırıldı (kurum izolasyonu yok).
 });
 
 describe("etiketOlustur", () => {
@@ -137,17 +129,7 @@ describe("etiketGuncelle", () => {
     expect(liste[0]).toMatchObject({ ad: "Y", renk: "#ef4444" });
   });
 
-  it("baska kurumun etiketini guncellemek BULUNAMADI verir", async () => {
-    const yabanci = await projeOlusturFiks(adminDb, {
-      kurumId: ortam.digerKurum.id,
-    });
-    const e = await adminDb.etiket.create({
-      data: { proje_id: yabanci.id, ad: "Z", renk: "#171717" },
-    });
-    await expect(
-      etiketGuncelle(ortam.kurum.id, { id: e.id, ad: "Yeni" }),
-    ).rejects.toMatchObject({ kod: "BULUNAMADI" });
-  });
+  // Cross-tenant testi ADR-0007 tek-kurum geçişiyle kaldırıldı (kurum izolasyonu yok).
 });
 
 describe("etiketSil", () => {

@@ -144,7 +144,15 @@ export function KayitForm() {
           onValueChange={(v) => form.setValue("kurum_id", v ?? "")}
         >
           <SelectTrigger id="kurum">
-            <SelectValue placeholder="Kurum seçin" />
+            <SelectValue>
+              {(v) => {
+                if (!v) return "Kurum seçin";
+                const k = (kurumSorgu.data ?? []).find((x) => x.id === v);
+                return k
+                  ? kurumGorunenAd({ ad: k.ad, tip: k.tip })
+                  : "Kurum seçin";
+              }}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {(kurumSorgu.data ?? []).map((k) => (

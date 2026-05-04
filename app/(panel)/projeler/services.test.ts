@@ -181,20 +181,7 @@ describe("projeleriListele", () => {
     expect(sonuc).toHaveLength(200);
   }, 30_000);
 
-  it("baska kurumun projesi listeye dahil edilmez", async () => {
-    await projeOlusturFiks(adminDb, {
-      kurumId: ortam.kurum.id,
-      ad: "Bizim Proje",
-    });
-    await projeOlusturFiks(adminDb, {
-      kurumId: ortam.digerKurum.id,
-      ad: "Yabanci Proje",
-    });
-
-    const sonuc = await projeleriListele(ortam.kurum.id, { filtre: "aktif" });
-    const adlar = sonuc.map((p) => p.ad);
-    expect(adlar).toEqual(["Bizim Proje"]);
-  });
+  // Cross-tenant testi ADR-0007 tek-kurum geçişiyle kaldırıldı (kurum izolasyonu yok).
 });
 
 describe("projeOlustur", () => {
@@ -273,20 +260,7 @@ describe("projeGuncelle", () => {
     expect(sonra?.yildizli_mi).toBe(true);
   });
 
-  it("baska kurumun projesi guncellenemez (BULUNAMADI hatasi)", async () => {
-    const yabanci = await projeOlusturFiks(adminDb, {
-      kurumId: ortam.digerKurum.id,
-      ad: "Yabanci",
-    });
-
-    await expect(
-      projeGuncelle(ortam.kurum.id, { id: yabanci.id, ad: "Hack" }),
-    ).rejects.toBeInstanceOf(EylemHatasi);
-
-    // Veri degismedi.
-    const halen = await adminDb.proje.findUnique({ where: { id: yabanci.id } });
-    expect(halen?.ad).toBe("Yabanci");
-  });
+  // Cross-tenant testi ADR-0007 tek-kurum geçişiyle kaldırıldı (kurum izolasyonu yok).
 });
 
 describe("projeArsivle", () => {
@@ -410,36 +384,5 @@ describe("projeyeSiraVer", () => {
     expect(liste.map((p) => p.ad)[liste.length - 1]).toBe("A");
   });
 
-  it("baska kurumdan onceki/sonraki verilirse YETKISIZ hatasi", async () => {
-    // Bizim kurumda 1 proje, diger kurumda 1 proje.
-    const bizim = await projeOlusturFiks(adminDb, {
-      kurumId: ortam.kurum.id,
-      ad: "Bizim",
-    });
-    const yabanci = await projeOlusturFiks(adminDb, {
-      kurumId: ortam.digerKurum.id,
-      ad: "Yabanci",
-    });
-
-    await expect(
-      projeyeSiraVer(ortam.kurum.id, {
-        id: bizim.id,
-        onceki_id: yabanci.id,
-        sonraki_id: null,
-      }),
-    ).rejects.toMatchObject({
-      kod: "YETKISIZ",
-    });
-
-    // Sonraki cross-tenant'sa da reddedilmeli.
-    await expect(
-      projeyeSiraVer(ortam.kurum.id, {
-        id: bizim.id,
-        onceki_id: null,
-        sonraki_id: yabanci.id,
-      }),
-    ).rejects.toMatchObject({
-      kod: "YETKISIZ",
-    });
-  });
+  // Cross-tenant testi ADR-0007 tek-kurum geçişiyle kaldırıldı (kurum izolasyonu yok).
 });

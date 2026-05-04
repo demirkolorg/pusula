@@ -21,12 +21,12 @@ export default async function ProjeDetaySayfasi({ params }: SayfaProps) {
   const kullanici = oturum.user as { id: string; kurumId?: string };
   if (!kullanici.kurumId) redirect("/giris");
 
-  // Kurumun bu projesi olduğunu doğrula.
+  // Tek-kurum (ADR-0007) — proje var mı + soft-delete kontrolü.
   const sahiplik = await db.proje.findUnique({
     where: { id: projeId },
-    select: { kurum_id: true, silindi_mi: true },
+    select: { silindi_mi: true },
   });
-  if (!sahiplik || sahiplik.kurum_id !== kullanici.kurumId || sahiplik.silindi_mi) {
+  if (!sahiplik || sahiplik.silindi_mi) {
     notFound();
   }
 

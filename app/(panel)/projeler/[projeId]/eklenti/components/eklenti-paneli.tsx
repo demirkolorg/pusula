@@ -14,6 +14,7 @@ import {
 } from "../hooks";
 import type { EklentiOzeti } from "../services";
 import { useKapagiAyarla } from "../../kapak/hooks";
+import { kartAktiviteleriKey } from "../../aktivite/keys";
 import { useQueryClient } from "@tanstack/react-query";
 import { useOturumKullanicisi } from "@/hooks/use-oturum";
 
@@ -77,8 +78,12 @@ export function EklentiPaneli({ kartId, projeId }: Props) {
           toast.hata(onayR.hata);
           continue;
         }
-        // Cache'i tazele
-        await istemci.invalidateQueries({ queryKey: kartEklentileriKey(kartId) });
+        // Cache'i tazele — eklenti listesi + aktivite log'u (CREATE event'i
+        // audit'e düşer, Aktivite/Tümü sekmeleri canlı yansısın).
+        await Promise.all([
+          istemci.invalidateQueries({ queryKey: kartEklentileriKey(kartId) }),
+          istemci.invalidateQueries({ queryKey: kartAktiviteleriKey(kartId) }),
+        ]);
       } catch (e) {
         toast.hata(`'${f.name}' yüklenemedi.`);
       } finally {

@@ -37,7 +37,6 @@ export function GirisForm() {
       if (sonuc.basarili) {
         toast.success("Giriş başarılı");
         router.replace("/");
-        router.refresh();
         return;
       }
 

@@ -29,10 +29,13 @@ export function KartModalYorumComposer({ kartId, projeId }: Props) {
     e.preventDefault();
     const t = taslak.trim();
     if (!t) return;
+    // Mention'ları depolama formatına çevir: `@AdSoyad` → `@<uuid>`. Render
+    // tarafı (MentionliMetin) yine ad göstermek için uyeMap'i kullanır.
+    const icerik = mention.cozumle(t);
     olustur.mutate({
       id_taslak: tempId(),
       kart_id: kartId,
-      icerik: t,
+      icerik,
       yazan_id: oturum.id,
       yazan: { ad: oturum.ad, soyad: oturum.soyad, email: oturum.email },
     });

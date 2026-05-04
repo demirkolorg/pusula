@@ -166,7 +166,6 @@ io.on("connection", (socket: Socket) => {
             proje_id: true,
             proje: {
               select: {
-                kurum_id: true,
                 uyeler: {
                   where: { kullanici_id: kullanici.id },
                   select: { kullanici_id: true },
@@ -178,7 +177,7 @@ io.on("connection", (socket: Socket) => {
       },
     });
     if (!k) return;
-    if (k.liste.proje.kurum_id !== kullanici.kurum_id) return;
+    // Tek-kurum (ADR-0007) — kurum izolasyonu düştü; erişim ProjeUyesi seviyesinde.
     if (k.liste.proje.uyeler.length === 0) return;
     socket.join(room.kart(kartId));
     yayinlaPresence(kartId);

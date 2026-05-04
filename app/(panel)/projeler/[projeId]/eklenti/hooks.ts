@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { eylemMutasyonu, useOptimisticMutation } from "@/lib/optimistic";
 import { tempId } from "@/lib/temp-id";
+import { kartAktiviteleriKey } from "../aktivite/keys";
 import {
   eklentileriListeleEylem,
   eklentiIndirEylem,
@@ -46,6 +47,7 @@ export function useEklentiSil(kartId: string) {
       const liste = (eski as EklentiOzeti[] | undefined) ?? [];
       return liste.filter((e) => e.id !== vars.id);
     },
+    ekInvalidate: [kartAktiviteleriKey(kartId)],
     hataMesaji: "Eklenti silinemedi",
   });
 }

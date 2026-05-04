@@ -138,11 +138,7 @@ describe("kapagiAyarla", () => {
     ).rejects.toMatchObject({ kod: "BULUNAMADI" });
   });
 
-  it("başka kurumun kartı BULUNAMADI", async () => {
-    await expect(
-      kapagiAyarla(ortam.digerKurum.id, kart.id, "00000000-0000-0000-0000-000000000000"),
-    ).rejects.toMatchObject({ kod: "BULUNAMADI" });
-  });
+  // Cross-tenant testi ADR-0007 tek-kurum geçişiyle kaldırıldı (kurum izolasyonu yok).
 });
 
 describe("kapagiKaldir", () => {

@@ -372,6 +372,103 @@ describe("useOptimisticMutation - optimisticMap (coklu key)", () => {
   });
 });
 
+describe("useOptimisticMutation - ekInvalidate (ikincil cache tazeleme)", () => {
+  it("statik ekInvalidate ile mutation sonrasi her ek key invalidate edilir", async () => {
+    const qc = olusturQc();
+    qc.setQueryData(["ana"], [{ id: 1 }]);
+    qc.setQueryData(["aktivite", "k1"], [{ id: "log-1" }]);
+
+    const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
+
+    const { result } = renderHook(
+      () =>
+        useOptimisticMutation<void, ReturnType<typeof ok<{ ok: true }>>>({
+          queryKey: ["ana"],
+          mutationFn: async () => ok({ ok: true } as const),
+          ekInvalidate: [["aktivite", "k1"]],
+          hataMesaji: "Hata",
+        }),
+      { wrapper: sarici(qc) },
+    );
+
+    act(() => {
+      result.current.mutate();
+    });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["ana"] });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["aktivite", "k1"],
+    });
+  });
+
+  it("dinamik ekInvalidate(vars) — vars'a gore key uretir", async () => {
+    const qc = olusturQc();
+    qc.setQueryData(["ana"], [{ id: 1 }]);
+
+    const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
+
+    const { result } = renderHook(
+      () =>
+        useOptimisticMutation<{ kart_id: string }, ReturnType<typeof ok<{ ok: true }>>>({
+          queryKey: ["ana"],
+          mutationFn: async () => ok({ ok: true } as const),
+          ekInvalidate: (vars) => [["aktivite", vars.kart_id]],
+          hataMesaji: "Hata",
+        }),
+      { wrapper: sarici(qc) },
+    );
+
+    act(() => {
+      result.current.mutate({ kart_id: "kart-42" });
+    });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["aktivite", "kart-42"],
+    });
+  });
+
+  it("server hata durumunda da ekInvalidate calisir (onSettled)", async () => {
+    const qc = olusturQc();
+    qc.setQueryData(["ana"], [{ id: 1 }]);
+
+    const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
+
+    const { result } = renderHook(
+      () =>
+        useOptimisticMutation<void, never>({
+          queryKey: ["ana"],
+          mutationFn: async () => {
+            throw new Error("kapali");
+          },
+          ekInvalidate: [["aktivite", "k7"]],
+          hataMesaji: "Hata",
+        }),
+      { wrapper: sarici(qc) },
+    );
+
+    act(() => {
+      result.current.mutate();
+    });
+
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+    });
+
+    // Hata yolunda da onSettled tetiklenir → ek invalidate calismali.
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["aktivite", "k7"],
+    });
+  });
+});
+
 describe("eylemMutasyonu - Sonuc<T> cozumlemesi", () => {
   it("basarili Sonuc'tan veri'yi cikarir", async () => {
     const fn = async () => ok({ x: 1 });

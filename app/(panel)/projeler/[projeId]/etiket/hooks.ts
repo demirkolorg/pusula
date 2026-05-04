@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { eylemMutasyonu, useOptimisticMutation } from "@/lib/optimistic";
 import { tempId } from "@/lib/temp-id";
 import { projeDetayKey } from "../hooks/detay-sorgulari";
+import { kartAktiviteleriKey } from "../aktivite/keys";
 import type { ProjeDetayOzeti } from "../services";
 import {
   etiketGuncelleEylem,
@@ -160,6 +161,7 @@ export function useKartaEtiketEkle(kartId: string, projeId: string) {
         update: (eski, vars) => bumpEtiketSayisi(eski, vars.kart_id, +1),
       },
     ],
+    ekInvalidate: [kartAktiviteleriKey(kartId)],
     hataMesaji: "Etiket eklenemedi",
   });
 }
@@ -184,6 +186,7 @@ export function useKartaEtiketKaldir(kartId: string, projeId: string) {
         update: (eski, vars) => bumpEtiketSayisi(eski, vars.kart_id, -1),
       },
     ],
+    ekInvalidate: [kartAktiviteleriKey(kartId)],
     hataMesaji: "Etiket kaldırılamadı",
   });
 }

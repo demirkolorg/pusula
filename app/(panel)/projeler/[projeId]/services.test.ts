@@ -127,15 +127,7 @@ describe("projeDetayiniGetir", () => {
     expect(detay.listeler[0]!.kartlar.map((k) => k.baslik)).toEqual(["Aktif"]);
   });
 
-  it("baska kurumun projesi BULUNAMADI hatasi verir", async () => {
-    const yabanci = await projeOlusturFiks(adminDb, {
-      kurumId: ortam.digerKurum.id,
-    });
-
-    await expect(
-      projeDetayiniGetir(ortam.kurum.id, yabanci.id),
-    ).rejects.toMatchObject({ kod: "BULUNAMADI" });
-  });
+  // Cross-tenant testi ADR-0007 tek-kurum geçişiyle kaldırıldı (kurum izolasyonu yok).
 
   it("silinmis proje BULUNAMADI hatasi verir", async () => {
     const p = await projeOlusturFiks(adminDb, {
@@ -186,15 +178,7 @@ describe("listeOlustur", () => {
     expect(yeni.sira).toBe(SIRA_BAS);
   });
 
-  it("baska kurumun projesinde liste olusturulamaz (BULUNAMADI)", async () => {
-    const yabanci = await projeOlusturFiks(adminDb, {
-      kurumId: ortam.digerKurum.id,
-    });
-
-    await expect(
-      listeOlustur(ortam.kurum.id, { proje_id: yabanci.id, ad: "X" }),
-    ).rejects.toMatchObject({ kod: "BULUNAMADI" });
-  });
+  // Cross-tenant testi ADR-0007 tek-kurum geçişiyle kaldırıldı (kurum izolasyonu yok).
 });
 
 // ============================================================
@@ -236,24 +220,7 @@ describe("listeGuncelle", () => {
     expect(sonra?.wip_limit).toBeNull();
   });
 
-  it("baska kurumun listesi guncellenemez", async () => {
-    const yabanciProje = await projeOlusturFiks(adminDb, {
-      kurumId: ortam.digerKurum.id,
-    });
-    const yabanciListe = await listeOlusturFiks(adminDb, {
-      projeId: yabanciProje.id,
-      ad: "Yabanci",
-    });
-
-    await expect(
-      listeGuncelle(ortam.kurum.id, { id: yabanciListe.id, ad: "Hack" }),
-    ).rejects.toMatchObject({ kod: "BULUNAMADI" });
-
-    const halen = await adminDb.liste.findUnique({
-      where: { id: yabanciListe.id },
-    });
-    expect(halen?.ad).toBe("Yabanci");
-  });
+  // Cross-tenant testi ADR-0007 tek-kurum geçişiyle kaldırıldı (kurum izolasyonu yok).
 });
 
 // ============================================================
@@ -279,23 +246,7 @@ describe("listeSil", () => {
     expect(kartSayisi).toBe(0);
   });
 
-  it("baska kurumun listesi silinemez", async () => {
-    const yabanciProje = await projeOlusturFiks(adminDb, {
-      kurumId: ortam.digerKurum.id,
-    });
-    const yabanciListe = await listeOlusturFiks(adminDb, {
-      projeId: yabanciProje.id,
-    });
-
-    await expect(
-      listeSil(ortam.kurum.id, yabanciListe.id),
-    ).rejects.toMatchObject({ kod: "BULUNAMADI" });
-
-    const halen = await adminDb.liste.findUnique({
-      where: { id: yabanciListe.id },
-    });
-    expect(halen).not.toBeNull();
-  });
+  // Cross-tenant testi ADR-0007 tek-kurum geçişiyle kaldırıldı (kurum izolasyonu yok).
 });
 
 // ============================================================
@@ -451,21 +402,7 @@ describe("kartOlustur", () => {
     expect(ham?.olusturan_id).toBe(ortam.personel.id);
   });
 
-  it("baska kurumun listesinde kart olusturulamaz", async () => {
-    const yabanciProje = await projeOlusturFiks(adminDb, {
-      kurumId: ortam.digerKurum.id,
-    });
-    const yabanciListe = await listeOlusturFiks(adminDb, {
-      projeId: yabanciProje.id,
-    });
-
-    await expect(
-      kartOlustur(ortam.kurum.id, ortam.superAdmin.id, {
-        liste_id: yabanciListe.id,
-        baslik: "Hack",
-      }),
-    ).rejects.toMatchObject({ kod: "BULUNAMADI" });
-  });
+  // Cross-tenant testi ADR-0007 tek-kurum geçişiyle kaldırıldı (kurum izolasyonu yok).
 });
 
 // ============================================================
@@ -524,27 +461,7 @@ describe("kartGuncelle", () => {
     expect(sonra?.bitis).toBeNull();
   });
 
-  it("baska kurumun karti guncellenemez", async () => {
-    const yabanciProje = await projeOlusturFiks(adminDb, {
-      kurumId: ortam.digerKurum.id,
-    });
-    const yabanciListe = await listeOlusturFiks(adminDb, {
-      projeId: yabanciProje.id,
-    });
-    const yabanciKart = await kartOlusturFiks(adminDb, {
-      listeId: yabanciListe.id,
-      baslik: "Yabanci",
-    });
-
-    await expect(
-      kartGuncelle(ortam.kurum.id, { id: yabanciKart.id, baslik: "Hack" }),
-    ).rejects.toMatchObject({ kod: "BULUNAMADI" });
-
-    const halen = await adminDb.kart.findUnique({
-      where: { id: yabanciKart.id },
-    });
-    expect(halen?.baslik).toBe("Yabanci");
-  });
+  // Cross-tenant testi ADR-0007 tek-kurum geçişiyle kaldırıldı (kurum izolasyonu yok).
 });
 
 // ============================================================
@@ -864,13 +781,5 @@ describe("projedeTumKartlar", () => {
     expect(kartlar[0]!.liste_id).toBe(liste.id);
   });
 
-  it("baska kurumun projesi BULUNAMADI", async () => {
-    const yabanci = await projeOlusturFiks(adminDb, {
-      kurumId: ortam.digerKurum.id,
-    });
-
-    await expect(
-      projedeTumKartlar(ortam.kurum.id, yabanci.id),
-    ).rejects.toMatchObject({ kod: "BULUNAMADI" });
-  });
+  // Cross-tenant testi ADR-0007 tek-kurum geçişiyle kaldırıldı (kurum izolasyonu yok).
 });

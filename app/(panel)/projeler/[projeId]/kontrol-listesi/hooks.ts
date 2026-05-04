@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { eylemMutasyonu, useOptimisticMutation } from "@/lib/optimistic";
 import { siraSonuna } from "@/lib/sira";
 import { tempId } from "@/lib/temp-id";
+import { kartAktiviteleriKey } from "../aktivite/keys";
 import {
   kontrolListeleriListeleEylem,
   kontrolListesiGuncelleEylem,
@@ -74,6 +75,7 @@ export function useKontrolListesiOlustur(kartId: string) {
       const liste = (eski as KontrolListesiOzeti[] | undefined) ?? [];
       return liste.map((kl) => (kl.id === vars.id_taslak ? yanit : kl));
     },
+    ekInvalidate: [kartAktiviteleriKey(kartId)],
     hataMesaji: "Kontrol listesi eklenemedi",
   });
 }
@@ -88,6 +90,7 @@ export function useKontrolListesiGuncelle(kartId: string) {
         kl.id === vars.id ? { ...kl, ad: vars.ad } : kl,
       );
     },
+    ekInvalidate: [kartAktiviteleriKey(kartId)],
     hataMesaji: "Kontrol listesi güncellenemedi",
   });
 }
@@ -100,6 +103,7 @@ export function useKontrolListesiSil(kartId: string) {
       const liste = (eski as KontrolListesiOzeti[] | undefined) ?? [];
       return liste.filter((kl) => kl.id !== vars.id);
     },
+    ekInvalidate: [kartAktiviteleriKey(kartId)],
     hataMesaji: "Kontrol listesi silinemedi",
   });
 }
@@ -146,6 +150,7 @@ export function useMaddeOlustur(kartId: string) {
         };
       });
     },
+    ekInvalidate: [kartAktiviteleriKey(kartId)],
     hataMesaji: "Madde eklenemedi",
   });
 }
@@ -181,6 +186,7 @@ export function useMaddeGuncelle(kartId: string) {
         ),
       }));
     },
+    ekInvalidate: [kartAktiviteleriKey(kartId)],
     hataMesaji: "Madde güncellenemedi",
   });
 }
@@ -196,6 +202,7 @@ export function useMaddeSil(kartId: string) {
         maddeler: kl.maddeler.filter((m) => m.id !== vars.id),
       }));
     },
+    ekInvalidate: [kartAktiviteleriKey(kartId)],
     hataMesaji: "Madde silinemedi",
   });
 }

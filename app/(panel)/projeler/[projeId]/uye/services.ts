@@ -23,6 +23,9 @@ export type AdayKullanici = {
   ad: string;
   soyad: string;
   email: string;
+  // Why kurum görünümü: aday listesi sistem genelinden çekildiği için aynı
+  // ad/soyad farklı kurumlarda olabilir; kullanıcı doğru kişiyi seçebilsin.
+  kurum_ad: string | null;
 };
 
 // =====================================================================
@@ -30,29 +33,31 @@ export type AdayKullanici = {
 // =====================================================================
 
 async function projeyeErisimDogrula(
-  kurumId: string,
+  _kurumId: string,
   projeId: string,
 ): Promise<void> {
+  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
   const p = await db.proje.findUnique({
     where: { id: projeId },
-    select: { kurum_id: true, silindi_mi: true },
+    select: { silindi_mi: true },
   });
-  if (!p || p.kurum_id !== kurumId || p.silindi_mi) {
+  if (!p || p.silindi_mi) {
     throw new EylemHatasi("Proje bulunamadı.", HATA_KODU.BULUNAMADI);
   }
 }
 
 async function kartiBulVeProjeAl(
-  kurumId: string,
+  _kurumId: string,
   kartId: string,
 ): Promise<{ proje_id: string }> {
+  // Tek-kurum (ADR-0007) — kurum kontrolü düştü.
   const k = await db.kart.findUnique({
     where: { id: kartId },
     select: {
-      liste: { select: { proje_id: true, proje: { select: { kurum_id: true } } } },
+      liste: { select: { proje_id: true } },
     },
   });
-  if (!k || k.liste.proje.kurum_id !== kurumId) {
+  if (!k) {
     throw new EylemHatasi("Kart bulunamadı.", HATA_KODU.BULUNAMADI);
   }
   return { proje_id: k.liste.proje_id };
@@ -91,11 +96,12 @@ export async function projeAdayKullanicilariniAra(
   kurumId: string,
   girdi: ProjeAdayKullanicilar,
 ): Promise<AdayKullanici[]> {
+  // Why erişim doğrula: sadece projeyi görebildiğinden emin ol; aday havuzu
+  // sistem geneli (kurum filtresi kaldırıldı, çoklu kurum atama desteklenir).
   await projeyeErisimDogrula(kurumId, girdi.proje_id);
   const aramaQ = girdi.q?.trim() ?? "";
-  return db.kullanici.findMany({
+  const sonuc = await db.kullanici.findMany({
     where: {
-      kurum_id: kurumId,
       silindi_mi: false,
       aktif: true,
       onay_durumu: "ONAYLANDI",
@@ -107,14 +113,33 @@ export async function projeAdayKullanicilariniAra(
               { ad: { contains: aramaQ, mode: "insensitive" } },
               { soyad: { contains: aramaQ, mode: "insensitive" } },
               { email: { contains: aramaQ, mode: "insensitive" } },
+              {
+                kurum: { ad: { contains: aramaQ, mode: "insensitive" } },
+              },
+              {
+                kurum: { kisa_ad: { contains: aramaQ, mode: "insensitive" } },
+              },
             ],
           }
         : {}),
     },
     orderBy: [{ ad: "asc" }, { soyad: "asc" }],
     take: 20,
-    select: { id: true, ad: true, soyad: true, email: true },
+    select: {
+      id: true,
+      ad: true,
+      soyad: true,
+      email: true,
+      kurum: { select: { ad: true, kisa_ad: true } },
+    },
   });
+  return sonuc.map((k) => ({
+    id: k.id,
+    ad: k.ad,
+    soyad: k.soyad,
+    email: k.email,
+    kurum_ad: k.kurum?.kisa_ad ?? k.kurum?.ad ?? null,
+  }));
 }
 
 export async function projeyeUyeEkle(
@@ -122,14 +147,17 @@ export async function projeyeUyeEkle(
   girdi: ProjeyeUyeEkle,
 ): Promise<ProjeUyeOzeti> {
   await projeyeErisimDogrula(kurumId, girdi.proje_id);
-  // Kullanıcı kuruma ait mi
+  // Kullanıcı sistem genelinden eklenebilir (kurum izolasyonu kaldırıldı —
+  // aday listesi de tüm kurumlardan kullanıcı dönüyor). Sadece silinmiş /
+  // var olmayan kullanıcılar reddedilir; aktiflik & onay durumu aday
+  // sorgusunda zaten süzülmüş olur.
   const k = await db.kullanici.findUnique({
     where: { id: girdi.kullanici_id },
-    select: { kurum_id: true, ad: true, soyad: true, email: true, silindi_mi: true },
+    select: { ad: true, soyad: true, email: true, silindi_mi: true },
   });
-  if (!k || k.silindi_mi || k.kurum_id !== kurumId) {
+  if (!k || k.silindi_mi) {
     throw new EylemHatasi(
-      "Kullanıcı bulunamadı veya başka kuruma ait.",
+      "Kullanıcı bulunamadı.",
       HATA_KODU.BULUNAMADI,
     );
   }

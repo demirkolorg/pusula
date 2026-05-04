@@ -25,15 +25,13 @@ export default async function KartDeepLink({ params }: SayfaProps) {
     select: {
       silindi_mi: true,
       liste: {
-        select: {
-          proje_id: true,
-          proje: { select: { kurum_id: true } },
-        },
+        select: { proje_id: true },
       },
     },
   });
 
-  if (!kart || kart.liste.proje.kurum_id !== kullanici.kurumId || kart.silindi_mi) {
+  // Tek-kurum (ADR-0007) — kurum sahiplik kontrolü düştü.
+  if (!kart || kart.silindi_mi) {
     notFound();
   }
 

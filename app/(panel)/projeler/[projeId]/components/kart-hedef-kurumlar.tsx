@@ -22,6 +22,7 @@ import {
   kartHedefKurumKaldirEylem,
   kartHedefKurumlariEylem,
 } from "../actions";
+import { kartAktiviteleriKey } from "../aktivite/keys";
 
 type Hedef = {
   kurum_id: string;
@@ -32,11 +33,14 @@ type Hedef = {
 
 type Props = {
   kartId: string;
+  // "tam" — Label ve açıklama göster (sol kolon kullanımı, geriye dönük varsayılan).
+  // "kompakt" — başlık/açıklama gizli, popover içine yerleşmek için.
+  gosterimMod?: "tam" | "kompakt";
 };
 
 const HIC = "__yok__";
 
-export function KartHedefKurumlar({ kartId }: Props) {
+export function KartHedefKurumlar({ kartId, gosterimMod = "tam" }: Props) {
   const queryKey = React.useMemo(
     () => ["kart-hedef-kurumlar", kartId] as const,
     [kartId],
@@ -87,6 +91,7 @@ export function KartHedefKurumlar({ kartId }: Props) {
         },
       ];
     },
+    ekInvalidate: [kartAktiviteleriKey(kartId)],
     hataMesaji: "Hedef kurum eklenemedi",
   });
 
@@ -100,6 +105,7 @@ export function KartHedefKurumlar({ kartId }: Props) {
       const v = (eski ?? []) as Hedef[];
       return v.filter((h) => h.kurum_id !== vars.hedef_kurum_id);
     },
+    ekInvalidate: [kartAktiviteleriKey(kartId)],
     hataMesaji: "Hedef kurum kaldırılamadı",
   });
 
@@ -118,11 +124,15 @@ export function KartHedefKurumlar({ kartId }: Props) {
 
   return (
     <div className="grid gap-2">
-      <Label>Hedef Kurumlar</Label>
-      <p className="text-muted-foreground text-xs">
-        Görevin yönlendirildiği ilçe kurumları. Eklediğiniz kurum çalışanları bu
-        görevi kendi panellerinde görür.
-      </p>
+      {gosterimMod === "tam" && (
+        <>
+          <Label>Hedef Kurumlar</Label>
+          <p className="text-muted-foreground text-xs">
+            Görevin yönlendirildiği ilçe kurumları. Eklediğiniz kurum
+            çalışanları bu görevi kendi panellerinde görür.
+          </p>
+        </>
+      )}
 
       <div className="flex flex-wrap gap-1">
         {hedefler.length === 0 ? (
@@ -165,7 +175,15 @@ export function KartHedefKurumlar({ kartId }: Props) {
           onValueChange={(v) => setSecili(v === HIC || !v ? "" : v)}
         >
           <SelectTrigger className="flex-1">
-            <SelectValue placeholder="Kurum ekle..." />
+            <SelectValue>
+              {(v) => {
+                if (!v || v === HIC) return "Kurum ekle...";
+                const k = eklenebilirler.find((x) => x.id === v);
+                return k
+                  ? kurumGorunenAd({ ad: k.ad, tip: k.tip })
+                  : "Kurum ekle...";
+              }}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={HIC}>—</SelectItem>

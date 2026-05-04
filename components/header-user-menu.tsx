@@ -53,16 +53,21 @@ export function HeaderUserMenu({ user }: HeaderUserMenuProps) {
         render={
           <Button
             variant="ghost"
-            size="icon"
             aria-label="Kullanıcı menüsü"
-            className="cursor-pointer rounded-full"
+            className="h-auto cursor-pointer gap-2 px-2 py-1.5"
           />
         }
       >
-        <Avatar className="size-8">
+        <Avatar className="size-8 shrink-0">
           <AvatarImage src={user.avatar ?? ""} alt={user.name} />
           <AvatarFallback>{bashar || "PU"}</AvatarFallback>
         </Avatar>
+        <div className="hidden min-w-0 flex-col items-start text-left leading-tight sm:flex">
+          <span className="truncate text-sm font-medium">{user.name}</span>
+          <span className="text-muted-foreground truncate text-xs">
+            {user.email}
+          </span>
+        </div>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         className="min-w-56 rounded-lg"

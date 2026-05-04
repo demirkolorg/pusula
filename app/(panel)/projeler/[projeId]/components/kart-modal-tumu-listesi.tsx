@@ -15,9 +15,11 @@ import {
   UsersIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MentionliMetin, type UyeMap } from "@/lib/mention";
 import { useKartYorumlari } from "../yorum/hooks";
 import { useKartEklentileri } from "../eklenti/hooks";
 import { useKartAktiviteleri } from "../aktivite/hooks";
+import { useProjeUyeleri } from "../uye/hooks";
 import { UyeAvatar } from "../uye/components/uye-avatar";
 import type { YorumOzeti } from "../yorum/services";
 import type { EklentiOzeti } from "../eklenti/services";
@@ -40,19 +42,31 @@ const TARIH_TAM = new Intl.DateTimeFormat("tr-TR", {
   timeZone: "Europe/Istanbul",
 });
 
-type Props = { kartId: string };
+// projeId opsiyonel — verilirse yorum içeriği ve aktivite detaylarındaki
+// `@<uuid>` mention'lar kullanıcı adlarıyla render edilir.
+type Props = { kartId: string; projeId?: string };
 
 // Sancak referansı: tek dikey timeline'da TÜM olaylar.
 // Audit log = "ne oldu" iskelet; Yorum CREATE'te yorum içeriği inline kart
 // olarak, Eklenti CREATE'te dosya rozeti olarak zenginleşir, diğerleri
 // kuru aktivite satırı (Aktivite sekmesi tasarımıyla aynı).
-export function KartModalTumuListesi({ kartId }: Props) {
+export function KartModalTumuListesi({ kartId, projeId }: Props) {
   const aktiviteQ = useKartAktiviteleri(kartId);
   const yorumQ = useKartYorumlari(kartId);
   const eklerQ = useKartEklentileri(kartId);
+  const uyelerQ = useProjeUyeleri(projeId ?? "");
 
   const yukleniyor =
     aktiviteQ.isLoading || yorumQ.isLoading || eklerQ.isLoading;
+
+  const uyeMap: UyeMap = React.useMemo(() => {
+    const m: UyeMap = new Map();
+    if (!projeId) return m;
+    for (const u of uyelerQ.data ?? []) {
+      m.set(u.kullanici_id, { ad: u.ad, soyad: u.soyad });
+    }
+    return m;
+  }, [projeId, uyelerQ.data]);
 
   const yorumMap = React.useMemo(
     () => new Map((yorumQ.data ?? []).map((y) => [y.id, y])),
@@ -89,7 +103,12 @@ export function KartModalTumuListesi({ kartId }: Props) {
       <ul className="relative flex flex-col gap-3">
         {olaylar.map((a) => (
           <li key={a.id}>
-            <Olay aktivite={a} yorumMap={yorumMap} ekMap={ekMap} />
+            <Olay
+              aktivite={a}
+              yorumMap={yorumMap}
+              ekMap={ekMap}
+              uyeMap={uyeMap}
+            />
           </li>
         ))}
       </ul>
@@ -105,10 +124,12 @@ function Olay({
   aktivite,
   yorumMap,
   ekMap,
+  uyeMap,
 }: {
   aktivite: AktiviteOzeti;
   yorumMap: Map<string, YorumOzeti>;
   ekMap: Map<string, EklentiOzeti>;
+  uyeMap: UyeMap;
 }) {
   // Yorum CREATE → yorum içeriğini inline kart olarak göster (silinmemiş)
   if (
@@ -117,7 +138,7 @@ function Olay({
     aktivite.kaynak_id
   ) {
     const tamYorum = yorumMap.get(aktivite.kaynak_id);
-    if (tamYorum) return <YorumOlay y={tamYorum} />;
+    if (tamYorum) return <YorumOlay y={tamYorum} uyeMap={uyeMap} />;
   }
 
   // Eklenti CREATE → dosya rozeti (silinmemiş)
@@ -131,14 +152,14 @@ function Olay({
   }
 
   // Diğer her şey → kuru aktivite satırı
-  return <AktiviteSatiri aktivite={aktivite} />;
+  return <AktiviteSatiri aktivite={aktivite} uyeMap={uyeMap} />;
 }
 
 // =====================================================================
 // Inline yorum kartı (zenginleştirilmiş gösterim)
 // =====================================================================
 
-function YorumOlay({ y }: { y: YorumOzeti }) {
+function YorumOlay({ y, uyeMap }: { y: YorumOzeti; uyeMap: UyeMap }) {
   return (
     <div className="flex items-start gap-2">
       <span className="ring-background relative z-[1] ring-2">
@@ -167,7 +188,7 @@ function YorumOlay({ y }: { y: YorumOzeti }) {
             )}
           </div>
           <p className="text-foreground mt-0.5 whitespace-pre-wrap text-[12.5px] leading-[1.5]">
-            {y.icerik}
+            <MentionliMetin metin={y.icerik} uyeMap={uyeMap} />
           </p>
         </div>
       </div>
@@ -225,11 +246,18 @@ const KATEGORI_IKON: Record<
   diger: FilePlus2Icon,
 };
 
-function AktiviteSatiri({ aktivite }: { aktivite: AktiviteOzeti }) {
+function AktiviteSatiri({
+  aktivite,
+  uyeMap,
+}: {
+  aktivite: AktiviteOzeti;
+  uyeMap: UyeMap;
+}) {
   const Ikon = KATEGORI_IKON[aktivite.kategori];
   const adSoyad = aktivite.kullanici
     ? `${aktivite.kullanici.ad} ${aktivite.kullanici.soyad}`.trim()
     : "Sistem";
+  const detayMentionlu = aktivite.kategori === "yorum";
 
   return (
     <div className="flex items-start gap-2">
@@ -265,7 +293,11 @@ function AktiviteSatiri({ aktivite }: { aktivite: AktiviteOzeti }) {
           <>
             {": "}
             <span className="bg-muted text-foreground ml-0.5 rounded px-1.5 py-0.5 text-[11px] font-medium">
-              {aktivite.detay}
+              {detayMentionlu ? (
+                <MentionliMetin metin={aktivite.detay} uyeMap={uyeMap} />
+              ) : (
+                aktivite.detay
+              )}
             </span>
           </>
         )}
