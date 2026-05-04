@@ -1,6 +1,6 @@
 ---
 name: kontrol
-description: Pusula (kaymakamlık görev yönetimi) projesinin tüm geliştirme süreci kuralları. Modül geliştirme, kod yazma, test, commit, deploy adımlarında uyulması zorunlu 147 kural. Bu skill her kod yazımı/düzenlemesi/PR öncesinde devreye girer ve kuralları enforce eder.
+description: Pusula (kaymakamlık görev yönetimi) projesinin tüm geliştirme süreci kuralları. Modül geliştirme, kod yazma, test, commit, deploy adımlarında uyulması zorunlu 146 kural. Bu skill her kod yazımı/düzenlemesi/commit/push öncesinde devreye girer ve kuralları enforce eder.
 ---
 
 # Kontrol — Pusula Geliştirme Kuralları
@@ -13,7 +13,7 @@ description: Pusula (kaymakamlık görev yönetimi) projesinin tüm geliştirme 
 - Yeni modül/özellik geliştirme başlamadan önce
 - Kod yazılırken / dosya oluşturulurken
 - Test yazılırken
-- Commit / PR öncesi
+- Commit / push öncesi
 - Deploy / release öncesi
 - Yeni bağımlılık eklenirken
 - Refactoring sırasında
@@ -23,7 +23,7 @@ description: Pusula (kaymakamlık görev yönetimi) projesinin tüm geliştirme 
 1. İş başlamadan önce ilgili kategorideki kuralları **kullanıcıya hatırlat**
 2. Kod yazarken kurallara aykırı durumu görürsen **DURDUR**, gerekçeyle birlikte alternatif öner
 3. Bir kural ihlali kullanıcı tarafından açıkça onaylanırsa istisna olarak geçer ama `docs/adr/` altına neden istisna yapıldığı yazılır
-4. PR öncesi **Modül DONE Kriteri** (Bölüm O/91) checklist'i tek tek doğrulanır
+4. Commit öncesi **Modül DONE Kriteri** (Bölüm O/91) checklist'i tek tek doğrulanır
 
 ---
 
@@ -47,7 +47,7 @@ description: Pusula (kaymakamlık görev yönetimi) projesinin tüm geliştirme 
 
 ## C. Mobile-First
 
-9. **Tasarım önce 360px** — her component PR'ı 360px screenshot ile gelir.
+9. **Tasarım önce 360px** — her component commit'i 360px screenshot ile gelir.
 10. **Tailwind: default = mobile**, sonra `sm:`/`md:`/`lg:` ile büyüt. Desktop-first negation YASAK.
 11. **Hit target ≥ 44×44px** (Apple HIG).
 12. **Drag-drop:** dnd-kit `TouchSensor` + `PointerSensor` her zaman birlikte. Long-press 250ms.
@@ -171,14 +171,14 @@ description: Pusula (kaymakamlık görev yönetimi) projesinin tüm geliştirme 
 
 83. **Commit format:** `<tip>(<scope>): <açıklama>` — tip: feat/fix/refactor/docs/test/chore/perf/ci, açıklama Türkçe.
 84. **Commit modüler** — bir commit = bir mantıksal birim. "WIP" commit yasak.
-85. **Branch:** `feature/<modul>-<kisa-aciklama>`, `fix/<bug-id>`, `refactor/<ne>`.
-86. **PR önce verifier'dan geçer** — build + test + lint + typecheck + security scan.
+85. **Branch açma — main'e direkt commit + push.** Solo workflow; PR/feature branch akışı kaldırıldı. İstisna: kullanıcı açıkça "branch aç" derse.
+86. **Push önce verifier'dan geçer** — build + test + lint + typecheck + security scan. Local commit OK olsa da `git push` öncesi verifier ZORUNLU.
 87. **Yorum: WHY**, kod: WHAT. Comment yazıyorsan kodun isimleri yetersiz demektir.
 88. **`--no-verify` YASAK** — pre-commit hook hatası varsa root cause'u çöz.
 
 ## O. Modül Geliştirme Akışı
 
-89. **Modül sırası önceden belirlenir** — bugün hangi modül? PR'da scope dışına çıkma.
+89. **Modül sırası önceden belirlenir** — bugün hangi modül? Commit serisinde scope dışına çıkma.
 90. **Her modül 5 katmandan oluşur:**
     1. `schemas.ts` (Zod) → validation contract
     2. `services.ts` (Prisma + business) → DB işlemleri
@@ -220,8 +220,7 @@ description: Pusula (kaymakamlık görev yönetimi) projesinin tüm geliştirme 
 ## R. CI/CD
 
 104. **CI step'leri:** install → typecheck → lint → unit test → build → integration test → E2E (kritik) → security scan.
-105. **Main'e direkt push yasak** — PR + review zorunlu.
-106. **Production deploy manuel onay** — `shipper` agent ile pre-deploy checklist.
+105. **Production deploy manuel onay** — `shipper` agent ile pre-deploy checklist.
 
 ## S. Optimistic UI (Anında Tepki — ZORUNLU MİMARİ)
 
