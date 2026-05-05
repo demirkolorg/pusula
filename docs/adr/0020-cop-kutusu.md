@@ -1,4 +1,4 @@
-# ADR 0018 — Çöp Kutusu (Soft Delete + Geri Yükle + Kalıcı Sil)
+# ADR 0020 — Çöp Kutusu (Soft Delete + Geri Yükle + Kalıcı Sil)
 
 **Tarih:** 2026-05-05
 **Durum:** Kabul edildi

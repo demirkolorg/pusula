@@ -282,26 +282,26 @@ model Kullanici {
   olusturma_zamani  DateTime            @default(now())
   guncelleme_zamani DateTime            @updatedAt
 
-  birim               Birim?           @relation(fields: [birim_id], references: [id])
-  roller              KullaniciRol[]
-  proje_yetkileri     ProjeYetkilisi[]
-  liste_yetkileri     ListeYetkilisi[]
-  kart_yetkileri      KartYetkilisi[]
-  olusturduklari      Proje[]          @relation("ProjeOlusturan")
-  yorumlar            Yorum[]          @relation("YorumYazan")
-  eklentiler          Eklenti[]        @relation("EklentiYukleyen")
-  tamamlanan_maddeler KontrolMaddesi[] @relation("KontrolTamamlayan")
-  atanan_maddeler     KontrolMaddesi[] @relation("KontrolAtanan")
+  birim                        Birim?           @relation(fields: [birim_id], references: [id])
+  roller                       KullaniciRol[]
+  proje_yetkileri              ProjeYetkilisi[]
+  liste_yetkileri              ListeYetkilisi[]
+  kart_yetkileri               KartYetkilisi[]
+  olusturduklari               Proje[]          @relation("ProjeOlusturan")
+  yorumlar                     Yorum[]          @relation("YorumYazan")
+  eklentiler                   Eklenti[]        @relation("EklentiYukleyen")
+  tamamlanan_maddeler          KontrolMaddesi[] @relation("KontrolTamamlayan")
+  atanan_maddeler              KontrolMaddesi[] @relation("KontrolAtanan")
   onerdigi_madde_tamamlamalari KontrolMaddesi[] @relation("KontrolMaddeTamamlamaOneren")
-  tamamladigi_kartlar Kart[]           @relation("KartTamamlayan")
-  onerdigi_kart_tamamlamalari  Kart[]   @relation("KartTamamlamaOneren")
-  bildirimler         Bildirim[]       @relation("BildirimAlici")
-  ureten_bildirimler  Bildirim[]       @relation("BildirimUreten")
-  // ADR-0019 — kullanıcı şablonları
-  sablonlari          ProjeSablonu[]   @relation("SablonOlusturan")
-  bildirim_tercihleri BildirimTercih[]
-  kart_susturmalari   KartSusturma[]
-  proje_ziyaretleri   ProjeZiyareti[]
+  tamamladigi_kartlar          Kart[]           @relation("KartTamamlayan")
+  onerdigi_kart_tamamlamalari  Kart[]           @relation("KartTamamlamaOneren")
+  bildirimler                  Bildirim[]       @relation("BildirimAlici")
+  ureten_bildirimler           Bildirim[]       @relation("BildirimUreten")
+  // ADR-0021 — kullanıcı şablonları
+  sablonlari                   ProjeSablonu[]   @relation("SablonOlusturan")
+  bildirim_tercihleri          BildirimTercih[]
+  kart_susturmalari            KartSusturma[]
+  proje_ziyaretleri            ProjeZiyareti[]
 
   // ADR-0017: global arama (tsvector + GIN) — trigger ile otomatik güncellenir.
   arama_vektoru Unsupported("tsvector")?
@@ -607,6 +607,50 @@ model ProjeZiyareti {
   @@index([proje_id])
 }
 
+// ADR-0021 — Proje Şablonları (sistem + kullanıcı). "Şablondan proje
+// oluştur" akışında listeler[] kopyalanır; sistem_kodu unique idempotent
+// seed için. Sistem şablonları kullanıcı tarafından silinemez/düzenlenemez
+// (servis tarafında kontrol). NOT: 0019 numarası kart tamamlama öneri
+// akışı için kullanıldığından şablonlar 0021 ADR'ye taşındı.
+model ProjeSablonu {
+  id                String    @id @default(uuid()) @db.Uuid
+  ad                String
+  aciklama          String?
+  kapak_renk        String?
+  kapak_ikon        String? // lucide-react ikon adı (ADR-0016)
+  // Sistem şablonu mu? Kullanıcı silemez/düzenleyemez.
+  sistem_mi         Boolean   @default(false)
+  // Sistem şablonları için stable kod — i18n ve idempotent seed için.
+  // Kullanıcı şablonlarında null.
+  sistem_kodu       String?   @unique
+  // Kim oluşturdu (kullanıcı şablonlarında zorunlu, sistem'de null).
+  olusturan_id      String?   @db.Uuid
+  silindi_mi        Boolean   @default(false)
+  silinme_zamani    DateTime?
+  olusturma_zamani  DateTime  @default(now())
+  guncelleme_zamani DateTime  @updatedAt
+
+  olusturan Kullanici?      @relation("SablonOlusturan", fields: [olusturan_id], references: [id])
+  listeler  SablonListesi[]
+
+  @@index([sistem_mi])
+  @@index([silindi_mi])
+  @@index([olusturan_id])
+}
+
+model SablonListesi {
+  id        String @id @default(uuid()) @db.Uuid
+  sablon_id String @db.Uuid
+  ad        String
+  // LexoRank — sıralama (boş şablonda liste yok, klasik'te 3 liste vb.)
+  sira      String
+  wip_limit Int?
+
+  sablon ProjeSablonu @relation(fields: [sablon_id], references: [id], onDelete: Cascade)
+
+  @@index([sablon_id, sira])
+}
+
 enum ListeTipi {
   // Kullanıcı tarafından oluşturulan, normal kart taşıyıcı liste
   NORMAL
@@ -680,21 +724,21 @@ model ListeBirimi {
 }
 
 model Kart {
-  id                    String    @id @default(uuid()) @db.Uuid
-  liste_id              String    @db.Uuid
-  baslik                String
-  aciklama              String?
-  sira                  String // LexoRank — liste içi kart sırası
-  kapak_renk            String?
-  kapak_dosya_id        String?   @db.Uuid
-  baslangic             DateTime?
-  bitis                 DateTime?
+  id                      String                @id @default(uuid()) @db.Uuid
+  liste_id                String                @db.Uuid
+  baslik                  String
+  aciklama                String?
+  sira                    String // LexoRank — liste içi kart sırası
+  kapak_renk              String?
+  kapak_dosya_id          String?               @db.Uuid
+  baslangic               DateTime?
+  bitis                   DateTime?
   // Trello tarzı — kart bütün olarak tamamlandı işareti. Kontrol listesi
   // maddelerinden bağımsız: kullanıcı manuel toggle eder. tamamlanma_zamani
   // raporlama/sıralama, tamamlayan_id audit için.
-  tamamlandi_mi         Boolean   @default(false)
-  tamamlanma_zamani     DateTime?
-  tamamlayan_id         String?   @db.Uuid
+  tamamlandi_mi           Boolean               @default(false)
+  tamamlanma_zamani       DateTime?
+  tamamlayan_id           String?               @db.Uuid
   // ADR-0019 — Yetkisiz kullanıcı için "tamamlandığını bildir" akışı.
   // BEKLIYOR durumunda yetkili Onayla/Reddet eder. Onay = tamamlandi_mi=true
   // + durum=YOK (atomic). Reddet = REDDEDILDI + red_sebebi. Yeniden öneri
@@ -703,15 +747,15 @@ model Kart {
   tamamlanma_oneren_id    String?               @db.Uuid
   tamamlanma_oneri_zamani DateTime?
   tamamlanma_red_sebebi   String?
-  arsiv_mi              Boolean   @default(false)
+  arsiv_mi                Boolean               @default(false)
   // ADR-0009 — kart arşivlenmeden önceki listenin id'si; geri yükleme için.
-  arsiv_oncesi_liste_id String?   @db.Uuid
-  arsiv_zamani          DateTime?
-  silindi_mi            Boolean   @default(false)
-  silinme_zamani        DateTime?
-  olusturan_id          String?   @db.Uuid
-  olusturma_zamani      DateTime  @default(now())
-  guncelleme_zamani     DateTime  @updatedAt
+  arsiv_oncesi_liste_id   String?               @db.Uuid
+  arsiv_zamani            DateTime?
+  silindi_mi              Boolean               @default(false)
+  silinme_zamani          DateTime?
+  olusturan_id            String?               @db.Uuid
+  olusturma_zamani        DateTime              @default(now())
+  guncelleme_zamani       DateTime              @updatedAt
 
   liste             Liste              @relation(fields: [liste_id], references: [id], onDelete: Cascade)
   tamamlayan        Kullanici?         @relation("KartTamamlayan", fields: [tamamlayan_id], references: [id])
@@ -871,22 +915,22 @@ model KontrolListesi {
 }
 
 model KontrolMaddesi {
-  id                 String    @id @default(uuid()) @db.Uuid
-  kontrol_listesi_id String    @db.Uuid
-  metin              String
-  tamamlandi_mi      Boolean   @default(false)
-  tamamlama_zamani   DateTime?
-  tamamlayan_id      String?   @db.Uuid
+  id                      String                @id @default(uuid()) @db.Uuid
+  kontrol_listesi_id      String                @db.Uuid
+  metin                   String
+  tamamlandi_mi           Boolean               @default(false)
+  tamamlama_zamani        DateTime?
+  tamamlayan_id           String?               @db.Uuid
   // ADR-0019 — Madde için öneri/onay flow (kart ile aynı pattern, Karar 8B).
   tamamlanma_oneri_durumu TamamlanmaOneriDurumu @default(YOK)
   tamamlanma_oneren_id    String?               @db.Uuid
   tamamlanma_oneri_zamani DateTime?
   tamamlanma_red_sebebi   String?
-  atanan_id          String?   @db.Uuid
-  bitis              DateTime?
-  sira               String // LexoRank — liste içi madde sırası
-  olusturma_zamani   DateTime  @default(now())
-  guncelleme_zamani  DateTime  @updatedAt
+  atanan_id               String?               @db.Uuid
+  bitis                   DateTime?
+  sira                    String // LexoRank — liste içi madde sırası
+  olusturma_zamani        DateTime              @default(now())
+  guncelleme_zamani       DateTime              @updatedAt
 
   kontrol_listesi KontrolListesi @relation(fields: [kontrol_listesi_id], references: [id], onDelete: Cascade)
   tamamlayan      Kullanici?     @relation("KontrolTamamlayan", fields: [tamamlayan_id], references: [id])
@@ -915,7 +959,7 @@ enum BildirimTipi {
   // Yorum içinde @mention edildi
   YORUM_MENTION
   // Karta üye olarak atandı
-  KART_YETKILI_ATAMA  @map("KART_UYE_ATAMA")
+  KART_YETKILI_ATAMA         @map("KART_UYE_ATAMA")
   // Kontrol maddesi atandı
   MADDE_ATAMA
   // Kart bitiş tarihi yaklaşıyor / geçti

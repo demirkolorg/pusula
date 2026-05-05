@@ -62,6 +62,7 @@ const navGroups: NavGroup[] = [
       },
       { title: "Roller", url: "/ayarlar/roller", icon: <KeyRoundIcon /> },
       { title: "Etiketler", url: "/ayarlar/etiketler", icon: <TagsIcon /> },
+      { title: "Şablonlar", url: "/ayarlar/sablonlar", icon: <Layers3Icon /> },
       {
         title: "Denetim",
         url: "/ayarlar/denetim",
