@@ -56,14 +56,31 @@ model DavetProjeBaglami {
 - E-posta formatı algılaması saf helper'da (`yetkili-kisi-ekle-helper.ts`) test edilir.
 - Bekleyen davet zaten varken aynı e-postayla yeni davet engellenir (servis seviyesinde).
 
-### 4. Yetki katmanları (Bölüm V/146)
+### 4. İki ayrı yetki kavramı — açıkça ayrılır
+
+Davet form'unda **iki bağımsız alan** vardır; karıştırılmamalıdır:
+
+| Kavram | Tablo | Değerler | Anlamı |
+|---|---|---|---|
+| **Sistem rolü** | `Rol` | KAYMAKAM, BIRIM_AMIRI, PERSONEL, SUPER_ADMIN | RBAC izin matrisi — kullanıcı sistemde hangi tip işlemleri yapabilir |
+| **Proje yetki seviyesi** | `ProjeYetkilisi.seviye` | ADMIN, NORMAL, IZLEYICI | Bu projedeki yetkili rolü — kart/liste oluşturma, üye atama vs. |
+
+**Form akışı:**
+- "Sistem kimliği" bölümü: **Sistem rolü (zorunlu)** + **Atanacak birim** (makam rolü hariç zorunlu, `lib/kullanici-rol-politikasi.ts` validate eder)
+- "Bu projedeki yetki" bölümü: **Proje yetki seviyesi** (ADMIN/NORMAL — IZLEYICI davet'te yok)
+
+**Why iki ayrı alan:** Kullanıcı sisteme `PERSONEL` rolüyle girer (RBAC için zemin), ama bu projede `ADMIN` olabilir (proje-içi yönetim için). Bunlar bağımsız boyutlardır.
+
+**Bug fix (2026-05-05):** İlk sürümde davet form'u sadece "proje yetki seviyesi" gösteriyordu, sistem rolü `null` geçiyordu → kabul eden kullanıcı **rolsüz** sisteme giriyordu (RBAC ihlali). Düzeltildi: `projeyeDavetGonderSemasi.rol_id` zorunlu, default `PERSONEL`. Makam rolü seçilirse birim alanı gizlenir + null geçer.
+
+### 5. Yetki katmanları (Bölüm V/146)
 
 Davet gönderme `IZIN_KODLARI.KULLANICI_DAVET` **ve** `IZIN_KODLARI.PROJE_YETKILI_YONET` izinlerini birlikte ister. Ek olarak kaynak-bazlı `yetkiZorunluProje(..., 'proje:authorize', proje_id)` çağrılır. Yani:
 - `KULLANICI_DAVET` olmayan: davet gönderemez.
 - `PROJE_YETKILI_YONET` olmayan: o projeye yetkili atayamaz.
 - `proje:authorize` testi geçmeyen: kendi yetkisi olmayan projeye dahi davet gönderemez.
 
-### 5. Rate limit (Bölüm V/147)
+### 6. Rate limit (Bölüm V/147)
 
 Mevcut `davetLimiter` (3/dk/kullanıcı) `proje-davet:` scope'uyla ayrı kova üzerinden tüketilir. Aynı kullanıcı global davet ile proje-bağlamlı daveti karıştırmasın — limit ayrı tutulur ki proje-davet flood'u global daveti tüketmesin.
 

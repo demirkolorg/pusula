@@ -8,6 +8,14 @@ vi.mock("@/auth", () => ({
   handlers: {},
 }));
 
+// Test ortamında mail tarafını mock'la — Resend gerçek gönderim yapmasın,
+// davet flow'u DB tarafında doğrulansın.
+vi.mock("@/lib/mail", () => ({
+  mailGonder: vi.fn(async () => {}),
+  mailHtmlRender: vi.fn(async () => "<html>mock</html>"),
+  MailGonderimHatasi: class MailGonderimHatasi extends Error {},
+}));
+
 import {
   bekleyenKullanicilariListele,
   davetOlustur,
@@ -227,7 +235,7 @@ describe("makam rol politikası", () => {
       email: "davet-kaymakam@test.local",
       rol_id: await rolIdAl("KAYMAKAM"),
       birim_id: null,
-      proje_baglamlari: [],
+      proje_baglamlari: [], liste_baglamlari: [], kart_baglamlari: [],
     });
 
     const kayit = await adminDb.davetTokeni.findUnique({
@@ -243,7 +251,7 @@ describe("makam rol politikası", () => {
       email: "ilk-kaymakam-daveti@test.local",
       rol_id: rolId,
       birim_id: null,
-      proje_baglamlari: [],
+      proje_baglamlari: [], liste_baglamlari: [], kart_baglamlari: [],
     });
 
     await expect(
@@ -251,9 +259,118 @@ describe("makam rol politikası", () => {
         email: "ikinci-kaymakam-daveti@test.local",
         rol_id: rolId,
         birim_id: null,
-        proje_baglamlari: [],
+        proje_baglamlari: [], liste_baglamlari: [], kart_baglamlari: [],
       }),
     ).rejects.toThrow("zaten geçerli bir davet");
+  });
+
+  // ADR-0010: davet ile birlikte projeye yetkili tayini
+  it("proje_baglamlari ile davet üretildiğinde DavetProjeBaglami kayıtları yazılır", async () => {
+    const proje = await adminDb.proje.create({
+      data: {
+        ad: "Davet Hedef Projesi",
+        sira: "M",
+        olusturan_id: ortam.superAdmin.id,
+      },
+      select: { id: true },
+    });
+
+    const davet = await davetOlustur(ortam.superAdmin.id, {
+      email: "yeni-uye@test.local",
+      rol_id: null,
+      birim_id: ortam.birim.id,
+      proje_baglamlari: [{ proje_id: proje.id }],
+      liste_baglamlari: [],
+      kart_baglamlari: [],
+    });
+
+    const baglamlar = await adminDb.davetProjeBaglami.findMany({
+      where: { davet_id: davet.id },
+      select: { proje_id: true },
+    });
+    expect(baglamlar).toEqual([{ proje_id: proje.id }]);
+  });
+
+  it("aynı e-posta için aktif davet varken ikinciyi reddeder", async () => {
+    await davetOlustur(ortam.superAdmin.id, {
+      email: "tek-davet@test.local",
+      rol_id: null,
+      birim_id: ortam.birim.id,
+      proje_baglamlari: [], liste_baglamlari: [], kart_baglamlari: [],
+    });
+
+    await expect(
+      davetOlustur(ortam.superAdmin.id, {
+        email: "tek-davet@test.local",
+        rol_id: null,
+        birim_id: ortam.birim.id,
+        proje_baglamlari: [], liste_baglamlari: [], kart_baglamlari: [],
+      }),
+    ).rejects.toThrow("aktif bir davet zaten var");
+  });
+
+  // ADR-0013: kart davet bağlamı → davet kabul edilince kart yetkilisi olur.
+  it("kart davet bağlamı kart_id ile yazılır", async () => {
+    const proje = await adminDb.proje.create({
+      data: {
+        ad: "Kart Davet Projesi",
+        sira: "M",
+        olusturan_id: ortam.superAdmin.id,
+      },
+      select: { id: true },
+    });
+    const liste = await adminDb.liste.create({
+      data: { proje_id: proje.id, ad: "L", sira: "M" },
+      select: { id: true },
+    });
+    const kart = await adminDb.kart.create({
+      data: { liste_id: liste.id, baslik: "K", sira: "M" },
+      select: { id: true },
+    });
+
+    const davet = await davetOlustur(ortam.superAdmin.id, {
+      email: "kart-davet@test.local",
+      rol_id: null,
+      birim_id: ortam.birim.id,
+      proje_baglamlari: [],
+      liste_baglamlari: [],
+      kart_baglamlari: [{ kart_id: kart.id }],
+    });
+
+    const baglam = await adminDb.davetKartBaglami.findMany({
+      where: { davet_id: davet.id },
+      select: { kart_id: true },
+    });
+    expect(baglam).toEqual([{ kart_id: kart.id }]);
+    // Proje bağlamı YAZILMAMIŞ olmalı
+    const projeBaglam = await adminDb.davetProjeBaglami.findMany({
+      where: { davet_id: davet.id },
+    });
+    expect(projeBaglam).toEqual([]);
+  });
+
+  it("silinmiş projeye davet bağlamı reddedilir", async () => {
+    const proje = await adminDb.proje.create({
+      data: {
+        ad: "Silinmiş Proje",
+        sira: "M",
+        olusturan_id: ortam.superAdmin.id,
+        silindi_mi: true,
+        silinme_zamani: new Date(),
+      },
+      select: { id: true },
+    });
+
+    await expect(
+      davetOlustur(ortam.superAdmin.id, {
+        email: "silinmis-proje-davet@test.local",
+        rol_id: null,
+        birim_id: ortam.birim.id,
+        proje_baglamlari: [{ proje_id: proje.id }],
+        liste_baglamlari: [],
+        kart_baglamlari: [],
+      }),
+    ).rejects.toThrow("geçerli değil");
   });
 });
 

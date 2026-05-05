@@ -1,6 +1,8 @@
 import type { Prisma } from "@prisma/client";
+import React from "react";
 import { db } from "@/lib/db";
-import { mailGonder } from "@/lib/mail";
+import { mailGonder, mailHtmlRender } from "@/lib/mail";
+import { DavetMail } from "@/lib/mail-templates/davet";
 import { aramaUuidIdleri } from "@/lib/arama";
 import { EylemHatasi } from "@/lib/action-wrapper";
 import { HATA_KODU } from "@/lib/sonuc";
@@ -277,6 +279,43 @@ export async function davetOlustur(
       }
     }
 
+    if (girdi.liste_baglamlari.length > 0) {
+      const listeIdleri = girdi.liste_baglamlari.map((b) => b.liste_id);
+      const listeler = await tx.liste.findMany({
+        where: { id: { in: listeIdleri } },
+        select: { id: true },
+      });
+      const bulunanIds = new Set(listeler.map((l) => l.id));
+      for (const baglam of girdi.liste_baglamlari) {
+        if (!bulunanIds.has(baglam.liste_id)) {
+          throw new EylemHatasi(
+            "Seçilen listelerden biri geçerli değil.",
+            HATA_KODU.GECERSIZ_GIRDI,
+            { liste_baglamlari: "Geçersiz liste seçimi." },
+          );
+        }
+      }
+    }
+
+    if (girdi.kart_baglamlari.length > 0) {
+      const kartIdleri = girdi.kart_baglamlari.map((b) => b.kart_id);
+      const kartlar = await tx.kart.findMany({
+        where: { id: { in: kartIdleri } },
+        select: { id: true, silindi_mi: true },
+      });
+      const bulunan = new Map(kartlar.map((k) => [k.id, k.silindi_mi]));
+      for (const baglam of girdi.kart_baglamlari) {
+        const silindi = bulunan.get(baglam.kart_id);
+        if (silindi === undefined || silindi) {
+          throw new EylemHatasi(
+            "Seçilen kartlardan biri geçerli değil.",
+            HATA_KODU.GECERSIZ_GIRDI,
+            { kart_baglamlari: "Geçersiz kart seçimi." },
+          );
+        }
+      }
+    }
+
     const olusturulan = await tx.davetTokeni.create({
       data: {
         token,
@@ -294,7 +333,26 @@ export async function davetOlustur(
         data: girdi.proje_baglamlari.map((b) => ({
           davet_id: olusturulan.id,
           proje_id: b.proje_id,
-          seviye: b.seviye,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    if (girdi.liste_baglamlari.length > 0) {
+      await tx.davetListeBaglami.createMany({
+        data: girdi.liste_baglamlari.map((b) => ({
+          davet_id: olusturulan.id,
+          liste_id: b.liste_id,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    if (girdi.kart_baglamlari.length > 0) {
+      await tx.davetKartBaglami.createMany({
+        data: girdi.kart_baglamlari.map((b) => ({
+          davet_id: olusturulan.id,
+          kart_id: b.kart_id,
         })),
         skipDuplicates: true,
       });
@@ -304,19 +362,110 @@ export async function davetOlustur(
   });
 
   const url = `${process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:2500"}/davet/${kayit.token}`;
-  await mailGonder({
-    alici: email,
-    konu: "Pusula - Davetiniz",
-    govde: `Pusula sistemine davet edildiniz. Hesabınızı oluşturmak için aşağıdaki bağlantıya tıklayın. Bağlantı ${DAVET_OMUR_GUN} gün geçerlidir.\n\n${url}`,
+  const davetEden = await db.kullanici.findUnique({
+    where: { id: davetEdenId },
+    select: { ad: true, soyad: true },
   });
+  const davetEdenAd = davetEden
+    ? `${davetEden.ad} ${davetEden.soyad}`.trim() || null
+    : null;
+
+  // Mail fail olursa davet kaydını silip kullanıcıya hata göster — operatör
+  // tekrar denesin. Aksi halde "yetim" davet token kalır + mail gitmemiş olur.
+  try {
+    await davetMailGonder({ email, url, davetEdenAd });
+  } catch (err) {
+    await db.davetTokeni.delete({ where: { id: kayit.id } }).catch(() => {});
+    if (err instanceof EylemHatasi) throw err;
+    throw new EylemHatasi(
+      err instanceof Error ? err.message : "Davet maili gönderilemedi.",
+      HATA_KODU.IC_HATA,
+    );
+  }
 
   return kayit;
+}
+
+async function davetMailGonder(args: {
+  email: string;
+  url: string;
+  davetEdenAd: string | null;
+}): Promise<void> {
+  const html = await mailHtmlRender(
+    React.createElement(DavetMail, {
+      url: args.url,
+      omurGun: DAVET_OMUR_GUN,
+      davetEdenAd: args.davetEdenAd,
+    }),
+  );
+  const govde = `${
+    args.davetEdenAd
+      ? `${args.davetEdenAd} sizi Pusula'ya davet etti.`
+      : "Pusula'ya davet edildiniz."
+  }\n\nHesabınızı oluşturmak için bağlantıya tıklayın. Bağlantı ${DAVET_OMUR_GUN} gün geçerlidir.\n\n${args.url}`;
+  await mailGonder({
+    alici: args.email,
+    konu: "Pusula - Davetiniz",
+    govde,
+    html,
+  });
+}
+
+export async function davetiYenidenGonder(
+  davetId: string,
+): Promise<{ id: string; token: string; email: string }> {
+  const davet = await db.davetTokeni.findUnique({
+    where: { id: davetId },
+    select: {
+      id: true,
+      token: true,
+      email: true,
+      kullanildi_mi: true,
+      son_kullanma: true,
+      davet_eden_id: true,
+    },
+  });
+  if (!davet) {
+    throw new EylemHatasi("Davet bulunamadı.", HATA_KODU.BULUNAMADI);
+  }
+  if (davet.kullanildi_mi) {
+    throw new EylemHatasi(
+      "Bu davet zaten kullanılmış.",
+      HATA_KODU.CAKISMA,
+    );
+  }
+
+  // Why: davet süresi dolmuşsa veya 24 saatten az kaldıysa son_kullanma'yı 7 güne uzat.
+  // Aksi halde sadece mail tekrar gönderilir, token aynı kalır.
+  const simdi = new Date();
+  const yeniSonKullanma = new Date(
+    simdi.getTime() + DAVET_OMUR_GUN * 24 * 60 * 60 * 1000,
+  );
+  const kalanMs = davet.son_kullanma.getTime() - simdi.getTime();
+  const dunSinir = 24 * 60 * 60 * 1000;
+  if (kalanMs < dunSinir) {
+    await db.davetTokeni.update({
+      where: { id: davet.id },
+      data: { son_kullanma: yeniSonKullanma },
+    });
+  }
+
+  const url = `${process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:2500"}/davet/${davet.token}`;
+  const davetEden = await db.kullanici.findUnique({
+    where: { id: davet.davet_eden_id },
+    select: { ad: true, soyad: true },
+  });
+  const davetEdenAd = davetEden
+    ? `${davetEden.ad} ${davetEden.soyad}`.trim() || null
+    : null;
+
+  await davetMailGonder({ email: davet.email, url, davetEdenAd });
+  return { id: davet.id, token: davet.token, email: davet.email };
 }
 
 export type ProjeBekleyenDavetSatiri = {
   davet_id: string;
   email: string;
-  seviye: "ADMIN" | "NORMAL" | "IZLEYICI";
   davet_eden_id: string;
   son_kullanma: Date;
   olusturma_zamani: Date;
@@ -333,7 +482,6 @@ export async function projeBekleyenDavetleriListele(
     orderBy: { olusturma_zamani: "desc" },
     select: {
       davet_id: true,
-      seviye: true,
       olusturma_zamani: true,
       davet: {
         select: {
@@ -347,7 +495,6 @@ export async function projeBekleyenDavetleriListele(
   return satirlar.map((s) => ({
     davet_id: s.davet_id,
     email: s.davet.email,
-    seviye: s.seviye,
     davet_eden_id: s.davet.davet_eden_id,
     son_kullanma: s.davet.son_kullanma,
     olusturma_zamani: s.olusturma_zamani,
@@ -360,6 +507,76 @@ export async function projeDavetBaglamiKaldir(
 ): Promise<void> {
   await db.davetProjeBaglami.deleteMany({
     where: { davet_id: davetId, proje_id: projeId },
+  });
+}
+
+export async function listeBekleyenDavetleriListele(
+  listeId: string,
+): Promise<ProjeBekleyenDavetSatiri[]> {
+  const satirlar = await db.davetListeBaglami.findMany({
+    where: {
+      liste_id: listeId,
+      davet: { kullanildi_mi: false, son_kullanma: { gt: new Date() } },
+    },
+    orderBy: { olusturma_zamani: "desc" },
+    select: {
+      davet_id: true,
+      olusturma_zamani: true,
+      davet: {
+        select: { email: true, son_kullanma: true, davet_eden_id: true },
+      },
+    },
+  });
+  return satirlar.map((s) => ({
+    davet_id: s.davet_id,
+    email: s.davet.email,
+    davet_eden_id: s.davet.davet_eden_id,
+    son_kullanma: s.davet.son_kullanma,
+    olusturma_zamani: s.olusturma_zamani,
+  }));
+}
+
+export async function listeDavetBaglamiKaldir(
+  davetId: string,
+  listeId: string,
+): Promise<void> {
+  await db.davetListeBaglami.deleteMany({
+    where: { davet_id: davetId, liste_id: listeId },
+  });
+}
+
+export async function kartBekleyenDavetleriListele(
+  kartId: string,
+): Promise<ProjeBekleyenDavetSatiri[]> {
+  const satirlar = await db.davetKartBaglami.findMany({
+    where: {
+      kart_id: kartId,
+      davet: { kullanildi_mi: false, son_kullanma: { gt: new Date() } },
+    },
+    orderBy: { olusturma_zamani: "desc" },
+    select: {
+      davet_id: true,
+      olusturma_zamani: true,
+      davet: {
+        select: { email: true, son_kullanma: true, davet_eden_id: true },
+      },
+    },
+  });
+  return satirlar.map((s) => ({
+    davet_id: s.davet_id,
+    email: s.davet.email,
+    davet_eden_id: s.davet.davet_eden_id,
+    son_kullanma: s.davet.son_kullanma,
+    olusturma_zamani: s.olusturma_zamani,
+  }));
+}
+
+export async function kartDavetBaglamiKaldir(
+  davetId: string,
+  kartId: string,
+): Promise<void> {
+  await db.davetKartBaglami.deleteMany({
+    where: { davet_id: davetId, kart_id: kartId },
   });
 }
 

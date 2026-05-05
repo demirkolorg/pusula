@@ -16,9 +16,9 @@ export const daveriKabul = eylem({
     const davet = await db.davetTokeni.findUnique({
       where: { token: girdi.token },
       include: {
-        proje_baglamlari: {
-          select: { proje_id: true, seviye: true },
-        },
+        proje_baglamlari: { select: { proje_id: true } },
+        liste_baglamlari: { select: { liste_id: true } },
+        kart_baglamlari: { select: { kart_id: true } },
       },
     });
 
@@ -106,26 +106,68 @@ export const daveriKabul = eylem({
         });
       }
 
-      // Davet üzerindeki proje bağlamlarını ProjeYetkili kayıtlarına dönüştür.
-      // Why: davet sahibinin sisteme katılır katılmaz ilgili projelere yetkili olması.
-      // Silinmiş projeler atlanır; bağlam tablosu davet expire/use'de Cascade ile temizlenir.
+      // ADR-0010/0012/0013: davet bağlamları kaynak'a göre üç ayrı tabloda
+      // tutulur. Kabul edildiğinde ilgili yetkili tablolarına dönüştürülür.
+      // Silinmiş kaynaklar atlanır; bağlam tablosu davet expire/use'da
+      // Cascade ile temizlenir.
       if (davet.proje_baglamlari.length > 0) {
         const projeIdleri = davet.proje_baglamlari.map((b) => b.proje_id);
-        const aktifProjeler = await tx.proje.findMany({
+        const aktif = await tx.proje.findMany({
           where: { id: { in: projeIdleri }, silindi_mi: false },
           select: { id: true },
         });
-        const aktifSet = new Set(aktifProjeler.map((p) => p.id));
-        const yetkiKayitlari = davet.proje_baglamlari
+        const aktifSet = new Set(aktif.map((p) => p.id));
+        const kayitlar = davet.proje_baglamlari
           .filter((b) => aktifSet.has(b.proje_id))
           .map((b) => ({
             proje_id: b.proje_id,
             kullanici_id: kullanici.id,
-            seviye: b.seviye,
           }));
-        if (yetkiKayitlari.length > 0) {
+        if (kayitlar.length > 0) {
           await tx.projeYetkilisi.createMany({
-            data: yetkiKayitlari,
+            data: kayitlar,
+            skipDuplicates: true,
+          });
+        }
+      }
+
+      if (davet.liste_baglamlari.length > 0) {
+        const listeIdleri = davet.liste_baglamlari.map((b) => b.liste_id);
+        const aktif = await tx.liste.findMany({
+          where: { id: { in: listeIdleri } },
+          select: { id: true },
+        });
+        const aktifSet = new Set(aktif.map((l) => l.id));
+        const kayitlar = davet.liste_baglamlari
+          .filter((b) => aktifSet.has(b.liste_id))
+          .map((b) => ({
+            liste_id: b.liste_id,
+            kullanici_id: kullanici.id,
+          }));
+        if (kayitlar.length > 0) {
+          await tx.listeYetkilisi.createMany({
+            data: kayitlar,
+            skipDuplicates: true,
+          });
+        }
+      }
+
+      if (davet.kart_baglamlari.length > 0) {
+        const kartIdleri = davet.kart_baglamlari.map((b) => b.kart_id);
+        const aktif = await tx.kart.findMany({
+          where: { id: { in: kartIdleri }, silindi_mi: false },
+          select: { id: true },
+        });
+        const aktifSet = new Set(aktif.map((k) => k.id));
+        const kayitlar = davet.kart_baglamlari
+          .filter((b) => aktifSet.has(b.kart_id))
+          .map((b) => ({
+            kart_id: b.kart_id,
+            kullanici_id: kullanici.id,
+          }));
+        if (kayitlar.length > 0) {
+          await tx.kartYetkilisi.createMany({
+            data: kayitlar,
             skipDuplicates: true,
           });
         }

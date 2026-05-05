@@ -33,6 +33,20 @@ import { davetGonderSemasi, type DavetGonder } from "../schemas";
 const HIC = "__yok__";
 const BIRIMSIZ_MAKAM = "__birimsiz_makam__";
 
+// Why ayrı form tipi: davetGonderSemasi'da proje/liste/kart_baglamlari
+// `default([])` ile gelir (servis yüzeyi). Bu, RHF zodResolver'a verilince
+// input ↔ output type uyumsuzluğu çıkarır. Form bu alanları sergilemez; tip
+// Omit edilir, action çağrısında boş diziler eklenir.
+const davetGonderFormSemasi = davetGonderSemasi.omit({
+  proje_baglamlari: true,
+  liste_baglamlari: true,
+  kart_baglamlari: true,
+});
+type DavetGonderForm = Omit<
+  DavetGonder,
+  "proje_baglamlari" | "liste_baglamlari" | "kart_baglamlari"
+>;
+
 type Props = {
   acik: boolean;
   kapat: () => void;
@@ -40,8 +54,8 @@ type Props = {
 };
 
 export function DavetGonderSheet({ acik, kapat, basaridaTetikle }: Props) {
-  const form = useForm<DavetGonder>({
-    resolver: zodResolver(davetGonderSemasi),
+  const form = useForm<DavetGonderForm>({
+    resolver: zodResolver(davetGonderFormSemasi),
     defaultValues: { email: "", rol_id: null, birim_id: null },
   });
 
@@ -70,8 +84,13 @@ export function DavetGonderSheet({ acik, kapat, basaridaTetikle }: Props) {
   });
 
   const gonderMut = useMutation({
-    mutationFn: async (veri: DavetGonder) => {
-      const r = await davetGonderEylem(veri);
+    mutationFn: async (veri: DavetGonderForm) => {
+      const r = await davetGonderEylem({
+        ...veri,
+        proje_baglamlari: [],
+        liste_baglamlari: [],
+        kart_baglamlari: [],
+      });
       if (!r.basarili) throw r;
       return r.veri;
     },
@@ -89,7 +108,7 @@ export function DavetGonderSheet({ acik, kapat, basaridaTetikle }: Props) {
       const sonuc = err as { hata?: string; alanlar?: Record<string, string> };
       if (sonuc.alanlar) {
         for (const [alan, m] of Object.entries(sonuc.alanlar)) {
-          form.setError(alan as keyof DavetGonder, { message: m });
+          form.setError(alan as keyof DavetGonderForm, { message: m });
         }
       }
       toast.hata(sonuc.hata ?? "Gönderilemedi");
