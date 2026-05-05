@@ -27,6 +27,7 @@ import {
   TagsIcon,
   ScrollTextIcon,
   AlertTriangleIcon,
+  BellIcon,
   SettingsIcon,
 } from "lucide-react";
 
@@ -41,6 +42,11 @@ const navGroups: NavGroup[] = [
     label: "Ayarlar",
     items: [
       { title: "Genel", url: "/ayarlar/genel", icon: <SettingsIcon /> },
+      {
+        title: "Bildirim Ayarları",
+        url: "/ayarlar/bildirimler",
+        icon: <BellIcon />,
+      },
       { title: "Birimler", url: "/ayarlar/birimler", icon: <Building2Icon /> },
       {
         title: "Kullanıcılar",
