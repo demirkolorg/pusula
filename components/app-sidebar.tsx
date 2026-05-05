@@ -29,6 +29,7 @@ import {
   AlertTriangleIcon,
   BellIcon,
   SettingsIcon,
+  Trash2Icon,
 } from "lucide-react";
 
 const navGroups: NavGroup[] = [
@@ -36,6 +37,7 @@ const navGroups: NavGroup[] = [
     label: "Projeler",
     items: [
       { title: "Projeler", url: "/projeler", icon: <ListChecksIcon /> },
+      { title: "Çöp Kutusu", url: "/cop-kutusu", icon: <Trash2Icon /> },
     ],
   },
   {
