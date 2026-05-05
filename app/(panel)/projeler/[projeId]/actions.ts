@@ -10,6 +10,13 @@ import {
   yetkiZorunluKart,
 } from "@/lib/yetki";
 import { HATA_KODU } from "@/lib/sonuc";
+import { db } from "@/lib/db";
+import {
+  tetikleKartBitisDegisti,
+  tetikleKartDurumDegisti,
+  tetikleKartSilindi,
+  tetikleKartTamamlandi,
+} from "@/app/(panel)/bildirimler/tetikleyiciler";
 import {
   kartArsivSemasi,
   kartGeriYukleSemasi,
@@ -157,7 +164,22 @@ export const kartGuncelleEylem = eylem({
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.id);
+    const degistirenId = ctx.oturum?.kullaniciId ?? null;
     await kartGuncelleSrv(kullaniciIdAl(ctx), girdi);
+    // Sadece anlamlı alanlar değiştiğinde bildirim — tip-spesifik trigger.
+    if (degistirenId && girdi.bitis !== undefined) {
+      tetikleKartBitisDegisti({
+        kartId: girdi.id,
+        degistirenId,
+        yeniBitis: girdi.bitis ?? null,
+      }).catch(() => {});
+    }
+    if (degistirenId && girdi.tamamlandi_mi === true) {
+      tetikleKartTamamlandi({
+        kartId: girdi.id,
+        tamamlayanId: degistirenId,
+      }).catch(() => {});
+    }
     return { id: girdi.id };
   },
 });
@@ -168,6 +190,13 @@ export const kartSilEylem = eylem({
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_SIL);
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:delete", girdi.id);
+    const silenId = ctx.oturum?.kullaniciId ?? null;
+    // Tetikleyici silme öncesi yetki bağlamını okumalı (kart sonra silindi
+    // olarak işaretleniyor; üyelik bilgisi yine kalır ama "atandığınız bir
+    // kart" cümlesi an itibarıyla geçerli olmalı).
+    if (silenId) {
+      await tetikleKartSilindi({ kartId: girdi.id, silenId }).catch(() => {});
+    }
     await kartSil(kullaniciIdAl(ctx), girdi.id);
     return { id: girdi.id };
   },
@@ -191,7 +220,34 @@ export const kartTasiEylem = eylem({
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_TASI);
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:tasi", girdi.id);
     await yetkiZorunluListe(ctx.oturum?.kullaniciId, "liste:edit", girdi.hedef_liste_id);
-    return kartiTasi(kullaniciIdAl(ctx), girdi);
+    const tasiyanId = ctx.oturum?.kullaniciId ?? null;
+    // Eski liste id'sini taşımadan önce oku — sadece liste değişti ise bildirim
+    // tetiklenir (aynı liste içi sıralama bildirim üretmesin).
+    const oncesi = tasiyanId
+      ? await db.kart.findUnique({
+          where: { id: girdi.id },
+          select: { liste_id: true },
+        })
+      : null;
+    const sonuc = await kartiTasi(kullaniciIdAl(ctx), girdi);
+    if (
+      tasiyanId &&
+      oncesi &&
+      oncesi.liste_id !== girdi.hedef_liste_id
+    ) {
+      const hedefListe = await db.liste.findUnique({
+        where: { id: girdi.hedef_liste_id },
+        select: { ad: true },
+      });
+      if (hedefListe) {
+        tetikleKartDurumDegisti({
+          kartId: girdi.id,
+          tasiyanId,
+          yeniListeAd: hedefListe.ad,
+        }).catch(() => {});
+      }
+    }
+    return sonuc;
   },
 });
 

@@ -7,9 +7,12 @@ import {
   BellIcon,
   CalendarClockIcon,
   CheckCheckIcon,
+  CheckCircle2Icon,
   CheckSquareIcon,
   MessageSquareIcon,
+  MoveIcon,
   PaperclipIcon,
+  Trash2Icon,
   UserMinusIcon,
   UserPlusIcon,
   UsersIcon,
@@ -46,6 +49,10 @@ const TIP_IKON: Record<
   EKLENTI_YUKLENDI: PaperclipIcon,
   PROJE_UYE_EKLENDI: UserPlusIcon,
   PROJE_UYE_CIKARILDI: UserMinusIcon,
+  KART_DURUM_DEGISTI: MoveIcon,
+  KART_BITIS_DEGISTI: CalendarClockIcon,
+  KART_SILINDI: Trash2Icon,
+  KART_TAMAMLANDI: CheckCircle2Icon,
 };
 
 const TIP_RENK: Record<BildirimTipi, string> = {
@@ -58,6 +65,10 @@ const TIP_RENK: Record<BildirimTipi, string> = {
   EKLENTI_YUKLENDI: "bg-slate-100 text-slate-700",
   PROJE_UYE_EKLENDI: "bg-emerald-100 text-emerald-700",
   PROJE_UYE_CIKARILDI: "bg-amber-100 text-amber-700",
+  KART_DURUM_DEGISTI: "bg-indigo-100 text-indigo-700",
+  KART_BITIS_DEGISTI: "bg-amber-100 text-amber-700",
+  KART_SILINDI: "bg-red-100 text-red-700",
+  KART_TAMAMLANDI: "bg-emerald-100 text-emerald-700",
 };
 
 export function BildirimlerSayfaIcerik() {

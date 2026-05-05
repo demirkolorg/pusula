@@ -246,6 +246,8 @@ model Birim {
   @@index([tip])
   @@index([silindi_mi])
   @@index([arama_vektoru], type: Gin)
+  // ADR-0017: pg_trgm fuzzy fallback (yazım hatası toleransı)
+  @@index([ad(ops: raw("gin_trgm_ops"))], type: Gin, map: "Birim_ad_trgm_idx")
 }
 
 // ============================================================
@@ -302,6 +304,9 @@ model Kullanici {
   @@index([onay_durumu])
   @@index([silindi_mi])
   @@index([arama_vektoru], type: Gin)
+  // ADR-0017: pg_trgm fuzzy fallback
+  @@index([ad(ops: raw("gin_trgm_ops"))], type: Gin, map: "Kullanici_ad_trgm_idx")
+  @@index([soyad(ops: raw("gin_trgm_ops"))], type: Gin, map: "Kullanici_soyad_trgm_idx")
 }
 
 enum IzinKategorisi {
@@ -550,6 +555,8 @@ model Proje {
   @@index([silindi_mi, arsiv_mi])
   @@index([sira])
   @@index([arama_vektoru], type: Gin)
+  // ADR-0017: pg_trgm fuzzy fallback
+  @@index([ad(ops: raw("gin_trgm_ops"))], type: Gin, map: "Proje_ad_trgm_idx")
 }
 
 model ProjeYetkilisi {
@@ -609,6 +616,8 @@ model Liste {
   @@index([proje_id, arsiv_mi])
   @@index([proje_id, tip])
   @@index([arama_vektoru], type: Gin)
+  // ADR-0017: pg_trgm fuzzy fallback
+  @@index([ad(ops: raw("gin_trgm_ops"))], type: Gin, map: "Liste_ad_trgm_idx")
 }
 
 model ListeYetkilisi {
@@ -680,6 +689,8 @@ model Kart {
   @@index([liste_id, tamamlandi_mi])
   @@index([bitis])
   @@index([arama_vektoru], type: Gin)
+  // ADR-0017: pg_trgm fuzzy fallback
+  @@index([baslik(ops: raw("gin_trgm_ops"))], type: Gin, map: "Kart_baslik_trgm_idx")
 }
 
 model KartBirimi {
@@ -710,6 +721,8 @@ model Etiket {
   @@unique([proje_id, ad])
   @@index([proje_id])
   @@index([arama_vektoru], type: Gin)
+  // ADR-0017: pg_trgm fuzzy fallback
+  @@index([ad(ops: raw("gin_trgm_ops"))], type: Gin, map: "Etiket_ad_trgm_idx")
 }
 
 model KartEtiket {
@@ -768,6 +781,8 @@ model Yorum {
   @@index([kart_id, silindi_mi, olusturma_zamani(sort: Desc)])
   @@index([yazan_id])
   @@index([arama_vektoru], type: Gin)
+  // ADR-0017: pg_trgm fuzzy fallback
+  @@index([icerik(ops: raw("gin_trgm_ops"))], type: Gin, map: "Yorum_icerik_trgm_idx")
 }
 
 model Eklenti {
@@ -791,6 +806,8 @@ model Eklenti {
 
   @@index([kart_id, silindi_mi, olusturma_zamani(sort: Desc)])
   @@index([arama_vektoru], type: Gin)
+  // ADR-0017: pg_trgm fuzzy fallback
+  @@index([ad(ops: raw("gin_trgm_ops"))], type: Gin, map: "Eklenti_ad_trgm_idx")
 }
 
 model KontrolListesi {
@@ -830,6 +847,8 @@ model KontrolMaddesi {
   @@index([kontrol_listesi_id, sira])
   @@index([atanan_id])
   @@index([arama_vektoru], type: Gin)
+  // ADR-0017: pg_trgm fuzzy fallback
+  @@index([metin(ops: raw("gin_trgm_ops"))], type: Gin, map: "KontrolMaddesi_metin_trgm_idx")
 }
 
 // ============================================================
@@ -856,6 +875,14 @@ enum BildirimTipi {
   PROJE_UYE_EKLENDI
   // Projeden yetkili olarak çıkarıldı
   PROJE_UYE_CIKARILDI
+  // Kart başka bir listeye taşındı (kart üyelerine)
+  KART_DURUM_DEGISTI
+  // Kart bitiş tarihi değişti (kart üyelerine)
+  KART_BITIS_DEGISTI
+  // Atandığın kart silindi
+  KART_SILINDI
+  // Atandığın kart tamamlandı işaretlendi
+  KART_TAMAMLANDI
 }
 
 model Bildirim {

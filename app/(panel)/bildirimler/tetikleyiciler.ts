@@ -376,7 +376,138 @@ export async function tetikleProjeUyeCikarildi(opt: {
 }
 
 // =====================================================================
-// 8. Bitiş tarihi yaklaşıyor / geçti — cron ile çağrılır
+// 8. Kart başka listeye taşındı — kart üyelerine bildirim
+// =====================================================================
+
+// Düşük seviye yardımcı: kart üyelerini topla (yetkililer + birim üyeleri).
+// Mevcut kartYetkiliBaglami / kartYetkiliAliciMap iç ayrıntılarını yeniden
+// kullanmak yerine, bu fazda doğrudan kart yetki bağlamından alıcı listesi
+// üretmek daha doğru — düşük öncelikli "değişti" bildirimleri için aynı
+// yetki ağacı geçerli.
+async function kartUyeleriniToplaHaricli(
+  kartId: string,
+  haricId: string | null,
+): Promise<{ aliciIdler: string[]; projeId: string; baslik: string } | null> {
+  const kart = await kartYetkiBaglami(kartId);
+  if (!kart) return null;
+  const yetkiliMap = await kartYetkiliAliciMap(
+    [kart],
+    haricId ? [haricId] : [],
+  );
+  return {
+    aliciIdler: yetkiliMap.get(kart.id) ?? [],
+    projeId: kart.liste.proje_id,
+    baslik: kart.baslik,
+  };
+}
+
+export async function tetikleKartDurumDegisti(opt: {
+  kartId: string;
+  tasiyanId: string;
+  yeniListeAd: string;
+}): Promise<void> {
+  const ctx = await kartUyeleriniToplaHaricli(opt.kartId, opt.tasiyanId);
+  if (!ctx || ctx.aliciIdler.length === 0) return;
+  const tasiyanAdi = await adSoyad(opt.tasiyanId);
+  await bildirimUret({
+    alici_idler: ctx.aliciIdler,
+    ureten_id: opt.tasiyanId,
+    tip: "KART_DURUM_DEGISTI",
+    baslik: `${tasiyanAdi} bir kartı taşıdı`,
+    ozet: `${ctx.baslik} → ${opt.yeniListeAd}`,
+    kart_id: opt.kartId,
+    proje_id: ctx.projeId,
+    kaynak_tip: "Kart",
+    kaynak_id: opt.kartId,
+  });
+}
+
+// =====================================================================
+// 9. Kart bitiş tarihi değişti — kart üyelerine bildirim
+// =====================================================================
+
+const TARIH_KISA = new Intl.DateTimeFormat("tr-TR", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  timeZone: "Europe/Istanbul",
+});
+
+export async function tetikleKartBitisDegisti(opt: {
+  kartId: string;
+  degistirenId: string;
+  yeniBitis: Date | null;
+}): Promise<void> {
+  const ctx = await kartUyeleriniToplaHaricli(opt.kartId, opt.degistirenId);
+  if (!ctx || ctx.aliciIdler.length === 0) return;
+  const adi = await adSoyad(opt.degistirenId);
+  const tarihMetni = opt.yeniBitis
+    ? TARIH_KISA.format(opt.yeniBitis)
+    : "kaldırıldı";
+  await bildirimUret({
+    alici_idler: ctx.aliciIdler,
+    ureten_id: opt.degistirenId,
+    tip: "KART_BITIS_DEGISTI",
+    baslik: `${adi} bir kartın bitiş tarihini güncelledi`,
+    ozet: `${ctx.baslik}: ${tarihMetni}`,
+    kart_id: opt.kartId,
+    proje_id: ctx.projeId,
+    kaynak_tip: "Kart",
+    kaynak_id: opt.kartId,
+    meta: { yeni_bitis: opt.yeniBitis?.toISOString() ?? null },
+  });
+}
+
+// =====================================================================
+// 10. Kart silindi — kart üyelerine bildirim (silme henüz uygulanmadan
+//     çağrılmalı; silindi sonrası kartYetkiBaglami null döndürür)
+// =====================================================================
+
+export async function tetikleKartSilindi(opt: {
+  kartId: string;
+  silenId: string;
+}): Promise<void> {
+  const ctx = await kartUyeleriniToplaHaricli(opt.kartId, opt.silenId);
+  if (!ctx || ctx.aliciIdler.length === 0) return;
+  const adi = await adSoyad(opt.silenId);
+  await bildirimUret({
+    alici_idler: ctx.aliciIdler,
+    ureten_id: opt.silenId,
+    tip: "KART_SILINDI",
+    baslik: `${adi} atandığınız bir kartı sildi`,
+    ozet: ctx.baslik,
+    proje_id: ctx.projeId,
+    kaynak_tip: "Kart",
+    kaynak_id: opt.kartId,
+  });
+}
+
+// =====================================================================
+// 11. Kart tamamlandı — kart üyelerine bildirim
+// =====================================================================
+
+export async function tetikleKartTamamlandi(opt: {
+  kartId: string;
+  tamamlayanId: string;
+}): Promise<void> {
+  const ctx = await kartUyeleriniToplaHaricli(opt.kartId, opt.tamamlayanId);
+  if (!ctx || ctx.aliciIdler.length === 0) return;
+  const adi = await adSoyad(opt.tamamlayanId);
+  await bildirimUret({
+    alici_idler: ctx.aliciIdler,
+    ureten_id: opt.tamamlayanId,
+    tip: "KART_TAMAMLANDI",
+    baslik: `${adi} bir kartı tamamladı`,
+    ozet: ctx.baslik,
+    kart_id: opt.kartId,
+    proje_id: ctx.projeId,
+    kaynak_tip: "Kart",
+    kaynak_id: opt.kartId,
+  });
+}
+
+// =====================================================================
+// 12. Bitiş tarihi yaklaşıyor / geçti — cron ile çağrılır
 // =====================================================================
 
 // Cron gibi periyodik bir scheduler'dan çağrılır. MVP'de manuel; production'da
