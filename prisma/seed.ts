@@ -2,10 +2,18 @@ import {
   ListeTipi,
   PrismaClient,
   type BirimTipi,
-  type ProjeYetkiSeviyesi,
+  type IzinKategorisi,
 } from "@prisma/client";
 import argon2 from "argon2";
 import { BIRIM_TIP_KATEGORI } from "../lib/constants/birim";
+import {
+  IZIN_ALT_KATEGORI,
+  IZIN_KATEGORI,
+  IZIN_TANIMLARI,
+  TUM_IZIN_KODLARI,
+  VARSAYILAN_ROL_IZINLERI,
+  type IzinKodu,
+} from "../lib/permissions-katalog";
 import { siraSonuna } from "../lib/sira";
 
 const db = new PrismaClient();
@@ -22,57 +30,30 @@ const ROLLER = [
   { kod: "PERSONEL", ad: "Personel", aciklama: "Standart kullanıcı" },
 ];
 
-const IZINLER = [
-  { kod: "proje:create", ad: "Proje Oluştur", kategori: "proje" },
-  { kod: "proje:edit", ad: "Proje Düzenle", kategori: "proje" },
-  { kod: "proje:delete", ad: "Proje Sil", kategori: "proje" },
-  { kod: "proje:authorize", ad: "Yetkilileri Yönet", kategori: "proje" },
-  { kod: "liste:create", ad: "Liste Oluştur", kategori: "liste" },
-  { kod: "liste:edit", ad: "Liste Düzenle", kategori: "liste" },
-  { kod: "liste:delete", ad: "Liste Sil", kategori: "liste" },
-  { kod: "kart:create", ad: "Kart Oluştur", kategori: "kart" },
-  { kod: "kart:edit", ad: "Kart Düzenle", kategori: "kart" },
-  { kod: "kart:delete", ad: "Kart Sil", kategori: "kart" },
-  { kod: "kart:move", ad: "Kart Taşı", kategori: "kart" },
-  { kod: "user:invite", ad: "Kullanıcı Davet Et", kategori: "kullanici" },
-  { kod: "user:edit", ad: "Kullanıcı Düzenle", kategori: "kullanici" },
-  { kod: "user:delete", ad: "Kullanıcı Sil", kategori: "kullanici" },
-  { kod: "user:approve", ad: "Kullanıcı Onayla / Reddet", kategori: "kullanici" },
-  { kod: "audit:read", ad: "Denetim Logu Görüntüle", kategori: "ayar" },
-  { kod: "errorlog:read", ad: "Hata Loglarını Görüntüle", kategori: "ayar" },
-  { kod: "settings:edit", ad: "Sistem Ayarları", kategori: "ayar" },
-  { kod: "birim:manage", ad: "Birim Yönetimi", kategori: "ayar" },
-  { kod: "rol:manage", ad: "Rol ve İzin Yönetimi", kategori: "ayar" },
-];
+// ADR-0013/0014: izin kataloğu lib/permissions-katalog.ts'ten gelir (tek otorite).
+// Seed yalnızca DB'ye yansıtır; UI'dan yeni izin oluşturulamaz.
+const IZINLER: Array<{
+  kod: IzinKodu;
+  ad: string;
+  aciklama: string;
+  kategori: IzinKategorisi;
+  alt_kategori: string | null;
+}> = TUM_IZIN_KODLARI.map((kod) => {
+  const tanim = IZIN_TANIMLARI[kod];
+  const kategori = IZIN_KATEGORI[kod];
+  if (!tanim || !kategori) {
+    throw new Error(`İzin kataloğu eksik: ${kod}`);
+  }
+  return {
+    kod,
+    ad: tanim.ad,
+    aciklama: tanim.aciklama,
+    kategori,
+    alt_kategori: IZIN_ALT_KATEGORI[kod] ?? null,
+  };
+});
 
-const PROJE_IZINLERI = [
-  "proje:create",
-  "proje:edit",
-  "proje:authorize",
-  "liste:create",
-  "liste:edit",
-  "liste:delete",
-  "kart:create",
-  "kart:edit",
-  "kart:delete",
-  "kart:move",
-];
-
-const ROL_IZINLERI: Record<string, string[]> = {
-  SUPER_ADMIN: IZINLER.map((izin) => izin.kod),
-  KAYMAKAM: [
-    ...PROJE_IZINLERI,
-    "proje:delete",
-    "user:invite",
-    "user:edit",
-    "user:approve",
-    "audit:read",
-    "errorlog:read",
-    "birim:manage",
-  ],
-  BIRIM_AMIRI: [...PROJE_IZINLERI, "user:invite"],
-  PERSONEL: ["kart:create", "kart:edit", "kart:move"],
-};
+const ROL_IZINLERI: Record<string, IzinKodu[]> = VARSAYILAN_ROL_IZINLERI;
 
 type Idli = { id: string };
 type KullaniciKayit = Idli & { email: string; ad: string; soyad: string };
@@ -436,15 +417,20 @@ async function projeOlustur(args: {
   ad: string;
   aciklama: string;
   olusturan: KullaniciAnahtar;
-  yetkililer: Array<{ kullanici: KullaniciAnahtar; seviye: ProjeYetkiSeviyesi }>;
+  yetkililer: Array<{ kullanici: KullaniciAnahtar }>;
   birimler: BirimAnahtar[];
   listeler: Array<{ ad: string; yetkililer?: KullaniciAnahtar[]; birimler?: BirimAnahtar[]; kartlar: KartSeed[] }>;
   ctx: SeedCtx;
+  // Kapak görsel kimliği (ADR-0010): renk token'ı + lucide ikon ismi.
+  kapakRenk?: string;
+  kapakIkon?: string;
 }): Promise<Idli> {
   const proje = await db.proje.create({
     data: {
       ad: args.ad,
       aciklama: args.aciklama,
+      kapak_renk: args.kapakRenk ?? null,
+      kapak_ikon: args.kapakIkon ?? null,
       sira: siraSonuna(null),
       yildizli_mi: true,
       olusturan_id: al(args.ctx.kullanicilar, args.olusturan, "Kullanıcı").id,
@@ -464,7 +450,6 @@ async function projeOlustur(args: {
     data: args.yetkililer.map((y) => ({
       proje_id: proje.id,
       kullanici_id: al(args.ctx.kullanicilar, y.kullanici, "Kullanıcı").id,
-      seviye: y.seviye,
     })),
   });
   await db.projeBirimi.createMany({
@@ -503,11 +488,13 @@ async function projeleriYukle(ctx: SeedCtx): Promise<void> {
     ad: "2026 Kış Tedbirleri ve Acil Müdahale Koordinasyonu",
     aciklama: "Tekman genelinde kış şartları, yol, sağlık ve güvenlik koordinasyonu.",
     olusturan: "ozelAmir",
+    kapakRenk: "lacivert",
+    kapakIkon: "snowflake",
     ctx,
     yetkililer: [
-      { kullanici: "kaymakam", seviye: "ADMIN" },
-      { kullanici: "ozelAmir", seviye: "ADMIN" },
-      { kullanici: "yaziAmir", seviye: "NORMAL" },
+      { kullanici: "kaymakam" },
+      { kullanici: "ozelAmir" },
+      { kullanici: "yaziAmir" },
     ],
     birimler: ["ozelKalem", "emniyet", "jandarma", "saglik", "belediye", "afad"],
     listeler: [
@@ -573,11 +560,13 @@ async function projeleriYukle(ctx: SeedCtx): Promise<void> {
     ad: "Okul Güvenliği ve Devamsızlık İzleme",
     aciklama: "Okul çevresi güvenliği, devamsızlık ve rehberlik takip süreci.",
     olusturan: "milliAmir",
+    kapakRenk: "mor",
+    kapakIkon: "graduation-cap",
     ctx,
     yetkililer: [
-      { kullanici: "milliAmir", seviye: "ADMIN" },
-      { kullanici: "milliMemur", seviye: "NORMAL" },
-      { kullanici: "ozelAmir", seviye: "IZLEYICI" },
+      { kullanici: "milliAmir" },
+      { kullanici: "milliMemur" },
+      { kullanici: "ozelAmir" },
     ],
     birimler: ["milliEgitim", "emniyet", "jandarma"],
     listeler: [
@@ -621,11 +610,13 @@ async function projeleriYukle(ctx: SeedCtx): Promise<void> {
     ad: "Vatandaş Talepleri ve Kurum Yazışmaları",
     aciklama: "Kaymakamlık makamına gelen taleplerin kurumlar arası yazışma takibi.",
     olusturan: "yaziAmir",
+    kapakRenk: "kahve",
+    kapakIkon: "file-text",
     ctx,
     yetkililer: [
-      { kullanici: "yaziAmir", seviye: "ADMIN" },
-      { kullanici: "yaziMemur", seviye: "NORMAL" },
-      { kullanici: "kaymakam", seviye: "IZLEYICI" },
+      { kullanici: "yaziAmir" },
+      { kullanici: "yaziMemur" },
+      { kullanici: "kaymakam" },
     ],
     birimler: ["yaziIsleri", "mal", "nufus", "belediye"],
     listeler: [

@@ -45,7 +45,7 @@ let kart: { id: string };
 async function sahipliProjeOlustur(birimId: string, sahipId: string) {
   const p = await projeOlusturFiks(adminDb, { birimId, olusturanId: sahipId });
   await adminDb.projeYetkilisi.create({
-    data: { proje_id: p.id, kullanici_id: sahipId, seviye: "ADMIN" },
+    data: { proje_id: p.id, kullanici_id: sahipId },
   });
   return { id: p.id };
 }
@@ -74,7 +74,7 @@ beforeEach(async () => {
 describe("bildirimUret", () => {
   it("birden fazla alıcıya tek tek bildirim üretir, üreteni dışlar", async () => {
     await adminDb.projeYetkilisi.create({
-      data: { proje_id: projeId, kullanici_id: ortam.personel.id, seviye: "NORMAL" },
+      data: { proje_id: projeId, kullanici_id: ortam.personel.id },
     });
 
     const r = await bildirimUret({
@@ -221,7 +221,7 @@ describe("mentionParse", () => {
 describe("tetikleYorumMention", () => {
   it("sadece karta erişimi olan yetkililere bildirim gönderir", async () => {
     await adminDb.projeYetkilisi.create({
-      data: { proje_id: projeId, kullanici_id: ortam.personel.id, seviye: "NORMAL" },
+      data: { proje_id: projeId, kullanici_id: ortam.personel.id },
     });
 
     await tetikleYorumMention({
@@ -264,7 +264,7 @@ describe("tetikleKartYetkiliAtama", () => {
 
   it("atanana bildirim üretir", async () => {
     await adminDb.projeYetkilisi.create({
-      data: { proje_id: projeId, kullanici_id: ortam.personel.id, seviye: "NORMAL" },
+      data: { proje_id: projeId, kullanici_id: ortam.personel.id },
     });
     await tetikleKartYetkiliAtama({
       kartId: kart.id,
@@ -284,7 +284,7 @@ describe("tetikleKartYetkiliAtama", () => {
 describe("tetikleYorumEklendi", () => {
   it("kart yetkililerine bildirim, yazan hariç", async () => {
     await adminDb.projeYetkilisi.create({
-      data: { proje_id: projeId, kullanici_id: ortam.personel.id, seviye: "NORMAL" },
+      data: { proje_id: projeId, kullanici_id: ortam.personel.id },
     });
     // Personeli karta yetkili yap, ayrıca superAdmin de proje yetkilisi
     await adminDb.kartYetkilisi.create({
@@ -319,7 +319,7 @@ describe("tetikleYorumEklendi", () => {
 
   it("mention edilmiş kullanıcıya YORUM_EKLENDI atmaz (çift bildirim önleme)", async () => {
     await adminDb.projeYetkilisi.create({
-      data: { proje_id: projeId, kullanici_id: ortam.personel.id, seviye: "NORMAL" },
+      data: { proje_id: projeId, kullanici_id: ortam.personel.id },
     });
     await adminDb.kartYetkilisi.create({
       data: { kart_id: kart.id, kullanici_id: ortam.personel.id },
@@ -344,7 +344,7 @@ describe("tetikleYorumEklendi", () => {
 describe("tetikleEklentiYuklendi", () => {
   it("kart yetkililerine bildirim, yükleyen hariç", async () => {
     await adminDb.projeYetkilisi.create({
-      data: { proje_id: projeId, kullanici_id: ortam.personel.id, seviye: "NORMAL" },
+      data: { proje_id: projeId, kullanici_id: ortam.personel.id },
     });
     await adminDb.kartYetkilisi.create({
       data: { kart_id: kart.id, kullanici_id: ortam.personel.id },
@@ -369,7 +369,7 @@ describe("tetikleEklentiYuklendi", () => {
 describe("tetikleMaddeAtama", () => {
   it("madde atan değişince atanan kullanıcıya bildirim", async () => {
     await adminDb.projeYetkilisi.create({
-      data: { proje_id: projeId, kullanici_id: ortam.personel.id, seviye: "NORMAL" },
+      data: { proje_id: projeId, kullanici_id: ortam.personel.id },
     });
     const kl = await adminDb.kontrolListesi.create({
       data: { kart_id: kart.id, ad: "Liste", sira: "M" },

@@ -4,26 +4,11 @@ import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { MailIcon, PlusIcon, UserRoundIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useOptimisticMutation } from "@/lib/optimistic";
-import {
-  PROJE_YETKI_SEVIYELERI,
-  type ProjeYetkiSeviyesi,
-} from "../schemas";
 import { davetAdaptor, extraKisiKeys, kisiAdaptor } from "../yetkili-adaptor";
-import {
-  optimistikKisiKaldir,
-  optimistikSeviyeGuncelle,
-} from "../yetkili-optimistic";
+import { optimistikKisiKaldir } from "../yetkili-optimistic";
 import {
   kisiAciklamasi,
-  seviyeDestekliMi,
   type YetkiliKaynagi,
   type YetkiliKisiOzeti,
 } from "../yetkili-tipler";
@@ -34,17 +19,10 @@ type Props = {
   kaynak: YetkiliKaynagi;
 };
 
-const SEVIYE_ETIKET: Record<ProjeYetkiSeviyesi, string> = {
-  ADMIN: "Yönetici",
-  NORMAL: "Üye",
-  IZLEYICI: "İzleyici",
-};
-
 export function YetkiliKisiSutunu({ kaynak }: Props) {
   const adaptor = React.useMemo(() => kisiAdaptor(kaynak), [kaynak]);
   const davet = React.useMemo(() => davetAdaptor(kaynak), [kaynak]);
   const yonetebilir = kaynak.izinler.kisiYonet;
-  const seviyeli = seviyeDestekliMi(kaynak);
   const [ekleAcik, setEkleAcik] = React.useState(false);
 
   const yetkililer = useQuery({
@@ -54,9 +32,9 @@ export function YetkiliKisiSutunu({ kaynak }: Props) {
   });
 
   const bekleyenDavetler = useQuery({
-    queryKey: davet?.bekleyenleriQueryKey ?? ["proje-bekleyen-davetler", "yok"],
-    queryFn: () => (davet ? davet.bekleyenler() : Promise.resolve([])),
-    enabled: Boolean(davet) && yonetebilir,
+    queryKey: davet.bekleyenleriQueryKey,
+    queryFn: davet.bekleyenler,
+    enabled: yonetebilir,
     staleTime: 30_000,
   });
   const bekleyenSayisi = bekleyenDavetler.data?.length ?? 0;
@@ -76,22 +54,6 @@ export function YetkiliKisiSutunu({ kaynak }: Props) {
       ),
     ekInvalidate: ekKeys,
     hataMesaji: "Yetkili kaldırılamadı",
-  });
-
-  const seviyeGuncelle = useOptimisticMutation<
-    { kullanici_id: string; seviye: ProjeYetkiSeviyesi },
-    { kullanici_id: string; seviye: ProjeYetkiSeviyesi }
-  >({
-    queryKey: adaptor.queryKey,
-    mutationFn: ({ kullanici_id, seviye }) =>
-      adaptor.seviyeGuncelle(kullanici_id, seviye),
-    optimistic: (eski, vars) =>
-      optimistikSeviyeGuncelle(
-        eski as YetkiliKisiOzeti[] | undefined,
-        vars.kullanici_id,
-        vars.seviye,
-      ),
-    hataMesaji: "Yetki seviyesi güncellenemedi",
   });
 
   const mevcutlar = React.useMemo(
@@ -167,24 +129,6 @@ export function YetkiliKisiSutunu({ kaynak }: Props) {
                     {kisi.birim_ad ?? kisi.email}
                   </p>
                 </div>
-                {seviyeli && kisi.seviye ? (
-                  <KisiSeviyeKontrolu
-                    kullaniciId={kisi.kullanici_id}
-                    seviye={kisi.seviye}
-                    yonetebilir={yonetebilir}
-                    isLoading={
-                      seviyeGuncelle.isPending &&
-                      seviyeGuncelle.variables?.kullanici_id ===
-                        kisi.kullanici_id
-                    }
-                    seviyeyiDegistir={(yeni) =>
-                      seviyeGuncelle.mutate({
-                        kullanici_id: kisi.kullanici_id,
-                        seviye: yeni,
-                      })
-                    }
-                  />
-                ) : null}
                 {yonetebilir ? (
                   <Button
                     type="button"
@@ -225,49 +169,5 @@ function SutunBasliği({ metin, sayi }: { metin: string; sayi: number | null }) 
         {sayi ?? "..."}
       </span>
     </div>
-  );
-}
-
-function KisiSeviyeKontrolu({
-  kullaniciId,
-  seviye,
-  yonetebilir,
-  isLoading,
-  seviyeyiDegistir,
-}: {
-  kullaniciId: string;
-  seviye: ProjeYetkiSeviyesi;
-  yonetebilir: boolean;
-  isLoading: boolean;
-  seviyeyiDegistir: (yeni: ProjeYetkiSeviyesi) => void;
-}) {
-  if (!yonetebilir) {
-    return (
-      <span className="bg-muted text-muted-foreground rounded px-2 py-0.5 text-xs font-medium">
-        {SEVIYE_ETIKET[seviye]}
-      </span>
-    );
-  }
-  return (
-    <Select
-      value={seviye}
-      disabled={isLoading}
-      onValueChange={(v) => seviyeyiDegistir(v as ProjeYetkiSeviyesi)}
-    >
-      <SelectTrigger
-        size="sm"
-        className="h-7 w-auto px-2 text-xs font-medium"
-        aria-label={`${kullaniciId} seviyesini değiştir`}
-      >
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {PROJE_YETKI_SEVIYELERI.map((s) => (
-          <SelectItem key={s} value={s} className="text-sm">
-            {SEVIYE_ETIKET[s]}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
   );
 }

@@ -32,6 +32,15 @@ export const tr = {
     onayla: "Onayla",
     reddet: "Reddet",
   },
+  proje: {
+    form: {
+      kapakIkonu: "Kapak İkonu",
+      ikonAra: "İkon ara...",
+      ikonYok: "İkon seçilmedi",
+      ikonTemizle: "İkonu kaldır",
+      ikonSec: "İkon seç",
+    },
+  },
 } as const;
 
 /**

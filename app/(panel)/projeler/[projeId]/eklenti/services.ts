@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
 import { EylemHatasi } from "@/lib/action-wrapper";
 import { HATA_KODU } from "@/lib/sonuc";
+import { IZIN_KODLARI, izinVarMi } from "@/lib/permissions";
 import {
   boyutIzinliMi,
   eklentiYoluUret,
@@ -206,18 +207,15 @@ export async function eklentiSil(
       select: { liste: { select: { proje_id: true } } },
     });
     if (proje) {
-      const yetkili = await db.projeYetkilisi.findUnique({
-        where: {
-          proje_id_kullanici_id: {
-            proje_id: proje.liste.proje_id,
-            kullanici_id: silenId,
-          },
-        },
-        select: { seviye: true },
-      });
-      if (yetkili?.seviye !== "ADMIN") {
+      // ADR-0012: seviye yok. Eklentiyi yüklemediyse silebilmesi için
+      // sistem rolünde PROJE_YETKILI_YONET izni veya makam rolü gerekir.
+      const izinli = await izinVarMi(
+        silenId,
+        IZIN_KODLARI.PROJE_YETKILI_YONET,
+      );
+      if (!izinli) {
         throw new EylemHatasi(
-          "Bu eklentiyi sadece yükleyen veya proje admin silebilir.",
+          "Bu eklentiyi sadece yükleyen veya yetkili kullanıcı silebilir.",
           HATA_KODU.YETKISIZ,
         );
       }

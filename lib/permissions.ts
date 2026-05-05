@@ -4,31 +4,22 @@ import { db } from "./db";
 import { EylemHatasi } from "./action-wrapper";
 import { HATA_KODU } from "./sonuc";
 import { makamRoluMu } from "./roller";
+import { izinKoduGenislet } from "./permissions-eslesme";
 
-export const IZIN_KODLARI = {
-  PROJE_OLUSTUR: "proje:create",
-  PROJE_DUZENLE: "proje:edit",
-  PROJE_SIL: "proje:delete",
-  PROJE_YETKILI_YONET: "proje:authorize",
-  LISTE_OLUSTUR: "liste:create",
-  LISTE_DUZENLE: "liste:edit",
-  LISTE_SIL: "liste:delete",
-  KART_OLUSTUR: "kart:create",
-  KART_DUZENLE: "kart:edit",
-  KART_SIL: "kart:delete",
-  KART_TASI: "kart:move",
-  KULLANICI_DAVET: "user:invite",
-  KULLANICI_DUZENLE: "user:edit",
-  KULLANICI_SIL: "user:delete",
-  KULLANICI_ONAYLA: "user:approve",
-  DENETIM_OKU: "audit:read",
-  HATA_LOGU_OKU: "errorlog:read",
-  AYAR_DUZENLE: "settings:edit",
-  BIRIM_YONET: "birim:manage",
-  ROL_YONET: "rol:manage",
-} as const;
-
-export type IzinKodu = (typeof IZIN_KODLARI)[keyof typeof IZIN_KODLARI];
+// ADR-0013/0014: izin kataloğu saf modüldedir; auth/db bağımlılığı yok.
+// Re-export — eski importlar (`import { IZIN_KODLARI } from "@/lib/permissions"`)
+// olduğu gibi çalışır. Yeni katalog ADR-0014 ile granülerleştirildi (60+ izin).
+export {
+  IZIN_KODLARI,
+  TUM_IZIN_KODLARI,
+  IZIN_KATEGORI,
+  IZIN_ALT_KATEGORI,
+  KATEGORI_BASLIKLARI,
+  ALT_KATEGORI_BASLIKLARI,
+  IZIN_TANIMLARI,
+  VARSAYILAN_ROL_IZINLERI,
+  type IzinKodu,
+} from "./permissions-katalog";
 
 export const kullaniciIzinleriniAl = cache(
   async (kullaniciId: string): Promise<Set<string>> => {
@@ -81,22 +72,38 @@ export async function aktifKullaniciAl(): Promise<{
   };
 }
 
+/**
+ * ADR-0014: AND semantiği — kullanıcı tüm istenen izinlere sahip mi?
+ * Eski geniş kodlar (kart:edit gibi) `izinKoduGenislet` ile yeni granüler
+ * kümeye dönüştürülür; kullanıcı kümeden HERHANGİ BİRİNE sahipse o eski kod
+ * için "yetkili" sayılır.
+ */
 export async function izinVarMi(
   kullaniciId: string,
   ...izinler: string[]
 ): Promise<boolean> {
   const sahip = await kullaniciIzinleriniAl(kullaniciId);
   if (sahip.has("*")) return true;
-  return izinler.every((i) => sahip.has(i));
+  return izinler.every((kod) => {
+    const genis = izinKoduGenislet(kod);
+    return genis.some((g) => sahip.has(g));
+  });
 }
 
+/**
+ * ADR-0014: OR semantiği — kullanıcı verilen kodlardan en az birine
+ * sahip mi? Eski kodlar yine genişletilir.
+ */
 export async function herhangiBirIzin(
   kullaniciId: string,
   ...izinler: string[]
 ): Promise<boolean> {
   const sahip = await kullaniciIzinleriniAl(kullaniciId);
   if (sahip.has("*")) return true;
-  return izinler.some((i) => sahip.has(i));
+  return izinler.some((kod) => {
+    const genis = izinKoduGenislet(kod);
+    return genis.some((g) => sahip.has(g));
+  });
 }
 
 export async function yetkiZorunlu(

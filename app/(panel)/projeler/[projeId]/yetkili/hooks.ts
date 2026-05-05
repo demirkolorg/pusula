@@ -12,14 +12,12 @@ import {
   kartinYetkilileriEylem,
   projeAdayKullanicilarEylem,
   projeYetkilileriniListeleEylem,
-  projeYetkilisiSeviyeGuncelleEylem,
   projeyeYetkiliEkleEylem,
   projeyeYetkiliKaldirEylem,
 } from "./actions";
 import type {
   KartaYetkiliEkle,
   KartaYetkiliKaldir,
-  ProjeYetkilisiSeviyeGuncelle,
   ProjeyeYetkiliEkle,
   ProjeyeYetkiliKaldir,
 } from "./schemas";
@@ -129,7 +127,6 @@ export function useProjeyeYetkiliEkle(projeId: string) {
             ad: "—",
             soyad: "",
             email: "",
-            seviye: vars.seviye ?? "NORMAL",
             eklenme_zamani: new Date(),
           };
           return [...liste, taslak];
@@ -162,24 +159,7 @@ export function useProjeyeYetkiliKaldir(projeId: string) {
   });
 }
 
-export function useProjeYetkilisiSeviyeGuncelle(projeId: string) {
-  return useOptimisticMutation<
-    ProjeYetkilisiSeviyeGuncelle,
-    { proje_id: string; kullanici_id: string; seviye: string }
-  >({
-    queryKey: projeYetkilileriKey(projeId),
-    mutationFn: eylemMutasyonu(projeYetkilisiSeviyeGuncelleEylem),
-    optimistic: (eski, vars) => {
-      const liste = (eski as ProjeYetkiliOzeti[] | undefined) ?? [];
-      return liste.map((u) =>
-        u.kullanici_id === vars.kullanici_id
-          ? { ...u, seviye: vars.seviye }
-          : u,
-      );
-    },
-    hataMesaji: "Yetki seviyesi güncellenemedi",
-  });
-}
+// ADR-0012: useProjeYetkilisiSeviyeGuncelle kaldırıldı (seviye kavramı yok).
 
 // =====================================================================
 // Kart yetkili atama mutations

@@ -19,8 +19,8 @@ import {
   projeDetayEylem,
   projeKartlarEylem,
 } from "../actions";
-import { projeGuncelleEylem } from "../../actions";
-import type { ProjeGuncelle } from "../../schemas";
+import { projeArsivleEylem, projeGuncelleEylem } from "../../actions";
+import type { ProjeArsiv, ProjeGuncelle } from "../../schemas";
 import { kartAktiviteleriKey } from "../aktivite/keys";
 import type {
   ListeKartOzeti,
@@ -449,10 +449,28 @@ export function useProjeDetayGuncelle(anahtar: DetayKey) {
         aciklama: vars.aciklama === undefined ? d.aciklama : vars.aciklama,
         kapak_renk:
           vars.kapak_renk === undefined ? d.kapak_renk : vars.kapak_renk,
+        kapak_ikon:
+          vars.kapak_ikon === undefined ? d.kapak_ikon : vars.kapak_ikon,
         yildizli_mi: vars.yildizli_mi ?? d.yildizli_mi,
       } satisfies ProjeDetayOzeti;
     },
     hataMesaji: "Proje güncellenemedi",
+  });
+}
+
+// Proje detay sayfasında arşivle/arşivden çıkar — proje listesi cache'i
+// (`useProjeArsivle`) kart listesi varsayar; detay cache'i tek obje.
+// Optimistic: `arsiv_mi` flag'ini güncelle. Sayfa yönlendirmesi component'in işi.
+export function useProjeDetayArsivle(anahtar: DetayKey) {
+  return useOptimisticMutation<ProjeArsiv, { id: string }>({
+    queryKey: anahtar,
+    mutationFn: eylemMutasyonu(projeArsivleEylem),
+    optimistic: (eski, vars) => {
+      const d = eski as ProjeDetayOzeti | undefined;
+      if (!d) return eski;
+      return { ...d, arsiv_mi: vars.arsiv_mi } satisfies ProjeDetayOzeti;
+    },
+    hataMesaji: "Proje arşivlenemedi",
   });
 }
 

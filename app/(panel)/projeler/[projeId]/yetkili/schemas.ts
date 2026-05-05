@@ -1,12 +1,9 @@
 import { z } from "zod";
 
-// ProjeYetkilisi.seviye enum mirror — Prisma ile uyumlu.
-export const PROJE_YETKI_SEVIYELERI = ["ADMIN", "NORMAL", "IZLEYICI"] as const;
-export const projeYetkiSeviyesiSemasi = z.enum(PROJE_YETKI_SEVIYELERI);
-export type ProjeYetkiSeviyesi = z.infer<typeof projeYetkiSeviyesiSemasi>;
-
 // =====================================================================
-// Proje yetkili yönetimi (proje admin işi)
+// Proje yetkili yönetimi (ADR-0012)
+// Yetkili olmak == proje erişimi. Seviye yok — aksiyon kontrolü sistem
+// rolünden gelir (lib/permissions.ts + IZIN_KODLARI).
 // =====================================================================
 
 export const projeYetkilileriListeleSemasi = z.object({
@@ -16,18 +13,11 @@ export const projeYetkilileriListeleSemasi = z.object({
 export const projeyeYetkiliEkleSemasi = z.object({
   proje_id: z.string().uuid(),
   kullanici_id: z.string().uuid(),
-  seviye: projeYetkiSeviyesiSemasi.default("NORMAL"),
 });
 
 export const projeyeYetkiliKaldirSemasi = z.object({
   proje_id: z.string().uuid(),
   kullanici_id: z.string().uuid(),
-});
-
-export const projeYetkilisiSeviyeGuncelleSemasi = z.object({
-  proje_id: z.string().uuid(),
-  kullanici_id: z.string().uuid(),
-  seviye: projeYetkiSeviyesiSemasi,
 });
 
 // Proje'ye eklenecek aday kullanıcıları sistem genelinden ara (proje yetkilisi olmayanlar).
@@ -58,36 +48,85 @@ export const kartaYetkiliKaldirSemasi = kartaYetkiliEkleSemasi;
 
 // =====================================================================
 // Proje davet bağlamı — sistemde kayıtsız bir e-postayı projeye davet et
-// (Bölüm V/146 + ADR-0010)
+// (Bölüm V/146 + ADR-0010 + ADR-0012)
+//
+// Seviye yok: davet kabul edilince kişi projeye yetkili olur, RBAC izinleri
+// sistem rolünden gelir.
 // =====================================================================
 
 export const projeyeDavetGonderSemasi = z
   .object({
-    proje_id: z.string().uuid(),
+    proje_id: z.string().uuid().optional(),
+    liste_id: z.string().uuid().optional(),
+    kart_id: z.string().uuid().optional(),
     email: z.string().min(1).email(),
-    seviye: projeYetkiSeviyesiSemasi.default("NORMAL"),
-    birim_id: z.string().uuid().nullable().optional(),
-    rol_id: z.string().uuid().nullable().optional(),
+    birim_id: z.string().uuid().nullable(),
+    // Sistem rolü (Rol tablosu) — davet kabul edilince KullaniciRol kaydı oluşur.
+    rol_id: z.string().uuid({ message: "Sistem rolü seçilmelidir." }),
   })
-  .strict();
+  .strict()
+  .refine(
+    (v) =>
+      [v.proje_id, v.liste_id, v.kart_id].filter((x) => x !== undefined)
+        .length === 1,
+    {
+      message: "Tam olarak bir kaynak (proje/liste/kart) belirtilmeli.",
+      path: ["proje_id"],
+    },
+  );
 
-export const projeBekleyenDavetleriSemasi = z.object({
-  proje_id: z.string().uuid(),
-});
+export const projeBekleyenDavetleriSemasi = z
+  .object({
+    proje_id: z.string().uuid().optional(),
+    liste_id: z.string().uuid().optional(),
+    kart_id: z.string().uuid().optional(),
+  })
+  .strict()
+  .refine(
+    (v) =>
+      [v.proje_id, v.liste_id, v.kart_id].filter((x) => x !== undefined)
+        .length === 1,
+    { message: "Tam olarak bir kaynak belirtilmeli." },
+  );
 
-export const projeDavetIptalSemasi = z.object({
-  proje_id: z.string().uuid(),
-  davet_id: z.string().uuid(),
-});
+export const projeDavetIptalSemasi = z
+  .object({
+    proje_id: z.string().uuid().optional(),
+    liste_id: z.string().uuid().optional(),
+    kart_id: z.string().uuid().optional(),
+    davet_id: z.string().uuid(),
+  })
+  .strict()
+  .refine(
+    (v) =>
+      [v.proje_id, v.liste_id, v.kart_id].filter((x) => x !== undefined)
+        .length === 1,
+    { message: "Tam olarak bir kaynak belirtilmeli." },
+  );
+
+export const projeDavetYenidenGonderSemasi = z
+  .object({
+    proje_id: z.string().uuid().optional(),
+    liste_id: z.string().uuid().optional(),
+    kart_id: z.string().uuid().optional(),
+    davet_id: z.string().uuid(),
+  })
+  .strict()
+  .refine(
+    (v) =>
+      [v.proje_id, v.liste_id, v.kart_id].filter((x) => x !== undefined)
+        .length === 1,
+    { message: "Tam olarak bir kaynak belirtilmeli." },
+  );
 
 export type ProjeyeDavetGonder = z.infer<typeof projeyeDavetGonderSemasi>;
 export type ProjeBekleyenDavetleri = z.infer<typeof projeBekleyenDavetleriSemasi>;
 export type ProjeDavetIptal = z.infer<typeof projeDavetIptalSemasi>;
+export type ProjeDavetYenidenGonder = z.infer<typeof projeDavetYenidenGonderSemasi>;
 
 export type ProjeYetkilileriListele = z.infer<typeof projeYetkilileriListeleSemasi>;
 export type ProjeyeYetkiliEkle = z.infer<typeof projeyeYetkiliEkleSemasi>;
 export type ProjeyeYetkiliKaldir = z.infer<typeof projeyeYetkiliKaldirSemasi>;
-export type ProjeYetkilisiSeviyeGuncelle = z.infer<typeof projeYetkilisiSeviyeGuncelleSemasi>;
 export type ProjeAdayKullanicilar = z.infer<typeof projeAdayKullanicilarSemasi>;
 export type KartAdayKullanicilar = z.infer<typeof kartAdayKullanicilarSemasi>;
 export type KartinYetkilileri = z.infer<typeof kartinYetkilileriSemasi>;

@@ -51,6 +51,7 @@ export function useProjeOlustur(anahtar: ListeAnahtari) {
         ad: vars.ad,
         aciklama: vars.aciklama ?? null,
         kapak_renk: vars.kapak_renk ?? null,
+        kapak_ikon: vars.kapak_ikon ?? null,
         yildizli_mi: false,
         arsiv_mi: false,
         silindi_mi: false,
@@ -85,6 +86,8 @@ export function useProjeGuncelle(anahtar: ListeAnahtari) {
               aciklama: vars.aciklama === undefined ? p.aciklama : vars.aciklama,
               kapak_renk:
                 vars.kapak_renk === undefined ? p.kapak_renk : vars.kapak_renk,
+              kapak_ikon:
+                vars.kapak_ikon === undefined ? p.kapak_ikon : vars.kapak_ikon,
               yildizli_mi: vars.yildizli_mi ?? p.yildizli_mi,
             }
           : p,

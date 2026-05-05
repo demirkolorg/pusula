@@ -121,7 +121,6 @@ describe("projeDetayiniGetir", () => {
       data: {
         proje_id: proje.id,
         kullanici_id: ortam.digerKullanici.id,
-        seviye: "NORMAL",
       },
     });
 
@@ -242,7 +241,7 @@ describe("projeDetayiniGetir", () => {
     expect(detay.listeler.map((l) => l.ad)).toEqual(["Aktif"]);
   });
 
-  it("silinmis veya arsivlenmis kartlar dahil edilmez", async () => {
+  it("silinmis kartlar dahil edilmez", async () => {
     const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
     const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
     await kartlariSeedle(adminDb, {
@@ -250,12 +249,40 @@ describe("projeDetayiniGetir", () => {
       tipler: [
         { baslik: "Aktif" },
         { baslik: "Silinmis", silindi_mi: true },
-        { baslik: "Arsivli", arsiv_mi: true },
       ],
     });
 
     const detay = await projeDetayiniGetir(ortam.superAdmin.id, proje.id);
     expect(detay.listeler[0]!.kartlar.map((k) => k.baslik)).toEqual(["Aktif"]);
+  });
+
+  // ADR-0009 — Arşivlenen kart fiziksel olarak ARSIV listesine taşınır ve
+  // arsiv_mi=true olur. Kanban'da Arşiv listesi gösterildiği için bu kartlar
+  // detay sorgusunda ARSIV listesi içinde döner; gizlenmez (regression).
+  it("arsivli kartlar ARSIV listesinde dahil edilir (ADR-0009)", async () => {
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+    const normalListe = await listeOlusturFiks(adminDb, {
+      projeId: proje.id,
+      ad: "Yapilacak",
+    });
+    const kart = await kartOlusturFiks(adminDb, {
+      listeId: normalListe.id,
+      baslik: "Arsivlenecek",
+    });
+
+    await kartArsivToggle(ortam.superAdmin.id, { id: kart.id, arsiv: true });
+
+    const detay = await projeDetayiniGetir(ortam.superAdmin.id, proje.id);
+    const arsivListesi = detay.listeler.find(
+      (l) => l.tip === ListeTipi.ARSIV,
+    );
+    expect(arsivListesi).toBeDefined();
+    expect(arsivListesi!.kartlar.map((k) => k.baslik)).toEqual(["Arsivlenecek"]);
+    expect(arsivListesi!.kartlar[0]!.arsiv_mi).toBe(true);
+
+    // NORMAL liste artık o kartı barındırmaz
+    const normal = detay.listeler.find((l) => l.id === normalListe.id);
+    expect(normal!.kartlar.map((k) => k.baslik)).toEqual([]);
   });
 
   // Eski birim izolasyonu testi yetkilendirme modeliyle kapsam dışı kaldı.

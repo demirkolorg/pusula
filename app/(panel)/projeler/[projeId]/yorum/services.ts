@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { EylemHatasi } from "@/lib/action-wrapper";
 import { HATA_KODU } from "@/lib/sonuc";
+import { IZIN_KODLARI, izinVarMi } from "@/lib/permissions";
 import {
   tetikleYorumEklendi,
   tetikleYorumMention,
@@ -198,16 +199,16 @@ export async function yorumSil(
 ): Promise<void> {
   const y = await yorumuBul(birimId, yorumId);
   if (y.yazan_id !== silenId) {
-    // Silen ADMIN mi kontrol et
-    const yetkili = await db.projeYetkilisi.findUnique({
-      where: {
-        proje_id_kullanici_id: { proje_id: y.proje_id, kullanici_id: silenId },
-      },
-      select: { seviye: true },
-    });
-    if (yetkili?.seviye !== "ADMIN") {
+    // ADR-0012: proje-içi seviye yok. Başkasının yorumunu silebilmek için
+    // sistem rolünde PROJE_YETKILI_YONET izni veya makam rolü gerekir.
+    // izinVarMi makam ('*') için her zaman true döner.
+    const izinli = await izinVarMi(
+      silenId,
+      IZIN_KODLARI.PROJE_YETKILI_YONET,
+    );
+    if (!izinli) {
       throw new EylemHatasi(
-        "Bu yorumu sadece yazan veya proje admin silebilir.",
+        "Bu yorumu sadece yazan veya yetkili kullanıcı silebilir.",
         HATA_KODU.YETKISIZ,
       );
     }

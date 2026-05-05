@@ -693,7 +693,7 @@ const ALAN_ETIKETI: Record<string, Record<string, string>> = {
     renk: "Renk",
   },
   ProjeYetkilisi: {
-    seviye: "Yetki seviyesi",
+    // ADR-0012: seviye kaldırıldı.
   },
 };
 

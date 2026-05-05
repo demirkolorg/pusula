@@ -134,7 +134,12 @@ function listeGorunurlukWhere(
 function kartGorunurlukWhere(
   erisim: KaynakErisimi,
 ): Prisma.KartWhereInput {
-  if (erisim.makam) return { silindi_mi: false, arsiv_mi: false };
+  // ADR-0009 — Arşivlenen kart fiziksel olarak ARSIV sistem listesine taşınır;
+  // `arsiv_mi` flag'i artık gizleme amaçlı değil, UI durum (Arşivle ↔ Arşivden
+  // çıkar) içindir. Kanban'da Arşiv listesinin kartlarını gösterebilmek için
+  // bu filtre kaldırıldı; "ARSIV listede gizlemek" ile "kart arşivlendi" aynı
+  // kavram olduğundan filtre çift filtrelemeye yol açıyordu.
+  if (erisim.makam) return { silindi_mi: false };
   // Yetki asagi iner: proje yetkilisi tum kartlari, liste yetkilisi listenin
   // kartlarini, kart yetkilisi ise sadece karti gorur.
   const kosullar: Prisma.KartWhereInput[] = [
@@ -163,7 +168,7 @@ function kartGorunurlukWhere(
     });
     kosullar.push({ birimler: { some: { birim_id: erisim.birimId } } });
   }
-  return { silindi_mi: false, arsiv_mi: false, OR: kosullar };
+  return { silindi_mi: false, OR: kosullar };
 }
 
 // ============================================================

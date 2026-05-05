@@ -4,8 +4,10 @@ import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeftIcon,
+  Loader2Icon,
   MailIcon,
   PlusIcon,
+  RefreshCwIcon,
   SearchIcon,
   SendIcon,
   UserPlusIcon,
@@ -32,6 +34,10 @@ import {
 } from "@/components/ui/select";
 import { useOptimisticMutation } from "@/lib/optimistic";
 import { toast } from "@/lib/toast";
+import { BIRIM_TIP_LABEL, birimGorunenAd } from "@/lib/constants/birim";
+import { makamRoluMu } from "@/lib/roller";
+import { birimSecenekleriniGetir } from "../../../../ayarlar/birimler/actions";
+import { rolListele } from "../../../../ayarlar/kullanicilar/actions";
 import {
   davetAdaptor,
   extraKisiKeys,
@@ -39,11 +45,6 @@ import {
 } from "../yetkili-adaptor";
 import { optimistikKisiEkle } from "../yetkili-optimistic";
 import {
-  PROJE_YETKI_SEVIYELERI,
-  type ProjeYetkiSeviyesi,
-} from "../schemas";
-import {
-  seviyeDestekliMi,
   type BekleyenDavetOzeti,
   type YetkiliKaynagi,
   type YetkiliKisiAdayi,
@@ -59,10 +60,13 @@ type Props = {
   mevcutKullaniciIdleri: ReadonlyArray<string>;
 };
 
-const SEVIYE_ETIKET: Record<ProjeYetkiSeviyesi, string> = {
-  ADMIN: "Yönetici",
-  NORMAL: "Üye",
-  IZLEYICI: "İzleyici",
+// ADR-0013: davet, açıldığı kaynağa yetkili olarak ekler. Kart panelinden
+// gönderilen davet sadece karta yetkili yapar; liste panelinden liste'ye,
+// proje panelinden projeye.
+const KAYNAK_KAPSAM_NOTU: Record<YetkiliKaynagi["tip"], string> = {
+  proje: "Davet kabul edilince kişi projeye yetkili olarak eklenir.",
+  liste: "Davet kabul edilince kişi yalnız bu listeye yetkili olarak eklenir.",
+  kart: "Davet kabul edilince kişi yalnız bu karta yetkili olarak eklenir.",
 };
 
 type Mod = "ara" | "davet";
@@ -76,12 +80,11 @@ export function YetkiliKisiEkleDialog({
   const adaptor = React.useMemo(() => kisiAdaptor(kaynak), [kaynak]);
   const ekKeys = React.useMemo(() => extraKisiKeys(kaynak), [kaynak]);
   const davet = React.useMemo(() => davetAdaptor(kaynak), [kaynak]);
-  const seviyeli = seviyeDestekliMi(kaynak);
   const [arama, setArama] = React.useState("");
   const [mod, setMod] = React.useState<Mod>("ara");
   const [davetEmail, setDavetEmail] = React.useState("");
-  const [davetSeviye, setDavetSeviye] =
-    React.useState<ProjeYetkiSeviyesi>("NORMAL");
+  const [davetBirimId, setDavetBirimId] = React.useState<string | null>(null);
+  const [davetRolId, setDavetRolId] = React.useState<string | null>(null);
 
   const adaylar = useQuery({
     queryKey: adaptor.adayQueryKey(arama),
@@ -91,29 +94,59 @@ export function YetkiliKisiEkleDialog({
   });
 
   const bekleyenDavetler = useQuery({
-    queryKey: davet?.bekleyenleriQueryKey ?? ["proje-bekleyen-davetler", "yok"],
-    queryFn: () => (davet ? davet.bekleyenler() : Promise.resolve([])),
-    enabled: Boolean(davet) && acik,
+    queryKey: davet.bekleyenleriQueryKey,
+    queryFn: davet.bekleyenler,
+    enabled: acik,
     staleTime: 30_000,
   });
+
+  const birimler = useQuery({
+    queryKey: ["birim-secenekleri"],
+    queryFn: async () => {
+      const r = await birimSecenekleriniGetir(undefined);
+      if (!r.basarili) throw new Error(r.hata);
+      return r.veri;
+    },
+    enabled: acik && mod === "davet",
+    staleTime: 60_000,
+  });
+
+  const roller = useQuery({
+    queryKey: ["roller"],
+    queryFn: async () => {
+      const r = await rolListele(undefined);
+      if (!r.basarili) throw new Error(r.hata);
+      return r.veri;
+    },
+    enabled: acik && mod === "davet",
+    staleTime: 60_000,
+  });
+
+  // İlk rol yüklendiğinde PERSONEL'i default seç (en sık davet edilen rol).
+  React.useEffect(() => {
+    if (mod !== "davet" || !roller.data || davetRolId) return;
+    const personel = roller.data.find((r) => r.kod === "PERSONEL");
+    setDavetRolId(personel?.id ?? roller.data[0]?.id ?? null);
+  }, [mod, roller.data, davetRolId]);
+
+  const seciliRol = (roller.data ?? []).find((r) => r.id === davetRolId);
+  const makamRolSecili = seciliRol ? makamRoluMu(seciliRol.kod) : false;
+  // Makam rolleri (KAYMAKAM/SUPER_ADMIN) birime bağlanmaz — politika gereği.
+  React.useEffect(() => {
+    if (makamRolSecili && davetBirimId !== null) setDavetBirimId(null);
+  }, [makamRolSecili, davetBirimId]);
 
   const ekle = useOptimisticMutation<
     {
       kullanici_id: string;
-      seviye: ProjeYetkiSeviyesi;
       aday: YetkiliKisiAdayi;
     },
     { kullanici_id: string; ozet?: YetkiliKisiOzeti }
   >({
     queryKey: adaptor.queryKey,
-    mutationFn: ({ kullanici_id, seviye }) =>
-      adaptor.ekle(kullanici_id, seviye),
+    mutationFn: ({ kullanici_id }) => adaptor.ekle(kullanici_id),
     optimistic: (eski, vars) =>
-      optimistikKisiEkle(
-        eski as YetkiliKisiOzeti[] | undefined,
-        vars.aday,
-        seviyeli ? vars.seviye : null,
-      ),
+      optimistikKisiEkle(eski as YetkiliKisiOzeti[] | undefined, vars.aday),
     swap: (eski, vars, yanit) => {
       if (!yanit.ozet) return eski as YetkiliKisiOzeti[] | undefined;
       const liste = (eski as YetkiliKisiOzeti[] | undefined) ?? [];
@@ -130,23 +163,22 @@ export function YetkiliKisiEkleDialog({
   const davetGonder = useMutation({
     mutationFn: ({
       email,
-      seviye,
+      birim_id,
+      rol_id,
     }: {
       email: string;
-      seviye: ProjeYetkiSeviyesi;
-    }) => {
-      if (!davet) throw new Error("Davet yalnız proje kaynağında mümkün.");
-      return davet.davetGonder({ email, seviye });
-    },
+      birim_id: string | null;
+      rol_id: string;
+    }) => davet.davetGonder({ email, birim_id, rol_id }),
     onSuccess: async () => {
       toast.basari("Davet gönderildi.");
-      if (davet) {
-        await istemci.invalidateQueries({
-          queryKey: davet.bekleyenleriQueryKey,
-        });
-      }
+      await istemci.invalidateQueries({
+        queryKey: davet.bekleyenleriQueryKey,
+      });
       setMod("ara");
       setDavetEmail("");
+      setDavetBirimId(null);
+      setDavetRolId(null);
       setArama("");
     },
     onError: (err) => {
@@ -154,13 +186,16 @@ export function YetkiliKisiEkleDialog({
     },
   });
 
+  const sifirla = React.useCallback(() => {
+    setArama("");
+    setMod("ara");
+    setDavetEmail("");
+    setDavetBirimId(null);
+    setDavetRolId(null);
+  }, []);
+
   const handleAcikDegis = (yeni: boolean) => {
-    if (!yeni) {
-      setArama("");
-      setMod("ara");
-      setDavetEmail("");
-      setDavetSeviye("NORMAL");
-    }
+    if (!yeni) sifirla();
     acikDegis(yeni);
   };
 
@@ -194,7 +229,6 @@ export function YetkiliKisiEkleDialog({
   );
 
   const davetCTAGoster =
-    Boolean(davet) &&
     mod === "ara" &&
     !yukleniyor &&
     filtreliAdaylar.length === 0 &&
@@ -203,30 +237,39 @@ export function YetkiliKisiEkleDialog({
   const davetMevcutBilgisi =
     davetUygunlugu.tip === "bekleyen" ? davetUygunlugu.email : null;
 
-  const davetAcabilir = Boolean(davet);
-  const davetGonderebilir = davet !== null;
+  const birimGerekiyor = !makamRolSecili;
+  const davetGonderebilirMi =
+    !davetGonder.isPending &&
+    davetEmail.trim().length > 0 &&
+    Boolean(davetRolId) &&
+    (!birimGerekiyor || Boolean(davetBirimId)) &&
+    davetUygunlugunuHesapla({
+      arama: davetEmail,
+      adayEmailleri,
+      bekleyenDavetEmailleri: bekleyenEmailleri,
+    }).tip === "uygun";
 
-  if (mod === "davet" && davet) {
+  if (mod === "davet") {
     return (
       <ResponsiveDialog open={acik} onOpenChange={handleAcikDegis}>
-        <ResponsiveDialogContent className="sm:max-w-md">
-          <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle className="flex items-center gap-2">
+        <ResponsiveDialogContent className="w-[calc(100vw-1.5rem)] max-w-md p-0">
+          <ResponsiveDialogHeader className="border-b p-4">
+            <ResponsiveDialogTitle className="flex items-center gap-2 pr-6">
               <span
-                className="bg-muted flex size-8 items-center justify-center rounded-md"
+                className="bg-muted flex size-8 shrink-0 items-center justify-center rounded-md"
                 aria-hidden
               >
                 <MailIcon className="size-4" />
               </span>
               Davet ile ekle
             </ResponsiveDialogTitle>
-            <ResponsiveDialogDescription>
-              Bu kişi sistemde kayıtlı değil. Davet kabul edildiğinde projeye
-              otomatik yetkili olarak eklenir. Bağlantı 7 gün geçerlidir.
+            <ResponsiveDialogDescription className="pr-6">
+              Bu kişi sistemde kayıtlı değil. {KAYNAK_KAPSAM_NOTU[kaynak.tip]}{" "}
+              Bağlantı 7 gün geçerlidir.
             </ResponsiveDialogDescription>
           </ResponsiveDialogHeader>
 
-          <div className="grid gap-3">
+          <div className="grid gap-4 p-4">
             <div className="grid gap-1.5">
               <Label htmlFor="davet-email">E-posta</Label>
               <div className="relative">
@@ -238,7 +281,7 @@ export function YetkiliKisiEkleDialog({
                   id="davet-email"
                   type="email"
                   inputMode="email"
-                  className="h-9 pl-9"
+                  className="h-10 pl-9"
                   placeholder="ad.soyad@birim.gov.tr"
                   value={davetEmail}
                   onChange={(e) => setDavetEmail(e.target.value)}
@@ -249,35 +292,64 @@ export function YetkiliKisiEkleDialog({
             </div>
 
             <div className="grid gap-1.5">
-              <Label htmlFor="davet-seviye">Proje yetkisi</Label>
+              <Label htmlFor="davet-rol">Sistem rolü</Label>
               <Select
-                value={davetSeviye}
-                onValueChange={(v) =>
-                  setDavetSeviye(v as ProjeYetkiSeviyesi)
-                }
-                disabled={davetGonder.isPending}
+                value={davetRolId ?? ""}
+                onValueChange={(v) => setDavetRolId(v || null)}
+                disabled={davetGonder.isPending || roller.isLoading}
               >
-                <SelectTrigger id="davet-seviye" className="h-9">
-                  <SelectValue />
+                <SelectTrigger id="davet-rol" className="h-10">
+                  <SelectValue placeholder="Rol seçin..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {PROJE_YETKI_SEVIYELERI.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {SEVIYE_ETIKET[s]}
+                  {(roller.data ?? []).map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.ad}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <p className="text-muted-foreground text-xs">
-                Davet kabul edilince kişi bu seviye ile projeye yetkili olur.
+                Kişinin sistemdeki rolü — projedeki yetkileri bu role göre
+                belirlenir.
               </p>
             </div>
+
+            {birimGerekiyor ? (
+              <div className="grid gap-1.5">
+                <Label htmlFor="davet-birim">Atanacak birim</Label>
+                <Select
+                  value={davetBirimId ?? ""}
+                  onValueChange={(v) => setDavetBirimId(v || null)}
+                  disabled={davetGonder.isPending || birimler.isLoading}
+                >
+                  <SelectTrigger id="davet-birim" className="h-10">
+                    <SelectValue placeholder="Birim seçin..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(birimler.data ?? []).map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {birimGorunenAd({ ad: b.ad, tip: b.tip })}
+                        <span className="text-muted-foreground ml-2 text-xs">
+                          {BIRIM_TIP_LABEL[b.tip]}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-xs italic">
+                Makam rolleri (Kaymakam / Süper Yönetici) birime bağlanmaz.
+              </p>
+            )}
           </div>
 
-          <ResponsiveDialogFooter>
+          <ResponsiveDialogFooter className="flex-row items-center justify-between gap-2 border-t p-4">
             <Button
               type="button"
               variant="ghost"
+              size="sm"
               onClick={() => setMod("ara")}
               disabled={davetGonder.isPending}
             >
@@ -285,20 +357,17 @@ export function YetkiliKisiEkleDialog({
             </Button>
             <Button
               type="button"
-              onClick={() =>
+              size="sm"
+              onClick={() => {
+                if (!davetRolId) return;
+                if (birimGerekiyor && !davetBirimId) return;
                 davetGonder.mutate({
                   email: davetEmail.trim(),
-                  seviye: davetSeviye,
-                })
-              }
-              disabled={
-                davetGonder.isPending ||
-                davetUygunlugunuHesapla({
-                  arama: davetEmail,
-                  adayEmailleri,
-                  bekleyenDavetEmailleri: bekleyenEmailleri,
-                }).tip !== "uygun"
-              }
+                  birim_id: davetBirimId,
+                  rol_id: davetRolId,
+                });
+              }}
+              disabled={!davetGonderebilirMi}
             >
               <SendIcon className="size-4" />
               {davetGonder.isPending ? "Gönderiliyor..." : "Davet Gönder"}
@@ -311,23 +380,23 @@ export function YetkiliKisiEkleDialog({
 
   return (
     <ResponsiveDialog open={acik} onOpenChange={handleAcikDegis}>
-      <ResponsiveDialogContent className="sm:max-w-md">
-        <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle className="flex items-center gap-2">
+      <ResponsiveDialogContent className="w-[calc(100vw-1.5rem)] max-w-md p-0">
+        <ResponsiveDialogHeader className="border-b p-4">
+          <ResponsiveDialogTitle className="flex items-center gap-2 pr-6">
             <span
-              className="bg-muted flex size-8 items-center justify-center rounded-md"
+              className="bg-muted flex size-8 shrink-0 items-center justify-center rounded-md"
               aria-hidden
             >
               <UserRoundIcon className="size-4" />
             </span>
             Kişi yetkisi ekle
           </ResponsiveDialogTitle>
-          <ResponsiveDialogDescription>
+          <ResponsiveDialogDescription className="pr-6">
             Birim üyeliğinden bağımsız olarak kişiye doğrudan erişim verir.
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
-        <div className="grid gap-3">
+        <div className="grid gap-3 p-4">
           <div className="relative">
             <SearchIcon
               className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2"
@@ -336,8 +405,8 @@ export function YetkiliKisiEkleDialog({
             <Input
               value={arama}
               onChange={(e) => setArama(e.target.value)}
-              placeholder="İsim, e-posta veya birim yazın..."
-              className="h-9 pl-9"
+              placeholder="İsim, e-posta veya birim..."
+              className="h-10 pl-9"
               autoFocus
             />
           </div>
@@ -354,8 +423,10 @@ export function YetkiliKisiEkleDialog({
                 </p>
                 {davetMevcutBilgisi ? (
                   <p className="text-foreground/70 text-xs">
-                    <strong>{davetMevcutBilgisi}</strong> için bekleyen davet
-                    var.
+                    <strong className="break-all">
+                      {davetMevcutBilgisi}
+                    </strong>{" "}
+                    için bekleyen davet var.
                   </p>
                 ) : null}
               </div>
@@ -369,7 +440,6 @@ export function YetkiliKisiEkleDialog({
                       onClick={() =>
                         ekle.mutate({
                           kullanici_id: aday.id,
-                          seviye: "NORMAL",
                           aday,
                         })
                       }
@@ -395,10 +465,10 @@ export function YetkiliKisiEkleDialog({
             )}
           </div>
 
-          {davetCTAGoster && davetGonderebilir ? (
+          {davetCTAGoster ? (
             <button
               type="button"
-              className="border-primary/40 bg-primary/5 hover:bg-primary/10 focus-visible:ring-ring flex items-center gap-3 rounded-md border border-dashed px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2"
+              className="border-primary/40 bg-primary/5 hover:bg-primary/10 focus-visible:ring-ring flex w-full items-center gap-3 rounded-md border border-dashed px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2"
               onClick={() => {
                 if (davetUygunlugu.tip !== "uygun") return;
                 setDavetEmail(davetUygunlugu.email);
@@ -406,21 +476,19 @@ export function YetkiliKisiEkleDialog({
               }}
             >
               <span
-                className="bg-primary/10 text-primary flex size-8 items-center justify-center rounded-md"
+                className="bg-primary/10 text-primary flex size-8 shrink-0 items-center justify-center rounded-md"
                 aria-hidden
               >
                 <UserPlusIcon className="size-4" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">
-                  Davet ile ekle:{" "}
+                <span className="block text-sm font-medium">
+                  Davet ile ekle
+                </span>
+                <span className="text-muted-foreground block break-all text-xs">
                   {davetUygunlugu.tip === "uygun"
                     ? davetUygunlugu.email
                     : ""}
-                </span>
-                <span className="text-muted-foreground block truncate text-xs">
-                  Sistemde kayıtlı değil — davet ve proje yetkisi birlikte
-                  gönderilir.
                 </span>
               </span>
               <SendIcon
@@ -430,11 +498,10 @@ export function YetkiliKisiEkleDialog({
             </button>
           ) : null}
 
-          {davetAcabilir && bekleyenler.length > 0 ? (
+          {bekleyenler.length > 0 ? (
             <BekleyenDavetlerListesi
               davetler={bekleyenler}
               onIptal={async (davet_id) => {
-                if (!davet) return;
                 try {
                   await davet.davetIptal(davet_id);
                   await istemci.invalidateQueries({
@@ -449,14 +516,29 @@ export function YetkiliKisiEkleDialog({
                   );
                 }
               }}
+              onYenidenGonder={async (davet_id) => {
+                try {
+                  await davet.davetYenidenGonder(davet_id);
+                  await istemci.invalidateQueries({
+                    queryKey: davet.bekleyenleriQueryKey,
+                  });
+                  toast.basari("Davet tekrar gönderildi.");
+                } catch (err) {
+                  toast.hata(
+                    err instanceof Error
+                      ? err.message
+                      : "Davet tekrar gönderilemedi.",
+                  );
+                }
+              }}
             />
           ) : null}
         </div>
 
-        <ResponsiveDialogFooter>
+        <ResponsiveDialogFooter className="border-t p-4">
           <ResponsiveDialogClose
             render={
-              <Button type="button" variant="outline">
+              <Button type="button" variant="outline" size="sm">
                 Kapat
               </Button>
             }
@@ -478,10 +560,13 @@ function BosDurum({ metin }: { metin: string }) {
 function BekleyenDavetlerListesi({
   davetler,
   onIptal,
+  onYenidenGonder,
 }: {
   davetler: ReadonlyArray<BekleyenDavetOzeti>;
   onIptal: (davet_id: string) => void;
+  onYenidenGonder: (davet_id: string) => void;
 }) {
+  const [aktifId, setAktifId] = React.useState<string | null>(null);
   return (
     <div className="grid gap-1.5">
       <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
@@ -491,10 +576,10 @@ function BekleyenDavetlerListesi({
         {davetler.map((d) => (
           <li
             key={d.davet_id}
-            className="flex items-center gap-3 px-3 py-2 text-sm"
+            className="flex items-center gap-2 px-3 py-2 text-sm"
           >
             <span
-              className="bg-muted text-muted-foreground flex size-7 items-center justify-center rounded-full"
+              className="bg-muted text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-full"
               aria-hidden
             >
               <MailIcon className="size-3.5" />
@@ -502,9 +587,32 @@ function BekleyenDavetlerListesi({
             <span className="min-w-0 flex-1">
               <span className="block truncate font-medium">{d.email}</span>
               <span className="text-muted-foreground block truncate text-xs">
-                {SEVIYE_ETIKET[d.seviye]} · davet bekliyor
+                Davet bekliyor
               </span>
             </span>
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              className="size-8"
+              aria-label="Daveti tekrar gönder"
+              aria-busy={aktifId === d.davet_id}
+              disabled={aktifId === d.davet_id}
+              onClick={async () => {
+                setAktifId(d.davet_id);
+                try {
+                  await onYenidenGonder(d.davet_id);
+                } finally {
+                  setAktifId(null);
+                }
+              }}
+            >
+              {aktifId === d.davet_id ? (
+                <Loader2Icon className="size-4 animate-spin" />
+              ) : (
+                <RefreshCwIcon className="size-4" />
+              )}
+            </Button>
             <Button
               type="button"
               size="sm"

@@ -1,4 +1,3 @@
-import type { ProjeYetkiSeviyesi } from "./schemas";
 import type {
   YetkiliBirimOzeti,
   YetkiliKisiAdayi,
@@ -11,6 +10,9 @@ import type {
 // Why ayrı dosya: `yetkili-adaptor` server-only action'ları import ettiğinden
 // (next-auth zinciri vs.) saf testlerde import edilemiyor. Bu modül sıfır
 // side-effect, sıfır framework içerir → unit test'e uygun.
+//
+// ADR-0012: seviye kavramı kaldırıldı. optimistikSeviyeGuncelle silindi,
+// optimistikKisiEkle artık seviye almıyor.
 // ---------------------------------------------------------------------------
 
 export function optimistikBirimEkle(
@@ -40,7 +42,6 @@ export function optimistikBirimKaldir(
 export function optimistikKisiEkle(
   eski: YetkiliKisiOzeti[] | undefined,
   aday: YetkiliKisiAdayi,
-  seviye: ProjeYetkiSeviyesi | null,
 ): YetkiliKisiOzeti[] {
   const liste = eski ?? [];
   if (liste.some((k) => k.kullanici_id === aday.id)) return liste;
@@ -52,7 +53,6 @@ export function optimistikKisiEkle(
       soyad: aday.soyad,
       email: aday.email,
       birim_ad: aday.birim_ad,
-      seviye,
       eklenme_zamani: new Date(),
     },
   ];
@@ -63,14 +63,4 @@ export function optimistikKisiKaldir(
   kullanici_id: string,
 ): YetkiliKisiOzeti[] {
   return (eski ?? []).filter((k) => k.kullanici_id !== kullanici_id);
-}
-
-export function optimistikSeviyeGuncelle(
-  eski: YetkiliKisiOzeti[] | undefined,
-  kullanici_id: string,
-  seviye: ProjeYetkiSeviyesi,
-): YetkiliKisiOzeti[] {
-  return (eski ?? []).map((k) =>
-    k.kullanici_id === kullanici_id ? { ...k, seviye } : k,
-  );
 }

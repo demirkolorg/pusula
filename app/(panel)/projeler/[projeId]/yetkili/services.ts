@@ -7,7 +7,6 @@ import type {
   KartAdayKullanicilar,
   ProjeAdayKullanicilar,
   ProjeyeYetkiliEkle,
-  ProjeYetkilisiSeviyeGuncelle,
 } from "./schemas";
 
 export type ProjeYetkiliOzeti = {
@@ -15,7 +14,6 @@ export type ProjeYetkiliOzeti = {
   ad: string;
   soyad: string;
   email: string;
-  seviye: "ADMIN" | "NORMAL" | "IZLEYICI";
   eklenme_zamani: Date;
 };
 
@@ -68,6 +66,17 @@ export async function kartProjeIdGetir(kartId: string): Promise<string> {
   return (await kartiBulVeProjeAl("", kartId)).proje_id;
 }
 
+export async function listeProjeIdGetir(listeId: string): Promise<string> {
+  const liste = await db.liste.findUnique({
+    where: { id: listeId },
+    select: { proje_id: true },
+  });
+  if (!liste) {
+    throw new EylemHatasi("Liste bulunamadı.", HATA_KODU.BULUNAMADI);
+  }
+  return liste.proje_id;
+}
+
 async function aktifKullaniciDogrula(kullaniciId: string): Promise<void> {
   const kullanici = await db.kullanici.findUnique({
     where: { id: kullaniciId },
@@ -97,7 +106,6 @@ export async function projeYetkilileriniListele(
     orderBy: { eklenme_zamani: "asc" },
     select: {
       kullanici_id: true,
-      seviye: true,
       eklenme_zamani: true,
       kullanici: { select: { ad: true, soyad: true, email: true } },
     },
@@ -107,7 +115,6 @@ export async function projeYetkilileriniListele(
     ad: u.kullanici.ad,
     soyad: u.kullanici.soyad,
     email: u.kullanici.email,
-    seviye: u.seviye,
     eklenme_zamani: u.eklenme_zamani,
   }));
 }
@@ -186,16 +193,14 @@ export async function projeyeYetkiliEkle(
       data: {
         proje_id: girdi.proje_id,
         kullanici_id: girdi.kullanici_id,
-        seviye: girdi.seviye,
       },
-      select: { seviye: true, eklenme_zamani: true },
+      select: { eklenme_zamani: true },
     });
     return {
       kullanici_id: girdi.kullanici_id,
       ad: k.ad,
       soyad: k.soyad,
       email: k.email,
-      seviye: yeni.seviye,
       eklenme_zamani: yeni.eklenme_zamani,
     };
   } catch (err) {
@@ -220,59 +225,27 @@ export async function projeyeYetkiliKaldir(
   kullaniciId: string,
 ): Promise<void> {
   await projeyeErisimDogrula(birimId, projeId);
-  // Son ADMIN'i çıkarmaya izin verme — proje sahipsiz kalmasın.
+  // Son yetkiliyi çıkarmaya izin verme — proje sahipsiz kalmasın.
+  // (ADR-0012 öncesinde "son ADMIN" koruması vardı; seviye kalkınca son yetkili
+  // koruması yeterli — sistem rolü makamı/admini ayrıca her projeyi görür.)
   const yetkili = await db.projeYetkilisi.findUnique({
-    where: { proje_id_kullanici_id: { proje_id: projeId, kullanici_id: kullaniciId } },
-    select: { seviye: true },
+    where: {
+      proje_id_kullanici_id: { proje_id: projeId, kullanici_id: kullaniciId },
+    },
+    select: { proje_id: true },
   });
-  if (!yetkili) return; // Yoksa idempotent
-  if (yetkili.seviye === "ADMIN") {
-    const adminSayisi = await db.projeYetkilisi.count({
-      where: { proje_id: projeId, seviye: "ADMIN" },
-    });
-    if (adminSayisi <= 1) {
-      throw new EylemHatasi(
-        "Projedeki son ADMIN yetkili çıkarılamaz.",
-        HATA_KODU.GECERSIZ_GIRDI,
-      );
-    }
+  if (!yetkili) return; // Idempotent
+  const yetkiliSayisi = await db.projeYetkilisi.count({
+    where: { proje_id: projeId },
+  });
+  if (yetkiliSayisi <= 1) {
+    throw new EylemHatasi(
+      "Projedeki son yetkili çıkarılamaz.",
+      HATA_KODU.GECERSIZ_GIRDI,
+    );
   }
   await db.projeYetkilisi.delete({
     where: { proje_id_kullanici_id: { proje_id: projeId, kullanici_id: kullaniciId } },
-  });
-}
-
-export async function projeYetkilisiSeviyeGuncelle(
-  birimId: string,
-  girdi: ProjeYetkilisiSeviyeGuncelle,
-): Promise<void> {
-  await projeyeErisimDogrula(birimId, girdi.proje_id);
-  const yetkili = await db.projeYetkilisi.findUnique({
-    where: {
-      proje_id_kullanici_id: { proje_id: girdi.proje_id, kullanici_id: girdi.kullanici_id },
-    },
-    select: { seviye: true },
-  });
-  if (!yetkili) {
-    throw new EylemHatasi("Yetkili bulunamadı.", HATA_KODU.BULUNAMADI);
-  }
-  // ADMIN'i NORMAL'e düşürürken son ADMIN olmasın
-  if (yetkili.seviye === "ADMIN" && girdi.seviye !== "ADMIN") {
-    const adminSayisi = await db.projeYetkilisi.count({
-      where: { proje_id: girdi.proje_id, seviye: "ADMIN" },
-    });
-    if (adminSayisi <= 1) {
-      throw new EylemHatasi(
-        "Projedeki son ADMIN seviyesini düşüremezsiniz.",
-        HATA_KODU.GECERSIZ_GIRDI,
-      );
-    }
-  }
-  await db.projeYetkilisi.update({
-    where: {
-      proje_id_kullanici_id: { proje_id: girdi.proje_id, kullanici_id: girdi.kullanici_id },
-    },
-    data: { seviye: girdi.seviye },
   });
 }
 

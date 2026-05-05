@@ -136,6 +136,7 @@ function ornekDetay(p: Partial<ProjeDetayOzeti> = {}): ProjeDetayOzeti {
     ad: p.ad ?? "Test Proje",
     aciklama: p.aciklama ?? null,
     kapak_renk: p.kapak_renk ?? null,
+    kapak_ikon: p.kapak_ikon ?? null,
     yildizli_mi: p.yildizli_mi ?? false,
     arsiv_mi: p.arsiv_mi ?? false,
     silindi_mi: p.silindi_mi ?? false,

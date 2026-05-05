@@ -52,6 +52,7 @@ function detay(listeler: ListeOzeti[]): ProjeDetayOzeti {
     ad: "Proje",
     aciklama: null,
     kapak_renk: null,
+    kapak_ikon: null,
     yildizli_mi: false,
     arsiv_mi: false,
     silindi_mi: false,

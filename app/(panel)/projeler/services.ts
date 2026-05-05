@@ -176,7 +176,7 @@ export async function projeOlustur(
       sira,
       olusturan_id: olusturanId,
       yetkililer: {
-        create: { kullanici_id: olusturanId, seviye: "ADMIN" },
+        create: { kullanici_id: olusturanId },
       },
       birimler: olusturan?.birim_id
         ? { create: { birim_id: olusturan.birim_id } }

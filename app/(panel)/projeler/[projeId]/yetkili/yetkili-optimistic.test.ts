@@ -4,7 +4,6 @@ import {
   optimistikBirimKaldir,
   optimistikKisiEkle,
   optimistikKisiKaldir,
-  optimistikSeviyeGuncelle,
 } from "./yetkili-optimistic";
 import type {
   YetkiliBirimOzeti,
@@ -80,15 +79,10 @@ describe("optimistikKisiEkle", () => {
     birim_ad: "Özel Kalem",
   };
 
-  it("seviyeli (proje) kişi eklenir", () => {
-    const sonuc = optimistikKisiEkle([], aday, "ADMIN");
-    expect(sonuc[0]?.seviye).toBe("ADMIN");
+  it("kişi listeye eklenir (ADR-0012: seviye yok)", () => {
+    const sonuc = optimistikKisiEkle([], aday);
+    expect(sonuc[0]?.kullanici_id).toBe("u1");
     expect(sonuc[0]?.ad).toBe("Murat");
-  });
-
-  it("seviyesiz (liste/kart) kişi eklenir", () => {
-    const sonuc = optimistikKisiEkle([], aday, null);
-    expect(sonuc[0]?.seviye).toBeNull();
   });
 
   it("aynı kullanıcı çift eklenmez", () => {
@@ -99,11 +93,10 @@ describe("optimistikKisiEkle", () => {
         soyad: "Aksoy",
         email: "murat@test.tr",
         birim_ad: null,
-        seviye: "NORMAL",
         eklenme_zamani: new Date(),
       },
     ];
-    const sonuc = optimistikKisiEkle(mevcut, aday, "ADMIN");
+    const sonuc = optimistikKisiEkle(mevcut, aday);
     expect(sonuc).toBe(mevcut);
   });
 });
@@ -117,7 +110,6 @@ describe("optimistikKisiKaldir", () => {
         soyad: "A",
         email: "a@x",
         birim_ad: null,
-        seviye: null,
         eklenme_zamani: new Date(),
       },
       {
@@ -126,40 +118,11 @@ describe("optimistikKisiKaldir", () => {
         soyad: "B",
         email: "b@x",
         birim_ad: null,
-        seviye: null,
         eklenme_zamani: new Date(),
       },
     ];
     const sonuc = optimistikKisiKaldir(mevcut, "a");
     expect(sonuc).toHaveLength(1);
     expect(sonuc[0]?.kullanici_id).toBe("b");
-  });
-});
-
-describe("optimistikSeviyeGuncelle", () => {
-  it("ilgili kullanıcının seviyesi değişir, diğerleri korunur", () => {
-    const mevcut: YetkiliKisiOzeti[] = [
-      {
-        kullanici_id: "u1",
-        ad: "A",
-        soyad: "A",
-        email: "a@x",
-        birim_ad: null,
-        seviye: "NORMAL",
-        eklenme_zamani: new Date(),
-      },
-      {
-        kullanici_id: "u2",
-        ad: "B",
-        soyad: "B",
-        email: "b@x",
-        birim_ad: null,
-        seviye: "ADMIN",
-        eklenme_zamani: new Date(),
-      },
-    ];
-    const sonuc = optimistikSeviyeGuncelle(mevcut, "u1", "IZLEYICI");
-    expect(sonuc[0]?.seviye).toBe("IZLEYICI");
-    expect(sonuc[1]?.seviye).toBe("ADMIN");
   });
 });

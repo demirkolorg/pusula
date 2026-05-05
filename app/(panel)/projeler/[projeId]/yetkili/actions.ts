@@ -8,10 +8,16 @@ import { HATA_KODU } from "@/lib/sonuc";
 import { davetLimiter } from "@/lib/rate-limit";
 import { tetikleKartYetkiliAtama } from "@/app/(panel)/bildirimler/tetikleyiciler";
 import {
+  davetiYenidenGonder,
   davetOlustur,
+  kartBekleyenDavetleriListele,
+  kartDavetBaglamiKaldir,
+  listeBekleyenDavetleriListele,
+  listeDavetBaglamiKaldir,
   projeBekleyenDavetleriListele,
   projeDavetBaglamiKaldir,
 } from "@/app/(panel)/ayarlar/kullanicilar/services";
+import { db } from "@/lib/db";
 import {
   kartAdayKullanicilarSemasi,
   kartaYetkiliEkleSemasi,
@@ -20,8 +26,8 @@ import {
   projeAdayKullanicilarSemasi,
   projeBekleyenDavetleriSemasi,
   projeDavetIptalSemasi,
+  projeDavetYenidenGonderSemasi,
   projeYetkilileriListeleSemasi,
-  projeYetkilisiSeviyeGuncelleSemasi,
   projeyeDavetGonderSemasi,
   projeyeYetkiliEkleSemasi,
   projeyeYetkiliKaldirSemasi,
@@ -32,9 +38,9 @@ import {
   kartaYetkiliEkle as kartaYetkiliEkleSrv,
   kartaYetkiliKaldir as kartaYetkiliKaldirSrv,
   kartinYetkilileri as kartinYetkilileriSrv,
+  listeProjeIdGetir,
   projeAdayKullanicilariniAra,
   projeYetkilileriniListele,
-  projeYetkilisiSeviyeGuncelle as projeYetkilisiSeviyeGuncelleSrv,
   projeyeYetkiliEkle as projeyeYetkiliEkleSrv,
   projeyeYetkiliKaldir as projeyeYetkiliKaldirSrv,
 } from "./services";
@@ -111,24 +117,8 @@ export const projeyeYetkiliKaldirEylem = eylem({
   },
 });
 
-export const projeYetkilisiSeviyeGuncelleEylem = eylem({
-  ad: "proje:yetkili-seviye",
-  girdi: projeYetkilisiSeviyeGuncelleSemasi,
-  calistir: async (girdi, ctx) => {
-    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_YETKILI_YONET);
-    await yetkiZorunluProje(
-      ctx.oturum?.kullaniciId,
-      "proje:authorize",
-      girdi.proje_id,
-    );
-    await projeYetkilisiSeviyeGuncelleSrv(birimIdAl(ctx), girdi);
-    return {
-      proje_id: girdi.proje_id,
-      kullanici_id: girdi.kullanici_id,
-      seviye: girdi.seviye,
-    };
-  },
-});
+// ADR-0012: projeYetkilisiSeviyeGuncelleEylem kaldırıldı — seviye kavramı yok.
+// Aksiyon yetkisi sistem rolünden gelir (KullaniciRol değiştirilirse RBAC değişir).
 
 // =====================================================================
 // Karta yetkili atama
@@ -193,18 +183,34 @@ export const kartaYetkiliKaldirEylem = eylem({
 // kabul edildiğinde otomatik olarak projeye yetkili olarak eklenir.
 // =====================================================================
 
+// Kaynak normalizesi: girdi'den proje_id veya liste_id veya kart_id geliyor.
+// Server-side projeId çözümlenir (RBAC kontrolünde lazım).
+type KaynakArgs = { proje_id?: string; liste_id?: string; kart_id?: string };
+
+async function kaynakProjeIdAl(args: KaynakArgs): Promise<string> {
+  if (args.proje_id) return args.proje_id;
+  if (args.kart_id) return kartProjeIdGetir(args.kart_id);
+  if (args.liste_id) return listeProjeIdGetir(args.liste_id);
+  throw new EylemHatasi(
+    "Davet için kaynak belirtilmedi.",
+    HATA_KODU.GECERSIZ_GIRDI,
+  );
+}
+
 export const projeyeDavetGonderEylem = eylem({
-  ad: "proje:davet-gonder",
+  ad: "yetkili:davet-gonder",
   girdi: projeyeDavetGonderSemasi,
   calistir: async (girdi, ctx) => {
     const kullaniciId = birimIdAl(ctx);
+    const projeId = await kaynakProjeIdAl(girdi);
+
     // Çift yetki: hem kullanıcı davet hem proje yetkili yönetimi
     await yetkiZorunlu(
       kullaniciId,
       IZIN_KODLARI.KULLANICI_DAVET,
       IZIN_KODLARI.PROJE_YETKILI_YONET,
     );
-    await yetkiZorunluProje(kullaniciId, "proje:authorize", girdi.proje_id);
+    await yetkiZorunluProje(kullaniciId, "proje:authorize", projeId);
 
     if (!davetLimiter.tryConsume(`proje-davet:${kullaniciId}`)) {
       throw new EylemHatasi(
@@ -213,17 +219,40 @@ export const projeyeDavetGonderEylem = eylem({
       );
     }
 
+    // ADR-0013: davet bağlamı kaynak'a göre yazılır. Kart davet → kart yetkili,
+    // liste davet → liste yetkili, proje davet → proje yetkili.
+    const ortakArgs = {
+      email: girdi.email,
+      rol_id: girdi.rol_id,
+      birim_id: girdi.birim_id,
+    };
     try {
-      const sonuc = await davetOlustur(kullaniciId, {
-        email: girdi.email,
-        rol_id: girdi.rol_id ?? null,
-        birim_id: girdi.birim_id ?? null,
-        proje_baglamlari: [
-          { proje_id: girdi.proje_id, seviye: girdi.seviye },
-        ],
-      });
-      revalidatePath(`/projeler/${girdi.proje_id}`);
-      return { davet_id: sonuc.id, email: girdi.email.toLowerCase() };
+      const sonuc = girdi.kart_id
+        ? await davetOlustur(kullaniciId, {
+            ...ortakArgs,
+            proje_baglamlari: [],
+            liste_baglamlari: [],
+            kart_baglamlari: [{ kart_id: girdi.kart_id }],
+          })
+        : girdi.liste_id
+          ? await davetOlustur(kullaniciId, {
+              ...ortakArgs,
+              proje_baglamlari: [],
+              liste_baglamlari: [{ liste_id: girdi.liste_id }],
+              kart_baglamlari: [],
+            })
+          : await davetOlustur(kullaniciId, {
+              ...ortakArgs,
+              proje_baglamlari: [{ proje_id: projeId }],
+              liste_baglamlari: [],
+              kart_baglamlari: [],
+            });
+      revalidatePath(`/projeler/${projeId}`);
+      return {
+        davet_id: sonuc.id,
+        email: girdi.email.toLowerCase(),
+        proje_id: projeId,
+      };
     } catch (err) {
       if (err instanceof EylemHatasi) throw err;
       if (err instanceof Error) {
@@ -235,22 +264,26 @@ export const projeyeDavetGonderEylem = eylem({
 });
 
 export const projeBekleyenDavetleriEylem = eylem({
-  ad: "proje:bekleyen-davetler",
+  ad: "yetkili:bekleyen-davetler",
   girdi: projeBekleyenDavetleriSemasi,
   calistir: async (girdi, ctx) => {
+    const projeId = await kaynakProjeIdAl(girdi);
     await yetkiZorunluProje(
       ctx.oturum?.kullaniciId,
       "proje:authorize",
-      girdi.proje_id,
+      projeId,
     );
-    return projeBekleyenDavetleriListele(girdi.proje_id);
+    if (girdi.kart_id) return kartBekleyenDavetleriListele(girdi.kart_id);
+    if (girdi.liste_id) return listeBekleyenDavetleriListele(girdi.liste_id);
+    return projeBekleyenDavetleriListele(projeId);
   },
 });
 
 export const projeDavetIptalEylem = eylem({
-  ad: "proje:davet-iptal",
+  ad: "yetkili:davet-iptal",
   girdi: projeDavetIptalSemasi,
   calistir: async (girdi, ctx) => {
+    const projeId = await kaynakProjeIdAl(girdi);
     await yetkiZorunlu(
       ctx.oturum?.kullaniciId,
       IZIN_KODLARI.PROJE_YETKILI_YONET,
@@ -258,10 +291,79 @@ export const projeDavetIptalEylem = eylem({
     await yetkiZorunluProje(
       ctx.oturum?.kullaniciId,
       "proje:authorize",
-      girdi.proje_id,
+      projeId,
     );
-    await projeDavetBaglamiKaldir(girdi.davet_id, girdi.proje_id);
-    revalidatePath(`/projeler/${girdi.proje_id}`);
-    return { davet_id: girdi.davet_id, proje_id: girdi.proje_id };
+    if (girdi.kart_id) {
+      await kartDavetBaglamiKaldir(girdi.davet_id, girdi.kart_id);
+    } else if (girdi.liste_id) {
+      await listeDavetBaglamiKaldir(girdi.davet_id, girdi.liste_id);
+    } else {
+      await projeDavetBaglamiKaldir(girdi.davet_id, projeId);
+    }
+    revalidatePath(`/projeler/${projeId}`);
+    return { davet_id: girdi.davet_id, proje_id: projeId };
+  },
+});
+
+export const projeDavetYenidenGonderEylem = eylem({
+  ad: "yetkili:davet-yeniden-gonder",
+  girdi: projeDavetYenidenGonderSemasi,
+  calistir: async (girdi, ctx) => {
+    const projeId = await kaynakProjeIdAl(girdi);
+    const kullaniciId = birimIdAl(ctx);
+    await yetkiZorunlu(
+      kullaniciId,
+      IZIN_KODLARI.KULLANICI_DAVET,
+      IZIN_KODLARI.PROJE_YETKILI_YONET,
+    );
+    await yetkiZorunluProje(kullaniciId, "proje:authorize", projeId);
+
+    // Davet bu kaynağa bağlı mı? RBAC bypass guard — kart panelinden listenin
+    // davetini yeniden gönderemezsin.
+    const baglamVar = girdi.kart_id
+      ? await db.davetKartBaglami.findUnique({
+          where: {
+            davet_id_kart_id: {
+              davet_id: girdi.davet_id,
+              kart_id: girdi.kart_id,
+            },
+          },
+          select: { id: true },
+        })
+      : girdi.liste_id
+        ? await db.davetListeBaglami.findUnique({
+            where: {
+              davet_id_liste_id: {
+                davet_id: girdi.davet_id,
+                liste_id: girdi.liste_id,
+              },
+            },
+            select: { id: true },
+          })
+        : await db.davetProjeBaglami.findUnique({
+            where: {
+              davet_id_proje_id: {
+                davet_id: girdi.davet_id,
+                proje_id: projeId,
+              },
+            },
+            select: { id: true },
+          });
+    if (!baglamVar) {
+      throw new EylemHatasi(
+        "Bu davet bu kaynağa bağlı değil.",
+        HATA_KODU.BULUNAMADI,
+      );
+    }
+
+    if (!davetLimiter.tryConsume(`proje-davet:${kullaniciId}`)) {
+      throw new EylemHatasi(
+        "Çok hızlı davet gönderiyorsunuz, biraz bekleyin.",
+        HATA_KODU.RATE_LIMIT,
+      );
+    }
+
+    const sonuc = await davetiYenidenGonder(girdi.davet_id);
+    return { davet_id: sonuc.id, email: sonuc.email };
   },
 });

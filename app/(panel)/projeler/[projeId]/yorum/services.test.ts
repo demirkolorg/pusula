@@ -35,7 +35,7 @@ let kart: { id: string };
 async function sahipliProjeOlustur(birimId: string, sahipId: string) {
   const p = await projeOlusturFiks(adminDb, { birimId, olusturanId: sahipId });
   await adminDb.projeYetkilisi.create({
-    data: { proje_id: p.id, kullanici_id: sahipId, seviye: "ADMIN" },
+    data: { proje_id: p.id, kullanici_id: sahipId },
   });
   return { id: p.id };
 }
@@ -135,7 +135,6 @@ describe("yorumSil", () => {
       data: {
         proje_id: proje!.proje_id,
         kullanici_id: ortam.personel.id,
-        seviye: "NORMAL",
       },
     });
     const y = await yorumOlustur(ortam.birim.id, ortam.personel.id, {

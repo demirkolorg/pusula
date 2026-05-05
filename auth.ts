@@ -29,7 +29,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const kullanici = await db.kullanici.findUnique({
           where: { email: email.toLowerCase() },
           include: {
-            roller: { include: { rol: true } },
+            roller: {
+              include: {
+                rol: {
+                  include: {
+                    izinler: { include: { izin: { select: { kod: true } } } },
+                  },
+                },
+              },
+            },
           },
         });
 
@@ -65,6 +73,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           },
         );
 
+        // ADR-0013: izinleri ve max izin_versiyonu'nu JWT'ye gömeriz —
+        // istemci `usePermission()` hook'u session.user.izinler ile çalışır.
+        const izinSet = new Set<string>();
+        let izinVersiyonu = 0;
+        for (const ru of kullanici.roller) {
+          for (const ri of ru.rol.izinler) {
+            izinSet.add(ri.izin.kod);
+          }
+          if (ru.rol.izin_versiyonu > izinVersiyonu) {
+            izinVersiyonu = ru.rol.izin_versiyonu;
+          }
+        }
+
         return {
           id: kullanici.id,
           email: kullanici.email,
@@ -72,6 +93,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           adSoyad: `${kullanici.ad} ${kullanici.soyad}`,
           birimId: kullanici.birim_id,
           roller: kullanici.roller.map((r) => r.rol.kod),
+          izinler: Array.from(izinSet),
+          izinVersiyonu,
         };
       },
     }),

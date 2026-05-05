@@ -295,12 +295,26 @@ model Kullanici {
   @@index([silindi_mi])
 }
 
+enum IzinKategorisi {
+  PROJE
+  LISTE
+  KART
+  KULLANICI
+  BIRIM
+  ROL
+  AUDIT
+  AYAR
+}
+
 model Rol {
   id                String   @id @default(uuid()) @db.Uuid
   kod               String   @unique
   ad                String
   aciklama          String?
   sistem_rolu       Boolean  @default(false)
+  // ADR-0013: izinler her güncellendiğinde +1 — JWT eski versiyonla geldiğinde
+  // istemci client'ı bilgilendirip yenilemesi için kullanılır.
+  izin_versiyonu    Int      @default(1)
   olusturma_zamani  DateTime @default(now())
   guncelleme_zamani DateTime @updatedAt
 
@@ -309,16 +323,20 @@ model Rol {
 }
 
 model Izin {
-  id               String   @id @default(uuid()) @db.Uuid
-  kod              String   @unique
+  id               String         @id @default(uuid()) @db.Uuid
+  kod              String         @unique
   ad               String
   aciklama         String?
-  kategori         String
-  olusturma_zamani DateTime @default(now())
+  kategori         IzinKategorisi
+  // ADR-0014: UI accordion alt-grup başlığı (yetkili, kapak, tarih, yorum, ...)
+  // null → "temel/genel" (alt-grup yok).
+  alt_kategori     String?
+  olusturma_zamani DateTime       @default(now())
 
   roller RolIzin[]
 
   @@index([kategori])
+  @@index([alt_kategori])
 }
 
 model RolIzin {
@@ -425,28 +443,55 @@ model DavetTokeni {
   olusturma_zamani DateTime  @default(now())
 
   proje_baglamlari DavetProjeBaglami[]
+  liste_baglamlari DavetListeBaglami[]
+  kart_baglamlari  DavetKartBaglami[]
 
   @@index([token])
   @@index([email])
   @@index([birim_id])
 }
 
-// ADR-0010 — kullanıcı henüz sistemde yokken davet üzerinden bir veya birden çok
-// projeye yetkili tayini için bağlam tablosu. Davet kabul edildiğinde bu bağlamlar
-// ProjeYetkili kayıtlarına dönüştürülür ve bağlam silinir; davet expire olursa
-// onDelete: Cascade ile temizlenir (sync gerekmez).
+// ADR-0010/0013 — Davet kabul edildiğinde kaynak'a göre yetkili kayıtları açılır:
+// proje_baglamlari → ProjeYetkilisi, liste_baglamlari → ListeYetkilisi,
+// kart_baglamlari → KartYetkilisi. Üçü de davet expire/use'da onDelete: Cascade
+// ile temizlenir (sync loop gerekmez).
 model DavetProjeBaglami {
-  id               String             @id @default(uuid()) @db.Uuid
-  davet_id         String             @db.Uuid
-  proje_id         String             @db.Uuid
-  seviye           ProjeYetkiSeviyesi @default(NORMAL)
-  olusturma_zamani DateTime           @default(now())
+  id               String   @id @default(uuid()) @db.Uuid
+  davet_id         String   @db.Uuid
+  proje_id         String   @db.Uuid
+  olusturma_zamani DateTime @default(now())
 
   davet DavetTokeni @relation(fields: [davet_id], references: [id], onDelete: Cascade)
   proje Proje       @relation(fields: [proje_id], references: [id], onDelete: Cascade)
 
   @@unique([davet_id, proje_id])
   @@index([proje_id])
+}
+
+model DavetListeBaglami {
+  id               String   @id @default(uuid()) @db.Uuid
+  davet_id         String   @db.Uuid
+  liste_id         String   @db.Uuid
+  olusturma_zamani DateTime @default(now())
+
+  davet DavetTokeni @relation(fields: [davet_id], references: [id], onDelete: Cascade)
+  liste Liste       @relation(fields: [liste_id], references: [id], onDelete: Cascade)
+
+  @@unique([davet_id, liste_id])
+  @@index([liste_id])
+}
+
+model DavetKartBaglami {
+  id               String   @id @default(uuid()) @db.Uuid
+  davet_id         String   @db.Uuid
+  kart_id          String   @db.Uuid
+  olusturma_zamani DateTime @default(now())
+
+  davet DavetTokeni @relation(fields: [davet_id], references: [id], onDelete: Cascade)
+  kart  Kart        @relation(fields: [kart_id], references: [id], onDelete: Cascade)
+
+  @@unique([davet_id, kart_id])
+  @@index([kart_id])
 }
 
 model SifirlamaTokeni {
@@ -466,20 +511,12 @@ model SifirlamaTokeni {
 // Plan: docs/plan.md Bölüm 2 (domain) + Bölüm 7 (S3)
 // ============================================================
 
-enum ProjeYetkiSeviyesi {
-  ADMIN
-  NORMAL
-  IZLEYICI
-
-  @@map("ProjeUyeSeviye")
-}
-
 model Proje {
   id                String    @id @default(uuid()) @db.Uuid
   ad                String
   aciklama          String?
   kapak_renk        String? // tema token'ı: "primary" | "secondary" | "tertiary"
-  kapak_ikon        String? // lucide-react ikon ismi (kebab-case) — ADR-0010
+  kapak_ikon        String? // lucide-react ikon ismi (kebab-case) — ADR-0011
   kapak_dosya_id    String?   @db.Uuid
   yildizli_mi       Boolean   @default(false)
   arsiv_mi          Boolean   @default(false)
@@ -503,10 +540,9 @@ model Proje {
 }
 
 model ProjeYetkilisi {
-  proje_id       String             @db.Uuid
-  kullanici_id   String             @db.Uuid
-  seviye         ProjeYetkiSeviyesi @default(NORMAL)
-  eklenme_zamani DateTime           @default(now())
+  proje_id       String   @db.Uuid
+  kullanici_id   String   @db.Uuid
+  eklenme_zamani DateTime @default(now())
 
   proje     Proje     @relation(fields: [proje_id], references: [id], onDelete: Cascade)
   kullanici Kullanici @relation(fields: [kullanici_id], references: [id], onDelete: Cascade)
@@ -547,10 +583,11 @@ model Liste {
   olusturma_zamani  DateTime  @default(now())
   guncelleme_zamani DateTime  @updatedAt
 
-  proje      Proje            @relation(fields: [proje_id], references: [id], onDelete: Cascade)
-  kartlar    Kart[]
-  yetkililer ListeYetkilisi[]
-  birimler   ListeBirimi[]
+  proje             Proje               @relation(fields: [proje_id], references: [id], onDelete: Cascade)
+  kartlar           Kart[]
+  yetkililer        ListeYetkilisi[]
+  birimler          ListeBirimi[]
+  bekleyen_davetler DavetListeBaglami[]
 
   @@index([proje_id, sira])
   @@index([proje_id, arsiv_mi])
@@ -602,13 +639,14 @@ model Kart {
   olusturma_zamani      DateTime  @default(now())
   guncelleme_zamani     DateTime  @updatedAt
 
-  liste             Liste            @relation(fields: [liste_id], references: [id], onDelete: Cascade)
+  liste             Liste              @relation(fields: [liste_id], references: [id], onDelete: Cascade)
   yetkililer        KartYetkilisi[]
   etiketler         KartEtiket[]
   birimler          KartBirimi[]
   yorumlar          Yorum[]
   eklentiler        Eklenti[]
   kontrol_listeleri KontrolListesi[]
+  bekleyen_davetler DavetKartBaglami[]
 
   @@index([liste_id, sira])
   @@index([liste_id, silindi_mi, arsiv_mi])

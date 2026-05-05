@@ -83,6 +83,9 @@ export const authConfig = {
         token.birimId = (user as { birimId?: string }).birimId;
         token.adSoyad = (user as { adSoyad?: string }).adSoyad;
         token.roller = (user as { roller?: string[] }).roller;
+        // ADR-0013: izin matrisi + versiyon JWT'ye gömülür
+        token.izinler = (user as { izinler?: string[] }).izinler;
+        token.izinVersiyonu = (user as { izinVersiyonu?: number }).izinVersiyonu;
       }
       return token;
     },
@@ -92,7 +95,12 @@ export const authConfig = {
         session.user.email = token.email as string;
         (session.user as { birimId?: string }).birimId = token.birimId as string;
         (session.user as { adSoyad?: string }).adSoyad = token.adSoyad as string;
-        (session.user as { roller?: string[] }).roller = (token.roller as string[]) ?? [];
+        (session.user as { roller?: string[] }).roller =
+          (token.roller as string[]) ?? [];
+        (session.user as { izinler?: string[] }).izinler =
+          (token.izinler as string[]) ?? [];
+        (session.user as { izinVersiyonu?: number }).izinVersiyonu =
+          (token.izinVersiyonu as number) ?? 0;
       }
       return session;
     },

@@ -1,5 +1,4 @@
 import type { BirimTipi } from "@prisma/client";
-import type { ProjeYetkiSeviyesi } from "./schemas";
 
 // ---------------------------------------------------------------------------
 // Polimorfik yetkili paneli — kaynak ve izin tipleri
@@ -39,7 +38,6 @@ export type YetkiliKisiOzeti = {
   soyad: string;
   email: string;
   birim_ad: string | null;
-  seviye: ProjeYetkiSeviyesi | null;
   eklenme_zamani: Date | string;
 };
 
@@ -54,7 +52,6 @@ export type YetkiliKisiAdayi = {
 export type BekleyenDavetOzeti = {
   davet_id: string;
   email: string;
-  seviye: ProjeYetkiSeviyesi;
   son_kullanma: Date | string;
   olusturma_zamani: Date | string;
 };
@@ -76,10 +73,6 @@ export function kaynakId(kaynak: YetkiliKaynagi): string {
 
 export function kaynakAdi(kaynak: YetkiliKaynagi): "proje" | "liste" | "kart" {
   return kaynak.tip;
-}
-
-export function seviyeDestekliMi(kaynak: YetkiliKaynagi): boolean {
-  return kaynak.tip === "proje";
 }
 
 const BASLIK: Record<YetkiliKaynagi["tip"], string> = {

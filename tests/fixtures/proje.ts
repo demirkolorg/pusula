@@ -1,6 +1,6 @@
 import { fakerTR as faker } from "@faker-js/faker";
 import argon2 from "argon2";
-import type { PrismaClient } from "@prisma/client";
+import { IzinKategorisi, type PrismaClient } from "@prisma/client";
 import { siraSonuna } from "@/lib/sira";
 
 // Tur 2 — Modul "Proje" integration testleri icin seed factory'leri.
@@ -29,10 +29,10 @@ type AnyPrisma = Pick<
 // Sabit izin/rol matrisi — services'in `yetkiKontrol` testi yazildiginda gerekecek
 // (Tur 2 services testlerinde dogrudan kullanilmiyor, ama hazir olsun).
 const IZINLER = [
-  { kod: "proje:create", ad: "Proje Olustur", kategori: "proje" },
-  { kod: "proje:edit", ad: "Proje Duzenle", kategori: "proje" },
-  { kod: "proje:delete", ad: "Proje Sil", kategori: "proje" },
-  { kod: "proje:authorize", ad: "Yetkilileri Yonet", kategori: "proje" },
+  { kod: "proje:create", ad: "Proje Olustur", kategori: IzinKategorisi.PROJE },
+  { kod: "proje:edit", ad: "Proje Duzenle", kategori: IzinKategorisi.PROJE },
+  { kod: "proje:delete", ad: "Proje Sil", kategori: IzinKategorisi.PROJE },
+  { kod: "proje:authorize", ad: "Yetkilileri Yonet", kategori: IzinKategorisi.PROJE },
 ];
 
 const ROLLER = [

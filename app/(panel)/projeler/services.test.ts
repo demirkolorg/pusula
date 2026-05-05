@@ -201,7 +201,7 @@ describe("projeOlustur", () => {
     expect(liste.map((p) => p.ad)).toEqual(["Eski 1", "Eski 2", "Yepyeni"]);
   });
 
-  it("olusturan otomatik ProjeYetkilisi olarak ADMIN seviyesinde eklenir", async () => {
+  it("olusturan otomatik ProjeYetkilisi olarak eklenir", async () => {
     const yeni = await projeOlustur(ortam.superAdmin.id, {
       ad: "Yetkilili Proje",
     });
@@ -215,7 +215,6 @@ describe("projeOlustur", () => {
       },
     });
     expect(yetkili).not.toBeNull();
-    expect(yetkili?.seviye).toBe("ADMIN");
     // services tarafindan donen `yetkili_sayisi` 1 olmali.
     expect(yeni.yetkili_sayisi).toBe(1);
   });
@@ -231,6 +230,21 @@ describe("projeOlustur", () => {
       kapak_renk: "primary",
     });
     expect(renkli.kapak_renk).toBe("primary");
+  });
+
+  it("kapak ikonu opsiyonel — verilmezse null kalir, verilirse aynen yazilir (ADR-0010)", async () => {
+    const ikonsuz = await projeOlustur(ortam.superAdmin.id, {
+      ad: "Ikonsuz",
+    });
+    expect(ikonsuz.kapak_ikon).toBeNull();
+
+    const ikonlu = await projeOlustur(ortam.superAdmin.id, {
+      ad: "Ikonlu",
+      kapak_renk: "lacivert",
+      kapak_ikon: "snowflake",
+    });
+    expect(ikonlu.kapak_ikon).toBe("snowflake");
+    expect(ikonlu.kapak_renk).toBe("lacivert");
   });
 });
 
@@ -257,6 +271,21 @@ describe("projeGuncelle", () => {
     expect(sonra?.aciklama).toBe("Yeni aciklama");
     expect(sonra?.kapak_renk).toBe("secondary");
     expect(sonra?.yildizli_mi).toBe(true);
+  });
+
+  it("kapak_ikon alani guncellenir, null gonderilince temizlenir (ADR-0010)", async () => {
+    const p = await projeOlusturFiks(adminDb, {
+      birimId: ortam.birim.id,
+      ad: "Ikon test",
+    });
+    // Once ata
+    await projeGuncelle({ id: p.id, kapak_ikon: "star" });
+    let sonra = await adminDb.proje.findUnique({ where: { id: p.id } });
+    expect(sonra?.kapak_ikon).toBe("star");
+    // Sonra temizle
+    await projeGuncelle({ id: p.id, kapak_ikon: null });
+    sonra = await adminDb.proje.findUnique({ where: { id: p.id } });
+    expect(sonra?.kapak_ikon).toBeNull();
   });
 
   // Eski birim izolasyonu testi yetkilendirme modeliyle kapsam dışı kaldı.

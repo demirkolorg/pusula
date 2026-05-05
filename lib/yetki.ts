@@ -1,8 +1,15 @@
-// Resource-level RBAC.
+// Resource-level RBAC (ADR-0005, ADR-0008, ADR-0012).
 //
-// Sistem rolleri genel izinleri verir; kaynak yetkilileri ise hangi proje,
-// liste ve karta erisilecegini belirler. Yetki asagi miras kalir, yukari
-// sadece navigasyon kabugu acilir.
+// İki katmanlı yetki:
+//   1. Sistem rolü izinleri (lib/permissions.ts) — kullanıcı bu TIP işlemi
+//      yapabilir mi (örn. PROJE_SIL).
+//   2. Kaynak erişimi (bu modül) — bu kullanıcı bu kaynağa (proje/liste/kart)
+//      erişebilir mi.
+//
+// ADR-0012 ile "ProjeYetkilisi.seviye" kaldırıldı: yetkilinin proje-içi rolü
+// yok; yetkili olmak == projeye erişimi var. Aksiyon kararı sistem rolünden
+// gelir (action wrapper'larda yetkiZorunlu + yetkiZorunluProje birlikte).
+// Yetki aşağı miras kalır (proje→liste→kart), yukarı sadece navigasyon kabuğu.
 
 import { db } from "./db";
 import { EylemHatasi } from "./action-wrapper";
@@ -18,23 +25,6 @@ export type ProjeAksiyon =
 export type ListeAksiyon = "liste:read" | "liste:create" | "liste:edit" | "liste:delete";
 
 export type KartAksiyon = "kart:read" | "kart:edit" | "kart:delete" | "kart:tasi" | "kart:create";
-
-const SEVIYE_IZINLERI: Record<
-  "ADMIN" | "NORMAL" | "IZLEYICI",
-  Set<ProjeAksiyon | ListeAksiyon | KartAksiyon>
-> = {
-  ADMIN: new Set([
-    "proje:read", "proje:edit", "proje:delete", "proje:authorize",
-    "liste:read", "liste:create", "liste:edit", "liste:delete",
-    "kart:read", "kart:create", "kart:edit", "kart:delete", "kart:tasi",
-  ]),
-  NORMAL: new Set([
-    "proje:read", "proje:edit",
-    "liste:read", "liste:create", "liste:edit",
-    "kart:read", "kart:create", "kart:edit", "kart:tasi",
-  ]),
-  IZLEYICI: new Set(["proje:read", "liste:read", "kart:read"]),
-};
 
 type ErisimBilgisi = {
   birimId: string | null;
@@ -73,7 +63,8 @@ export async function canProje(
       silindi_mi: true,
       yetkililer: {
         where: { kullanici_id: kullaniciId },
-        select: { seviye: true },
+        select: { kullanici_id: true },
+        take: 1,
       },
       birimler: {
         where: birimWhere,
@@ -107,13 +98,15 @@ export async function canProje(
   if (proje.silindi_mi && aksiyon !== "proje:read") return false;
   if (erisim.makam) return true;
 
-  const yetkili = proje.yetkililer[0];
-  if (yetkili && SEVIYE_IZINLERI[yetkili.seviye].has(aksiyon)) return true;
+  const projeYetkili = proje.yetkililer.length > 0;
+  const projeBirimYetkili = proje.birimler.length > 0;
 
-  return (
-    aksiyon === "proje:read" &&
-    (proje.birimler.length > 0 || proje.listeler.length > 0)
-  );
+  // Proje yetkilisi olan veya birimi atanmış olan: tüm aksiyonlar (sistem rolü
+  // izniyle birlikte action wrapper'da kontrol edilir, burada erişim katmanı).
+  if (projeYetkili || projeBirimYetkili) return true;
+
+  // Aşağıdan miras: sadece read için kabuk gösterilir (alt liste/kart bağı).
+  return aksiyon === "proje:read" && proje.listeler.length > 0;
 }
 
 export async function canListe(
@@ -133,7 +126,7 @@ export async function canListe(
         select: {
           yetkililer: {
             where: { kullanici_id: kullaniciId },
-            select: { seviye: true },
+            select: { kullanici_id: true },
             take: 1,
           },
           birimler: {
@@ -169,27 +162,24 @@ export async function canListe(
   if (!liste) return false;
   if (erisim.makam) return true;
 
-  const projeYetkili = liste.proje.yetkililer[0];
-  const projeYetkisiVar =
-    !!projeYetkili && SEVIYE_IZINLERI[projeYetkili.seviye].has(aksiyon);
+  const projeYetkili = liste.proje.yetkililer.length > 0;
   const projeBirimYetkili = liste.proje.birimler.length > 0;
   const listeDogruYetkili =
     liste.yetkililer.length > 0 || liste.birimler.length > 0;
 
   if (aksiyon === "liste:read") {
     return (
-      !!projeYetkili ||
+      projeYetkili ||
       projeBirimYetkili ||
       listeDogruYetkili ||
       liste.kartlar.length > 0
     );
   }
 
-  if (aksiyon === "liste:delete") {
-    return !!projeYetkili && SEVIYE_IZINLERI[projeYetkili.seviye].has(aksiyon);
-  }
-
-  return projeYetkisiVar || projeBirimYetkili || listeDogruYetkili;
+  // Mutasyonlar (create/edit/delete): proje-yetkili veya proje-birim veya
+  // doğrudan liste-yetkili kullanıcı yapabilir. Sistem rolü izni ayrıca action
+  // wrapper'da yetkiZorunlu ile kontrol edilir.
+  return projeYetkili || projeBirimYetkili || listeDogruYetkili;
 }
 
 export async function canKart(
@@ -222,7 +212,7 @@ export async function canKart(
             select: {
               yetkililer: {
                 where: { kullanici_id: kullaniciId },
-                select: { seviye: true },
+                select: { kullanici_id: true },
                 take: 1,
               },
               birimler: {
@@ -251,30 +241,15 @@ export async function canKart(
   if (kart.silindi_mi && aksiyon !== "kart:read") return false;
   if (erisim.makam) return true;
 
-  const projeYetkili = kart.liste.proje.yetkililer[0];
-  const projeYetkisiVar =
-    !!projeYetkili && SEVIYE_IZINLERI[projeYetkili.seviye].has(aksiyon);
+  const projeYetkili = kart.liste.proje.yetkililer.length > 0;
   const projeBirimYetkili = kart.liste.proje.birimler.length > 0;
   const listeDogruYetkili =
     kart.liste.yetkililer.length > 0 || kart.liste.birimler.length > 0;
   const kartDogruYetkili =
     kart.yetkililer.length > 0 || kart.birimler.length > 0;
 
-  if (aksiyon === "kart:read") {
-    return (
-      !!projeYetkili ||
-      projeBirimYetkili ||
-      listeDogruYetkili ||
-      kartDogruYetkili
-    );
-  }
-
-  if (aksiyon === "kart:delete") {
-    return !!projeYetkili && SEVIYE_IZINLERI[projeYetkili.seviye].has(aksiyon);
-  }
-
   return (
-    projeYetkisiVar ||
+    projeYetkili ||
     projeBirimYetkili ||
     listeDogruYetkili ||
     kartDogruYetkili

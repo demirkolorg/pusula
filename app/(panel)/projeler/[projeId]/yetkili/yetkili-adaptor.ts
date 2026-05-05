@@ -21,13 +21,12 @@ import {
   projeAdayKullanicilarEylem,
   projeBekleyenDavetleriEylem,
   projeDavetIptalEylem,
+  projeDavetYenidenGonderEylem,
   projeYetkilileriniListeleEylem,
-  projeYetkilisiSeviyeGuncelleEylem,
   projeyeDavetGonderEylem,
   projeyeYetkiliEkleEylem,
   projeyeYetkiliKaldirEylem,
 } from "./actions";
-import type { ProjeYetkiSeviyesi } from "./schemas";
 import type {
   BekleyenDavetOzeti,
   YetkiliBirimOzeti,
@@ -164,11 +163,7 @@ export function birimAdaptor(kaynak: YetkiliKaynagi) {
 }
 
 // ---------------------------------------------------------------------------
-// Kişi adaptörü
-//
-// Why proje farkı: Proje yetkilisi seviye taşır (ADMIN/NORMAL/IZLEYICI),
-// liste ve kart düz kişi listesi tutar. seviyeGuncelle yalnız proje için
-// destekli; UI bu özelliği `seviyeDestekliMi()` ile koşullu render eder.
+// Kişi adaptörü (ADR-0012: seviye yok, tek tip yetkili)
 // ---------------------------------------------------------------------------
 
 export function kisiAdaptor(kaynak: YetkiliKaynagi) {
@@ -228,7 +223,6 @@ export function kisiAdaptor(kaynak: YetkiliKaynagi) {
 
     ekle: (
       kullanici_id: string,
-      seviye: ProjeYetkiSeviyesi,
     ): Promise<{ kullanici_id: string; ozet?: YetkiliKisiOzeti }> => {
       switch (kaynak.tip) {
         case "proje":
@@ -236,7 +230,6 @@ export function kisiAdaptor(kaynak: YetkiliKaynagi) {
             projeyeYetkiliEkleEylem({
               proje_id: kaynak.projeId,
               kullanici_id,
-              seviye,
             }),
           ).then((ozet) => ({
             kullanici_id,
@@ -284,24 +277,6 @@ export function kisiAdaptor(kaynak: YetkiliKaynagi) {
           ).then(() => ({ kullanici_id }));
       }
     },
-
-    seviyeGuncelle: (
-      kullanici_id: string,
-      seviye: ProjeYetkiSeviyesi,
-    ): Promise<{ kullanici_id: string; seviye: ProjeYetkiSeviyesi }> => {
-      if (kaynak.tip !== "proje") {
-        return Promise.reject(
-          new Error("Seviye yalnızca proje yetkilileri için günceller."),
-        );
-      }
-      return paket(
-        projeYetkilisiSeviyeGuncelleEylem({
-          proje_id: kaynak.projeId,
-          kullanici_id,
-          seviye,
-        }),
-      ).then(() => ({ kullanici_id, seviye }));
-    },
   };
 }
 
@@ -314,7 +289,6 @@ function projeyiKisiyeNormalize(ozet: {
   ad: string;
   soyad: string;
   email: string;
-  seviye: ProjeYetkiSeviyesi;
   eklenme_zamani: Date | string;
 }): YetkiliKisiOzeti {
   return {
@@ -323,7 +297,6 @@ function projeyiKisiyeNormalize(ozet: {
     soyad: ozet.soyad,
     email: ozet.email,
     birim_ad: null,
-    seviye: ozet.seviye,
     eklenme_zamani: ozet.eklenme_zamani,
   };
 }
@@ -342,7 +315,6 @@ function listeyiKisiyeNormalize(ozet: {
     soyad: ozet.soyad,
     email: ozet.email,
     birim_ad: ozet.birim_ad,
-    seviye: null,
     eklenme_zamani: ozet.eklenme_zamani,
   };
 }
@@ -359,15 +331,17 @@ function karttanKisiyeNormalize(ozet: {
     soyad: ozet.soyad,
     email: ozet.email,
     birim_ad: null,
-    seviye: null,
     eklenme_zamani: new Date(),
   };
 }
 
 // ---------------------------------------------------------------------------
-// Davet adaptörü — yalnız proje kaynağı için (ADR-0010)
-// Why: kart/liste'de davet anlamsız; daveti kabul eden kullanıcı önce projeye
-// yetkili olur, gerekirse sonradan liste/kart yetkisi verilir.
+// Davet adaptörü (ADR-0010)
+//
+// Davet her zaman PROJE seviyesinde yetki verir — saf paylaşım modeli (ADR-0008)
+// gereği proje yetkilisi olan kullanıcı alt liste/kart'lara da erişir. Bu yüzden
+// kart ve liste yetkili paneli'nden açılan davet de kaynağın projesine yetkili
+// olarak ekler. Server projeId'yi kart_id/liste_id'den türetir.
 // ---------------------------------------------------------------------------
 
 export type DavetAdaptor = {
@@ -375,43 +349,70 @@ export type DavetAdaptor = {
   bekleyenler: () => Promise<BekleyenDavetOzeti[]>;
   davetGonder: (girdi: {
     email: string;
-    seviye: ProjeYetkiSeviyesi;
+    birim_id: string | null;
+    rol_id: string;
   }) => Promise<{ davet_id: string; email: string }>;
   davetIptal: (davet_id: string) => Promise<{ davet_id: string }>;
+  davetYenidenGonder: (
+    davet_id: string,
+  ) => Promise<{ davet_id: string; email: string }>;
 };
 
-export function davetAdaptor(
-  kaynak: YetkiliKaynagi,
-): DavetAdaptor | null {
-  if (kaynak.tip !== "proje") return null;
-  const projeId = kaynak.projeId;
+type DavetKaynakArgs =
+  | { proje_id: string }
+  | { liste_id: string }
+  | { kart_id: string };
+
+function kaynakArgs(kaynak: YetkiliKaynagi): DavetKaynakArgs {
+  switch (kaynak.tip) {
+    case "proje":
+      return { proje_id: kaynak.projeId };
+    case "liste":
+      return { liste_id: kaynak.listeId };
+    case "kart":
+      return { kart_id: kaynak.kartId };
+  }
+}
+
+function bekleyenlerKey(kaynak: YetkiliKaynagi): QueryKey {
+  switch (kaynak.tip) {
+    case "proje":
+      return ["proje-bekleyen-davetler", "proje", kaynak.projeId] as const;
+    case "liste":
+      return ["proje-bekleyen-davetler", "liste", kaynak.listeId] as const;
+    case "kart":
+      return ["proje-bekleyen-davetler", "kart", kaynak.kartId] as const;
+  }
+}
+
+export function davetAdaptor(kaynak: YetkiliKaynagi): DavetAdaptor {
+  const args = kaynakArgs(kaynak);
   return {
-    bekleyenleriQueryKey: ["proje-bekleyen-davetler", projeId] as const,
+    bekleyenleriQueryKey: bekleyenlerKey(kaynak),
     bekleyenler: () =>
-      paket(projeBekleyenDavetleriEylem({ proje_id: projeId })).then((veri) =>
+      paket(projeBekleyenDavetleriEylem(args)).then((veri) =>
         veri.map((d) => ({
           davet_id: d.davet_id,
           email: d.email,
-          seviye: d.seviye,
           son_kullanma: d.son_kullanma,
           olusturma_zamani: d.olusturma_zamani,
         })),
       ),
-    davetGonder: ({ email, seviye }) =>
+    davetGonder: ({ email, birim_id, rol_id }) =>
       paket(
         projeyeDavetGonderEylem({
-          proje_id: projeId,
+          ...args,
           email,
-          seviye,
+          birim_id,
+          rol_id,
         }),
-      ),
+      ).then((s) => ({ davet_id: s.davet_id, email: s.email })),
     davetIptal: (davet_id) =>
-      paket(
-        projeDavetIptalEylem({
-          proje_id: projeId,
-          davet_id,
-        }),
-      ).then(() => ({ davet_id })),
+      paket(projeDavetIptalEylem({ ...args, davet_id })).then(() => ({
+        davet_id,
+      })),
+    davetYenidenGonder: (davet_id) =>
+      paket(projeDavetYenidenGonderEylem({ ...args, davet_id })),
   };
 }
 
@@ -421,5 +422,4 @@ export {
   optimistikBirimKaldir,
   optimistikKisiEkle,
   optimistikKisiKaldir,
-  optimistikSeviyeGuncelle,
 } from "./yetkili-optimistic";

@@ -31,7 +31,7 @@ let projeId: string;
 async function sahipliProjeOlustur(birimId: string, sahipId: string) {
   const p = await projeOlusturFiks(adminDb, { birimId, olusturanId: sahipId });
   await adminDb.projeYetkilisi.create({
-    data: { proje_id: p.id, kullanici_id: sahipId, seviye: "ADMIN" },
+    data: { proje_id: p.id, kullanici_id: sahipId },
   });
   return { id: p.id };
 }
@@ -279,7 +279,6 @@ describe("Etiket / Yetkili aktiviteleri", () => {
       data: {
         proje_id: projeId,
         kullanici_id: ortam.personel.id,
-        seviye: "NORMAL",
       },
     });
     await aktiviteEkle({
@@ -308,7 +307,6 @@ describe("Etiket / Yetkili aktiviteleri", () => {
       data: {
         proje_id: projeId,
         kullanici_id: ortam.personel.id,
-        seviye: "NORMAL",
       },
     });
     await aktiviteEkle({
@@ -391,7 +389,6 @@ it("KontrolMaddesi UPDATE diff.sira → 'yeniden sıraladı' (drag-drop gürült
       data: {
         proje_id: projeId,
         kullanici_id: ortam.personel.id,
-        seviye: "NORMAL",
       },
     });
     await aktiviteEkle({
