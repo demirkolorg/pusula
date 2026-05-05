@@ -6,7 +6,11 @@ import { yetkiZorunlu, IZIN_KODLARI } from "@/lib/permissions";
 import { yetkiZorunluProje, yetkiZorunluKart } from "@/lib/yetki";
 import { HATA_KODU } from "@/lib/sonuc";
 import { davetLimiter } from "@/lib/rate-limit";
-import { tetikleKartYetkiliAtama } from "@/app/(panel)/bildirimler/tetikleyiciler";
+import {
+  tetikleKartYetkiliAtama,
+  tetikleProjeUyeCikarildi,
+  tetikleProjeUyeEklendi,
+} from "@/app/(panel)/bildirimler/tetikleyiciler";
 import {
   davetiYenidenGonder,
   davetOlustur,
@@ -96,7 +100,18 @@ export const projeyeYetkiliEkleEylem = eylem({
       "proje:authorize",
       girdi.proje_id,
     );
-    return projeyeYetkiliEkleSrv(birimIdAl(ctx), girdi);
+    const ekleyenId = ctx.oturum?.kullaniciId ?? null;
+    const sonuc = await projeyeYetkiliEkleSrv(birimIdAl(ctx), girdi);
+    if (ekleyenId) {
+      tetikleProjeUyeEklendi({
+        projeId: girdi.proje_id,
+        eklenenId: girdi.kullanici_id,
+        ekleyenId,
+      }).catch(() => {
+        /* Bildirim hatası işlemi bozmaz */
+      });
+    }
+    return sonuc;
   },
 });
 
@@ -110,11 +125,21 @@ export const projeyeYetkiliKaldirEylem = eylem({
       "proje:authorize",
       girdi.proje_id,
     );
+    const cikaranId = ctx.oturum?.kullaniciId ?? null;
     await projeyeYetkiliKaldirSrv(
       birimIdAl(ctx),
       girdi.proje_id,
       girdi.kullanici_id,
     );
+    if (cikaranId && cikaranId !== girdi.kullanici_id) {
+      tetikleProjeUyeCikarildi({
+        projeId: girdi.proje_id,
+        cikarilanId: girdi.kullanici_id,
+        cikaranId,
+      }).catch(() => {
+        /* Bildirim hatası işlemi bozmaz */
+      });
+    }
     return { proje_id: girdi.proje_id, kullanici_id: girdi.kullanici_id };
   },
 });

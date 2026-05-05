@@ -318,7 +318,65 @@ export async function tetikleEklentiYuklendi(opt: {
 }
 
 // =====================================================================
-// 6. Bitiş tarihi yaklaşıyor / geçti — cron ile çağrılır
+// 6. Projeye yetkili eklendi — eklenen kullanıcıya bildirim
+// =====================================================================
+
+async function projeAdiniGetir(projeId: string): Promise<string | null> {
+  const p = await db.proje.findUnique({
+    where: { id: projeId },
+    select: { ad: true },
+  });
+  return p?.ad ?? null;
+}
+
+export async function tetikleProjeUyeEklendi(opt: {
+  projeId: string;
+  eklenenId: string;
+  ekleyenId: string;
+}): Promise<void> {
+  if (opt.eklenenId === opt.ekleyenId) return;
+  const projeAd = await projeAdiniGetir(opt.projeId);
+  if (!projeAd) return;
+  const ekleyenAdi = await adSoyad(opt.ekleyenId);
+  await bildirimUret({
+    alici_idler: [opt.eklenenId],
+    ureten_id: opt.ekleyenId,
+    tip: "PROJE_UYE_EKLENDI",
+    baslik: `${ekleyenAdi} sizi bir projeye ekledi`,
+    ozet: projeAd,
+    proje_id: opt.projeId,
+    kaynak_tip: "Proje",
+    kaynak_id: opt.projeId,
+  });
+}
+
+// =====================================================================
+// 7. Projeden yetkili çıkarıldı — çıkarılan kullanıcıya bildirim
+// =====================================================================
+
+export async function tetikleProjeUyeCikarildi(opt: {
+  projeId: string;
+  cikarilanId: string;
+  cikaranId: string;
+}): Promise<void> {
+  if (opt.cikarilanId === opt.cikaranId) return;
+  const projeAd = await projeAdiniGetir(opt.projeId);
+  if (!projeAd) return;
+  const cikaranAdi = await adSoyad(opt.cikaranId);
+  await bildirimUret({
+    alici_idler: [opt.cikarilanId],
+    ureten_id: opt.cikaranId,
+    tip: "PROJE_UYE_CIKARILDI",
+    baslik: `${cikaranAdi} sizi bir projeden çıkardı`,
+    ozet: projeAd,
+    proje_id: opt.projeId,
+    kaynak_tip: "Proje",
+    kaynak_id: opt.projeId,
+  });
+}
+
+// =====================================================================
+// 8. Bitiş tarihi yaklaşıyor / geçti — cron ile çağrılır
 // =====================================================================
 
 // Cron gibi periyodik bir scheduler'dan çağrılır. MVP'de manuel; production'da

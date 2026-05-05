@@ -10,6 +10,8 @@ import {
   CheckSquareIcon,
   MessageSquareIcon,
   PaperclipIcon,
+  UserMinusIcon,
+  UserPlusIcon,
   UsersIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -42,6 +44,8 @@ const TIP_IKON: Record<
   BITIS_GECTI: AlertTriangleIcon,
   YORUM_EKLENDI: MessageSquareIcon,
   EKLENTI_YUKLENDI: PaperclipIcon,
+  PROJE_UYE_EKLENDI: UserPlusIcon,
+  PROJE_UYE_CIKARILDI: UserMinusIcon,
 };
 
 const TIP_RENK: Record<BildirimTipi, string> = {
@@ -52,6 +56,8 @@ const TIP_RENK: Record<BildirimTipi, string> = {
   BITIS_GECTI: "bg-red-100 text-red-700",
   YORUM_EKLENDI: "bg-blue-100 text-blue-700",
   EKLENTI_YUKLENDI: "bg-slate-100 text-slate-700",
+  PROJE_UYE_EKLENDI: "bg-emerald-100 text-emerald-700",
+  PROJE_UYE_CIKARILDI: "bg-amber-100 text-amber-700",
 };
 
 export function BildirimlerSayfaIcerik() {

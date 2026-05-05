@@ -8,6 +8,8 @@ export const BILDIRIM_TIPLERI = [
   "BITIS_GECTI",
   "YORUM_EKLENDI",
   "EKLENTI_YUKLENDI",
+  "PROJE_UYE_EKLENDI",
+  "PROJE_UYE_CIKARILDI",
 ] as const;
 
 export const bildirimTipiSemasi = z.enum(BILDIRIM_TIPLERI);

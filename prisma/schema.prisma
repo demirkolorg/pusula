@@ -239,9 +239,13 @@ model Birim {
   liste_birimleri ListeBirimi[]
   kart_birimleri  KartBirimi[]
 
+  // ADR-0017: global arama (tsvector + GIN) — trigger ile otomatik güncellenir.
+  arama_vektoru Unsupported("tsvector")?
+
   @@index([kategori])
   @@index([tip])
   @@index([silindi_mi])
+  @@index([arama_vektoru], type: Gin)
 }
 
 // ============================================================
@@ -286,13 +290,18 @@ model Kullanici {
   eklentiler          Eklenti[]        @relation("EklentiYukleyen")
   tamamlanan_maddeler KontrolMaddesi[] @relation("KontrolTamamlayan")
   atanan_maddeler     KontrolMaddesi[] @relation("KontrolAtanan")
+  tamamladigi_kartlar Kart[]           @relation("KartTamamlayan")
   bildirimler         Bildirim[]       @relation("BildirimAlici")
   ureten_bildirimler  Bildirim[]       @relation("BildirimUreten")
+
+  // ADR-0017: global arama (tsvector + GIN) — trigger ile otomatik güncellenir.
+  arama_vektoru Unsupported("tsvector")?
 
   @@index([birim_id])
   @@index([email])
   @@index([onay_durumu])
   @@index([silindi_mi])
+  @@index([arama_vektoru], type: Gin)
 }
 
 enum IzinKategorisi {
@@ -535,8 +544,12 @@ model Proje {
   etiketler         Etiket[]
   bekleyen_davetler DavetProjeBaglami[]
 
+  // ADR-0017: global arama (tsvector + GIN) — trigger ile otomatik güncellenir.
+  arama_vektoru Unsupported("tsvector")?
+
   @@index([silindi_mi, arsiv_mi])
   @@index([sira])
+  @@index([arama_vektoru], type: Gin)
 }
 
 model ProjeYetkilisi {
@@ -589,9 +602,13 @@ model Liste {
   birimler          ListeBirimi[]
   bekleyen_davetler DavetListeBaglami[]
 
+  // ADR-0017: global arama (tsvector + GIN) — trigger ile otomatik güncellenir.
+  arama_vektoru Unsupported("tsvector")?
+
   @@index([proje_id, sira])
   @@index([proje_id, arsiv_mi])
   @@index([proje_id, tip])
+  @@index([arama_vektoru], type: Gin)
 }
 
 model ListeYetkilisi {
@@ -629,6 +646,12 @@ model Kart {
   kapak_dosya_id        String?   @db.Uuid
   baslangic             DateTime?
   bitis                 DateTime?
+  // Trello tarzı — kart bütün olarak tamamlandı işareti. Kontrol listesi
+  // maddelerinden bağımsız: kullanıcı manuel toggle eder. tamamlanma_zamani
+  // raporlama/sıralama, tamamlayan_id audit için.
+  tamamlandi_mi      Boolean   @default(false)
+  tamamlanma_zamani  DateTime?
+  tamamlayan_id      String?   @db.Uuid
   arsiv_mi              Boolean   @default(false)
   // ADR-0009 — kart arşivlenmeden önceki listenin id'si; geri yükleme için.
   arsiv_oncesi_liste_id String?   @db.Uuid
@@ -640,6 +663,7 @@ model Kart {
   guncelleme_zamani     DateTime  @updatedAt
 
   liste             Liste              @relation(fields: [liste_id], references: [id], onDelete: Cascade)
+  tamamlayan        Kullanici?         @relation("KartTamamlayan", fields: [tamamlayan_id], references: [id])
   yetkililer        KartYetkilisi[]
   etiketler         KartEtiket[]
   birimler          KartBirimi[]
@@ -648,9 +672,14 @@ model Kart {
   kontrol_listeleri KontrolListesi[]
   bekleyen_davetler DavetKartBaglami[]
 
+  // ADR-0017: global arama (tsvector + GIN) — trigger ile otomatik güncellenir.
+  arama_vektoru Unsupported("tsvector")?
+
   @@index([liste_id, sira])
   @@index([liste_id, silindi_mi, arsiv_mi])
+  @@index([liste_id, tamamlandi_mi])
   @@index([bitis])
+  @@index([arama_vektoru], type: Gin)
 }
 
 model KartBirimi {
@@ -675,8 +704,12 @@ model Etiket {
   proje       Proje        @relation(fields: [proje_id], references: [id], onDelete: Cascade)
   kart_baglar KartEtiket[]
 
+  // ADR-0017: global arama (tsvector + GIN) — trigger ile otomatik güncellenir.
+  arama_vektoru Unsupported("tsvector")?
+
   @@unique([proje_id, ad])
   @@index([proje_id])
+  @@index([arama_vektoru], type: Gin)
 }
 
 model KartEtiket {
@@ -729,8 +762,12 @@ model Yorum {
   yanit_yorum Yorum?    @relation("YorumYanit", fields: [yanit_yorum_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   yanitlar    Yorum[]   @relation("YorumYanit")
 
+  // ADR-0017: global arama (tsvector + GIN) — trigger ile otomatik güncellenir.
+  arama_vektoru Unsupported("tsvector")?
+
   @@index([kart_id, silindi_mi, olusturma_zamani(sort: Desc)])
   @@index([yazan_id])
+  @@index([arama_vektoru], type: Gin)
 }
 
 model Eklenti {
@@ -749,7 +786,11 @@ model Eklenti {
   kart     Kart      @relation(fields: [kart_id], references: [id], onDelete: Cascade)
   yukleyen Kullanici @relation("EklentiYukleyen", fields: [yukleyen_id], references: [id])
 
+  // ADR-0017: global arama (tsvector + GIN) — trigger ile otomatik güncellenir.
+  arama_vektoru Unsupported("tsvector")?
+
   @@index([kart_id, silindi_mi, olusturma_zamani(sort: Desc)])
+  @@index([arama_vektoru], type: Gin)
 }
 
 model KontrolListesi {
@@ -783,8 +824,12 @@ model KontrolMaddesi {
   tamamlayan      Kullanici?     @relation("KontrolTamamlayan", fields: [tamamlayan_id], references: [id])
   atanan          Kullanici?     @relation("KontrolAtanan", fields: [atanan_id], references: [id])
 
+  // ADR-0017: global arama (tsvector + GIN) — trigger ile otomatik güncellenir.
+  arama_vektoru Unsupported("tsvector")?
+
   @@index([kontrol_listesi_id, sira])
   @@index([atanan_id])
+  @@index([arama_vektoru], type: Gin)
 }
 
 // ============================================================
@@ -807,6 +852,10 @@ enum BildirimTipi {
   YORUM_EKLENDI
   // Karta eklenti yüklendi (kart üyelerine)
   EKLENTI_YUKLENDI
+  // Projeye yetkili olarak eklendi
+  PROJE_UYE_EKLENDI
+  // Projeden yetkili olarak çıkarıldı
+  PROJE_UYE_CIKARILDI
 }
 
 model Bildirim {
