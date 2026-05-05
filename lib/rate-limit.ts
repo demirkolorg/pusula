@@ -57,6 +57,7 @@ export function rateLimit(opts: RateLimitOptions, scope = "default"): Limiter {
 // Önceden tanımlı limiter'lar — kontrol Kural 73
 export const loginLimiter = rateLimit({ tokens: 5, window: 60_000 }, "login");
 export const davetLimiter = rateLimit({ tokens: 3, window: 60_000 }, "davet");
+export const aramaLimiter = rateLimit({ tokens: 30, window: 60_000 }, "arama");
 export const uploadLimiter = rateLimit({ tokens: 10, window: 60_000 }, "upload");
 export const logHataLimiter = rateLimit({ tokens: 30, window: 60_000 }, "log-hata");
 

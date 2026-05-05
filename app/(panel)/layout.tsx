@@ -3,6 +3,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { GlobalSearch } from "@/components/global-search";
 import { HeaderUserMenu } from "@/components/header-user-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { KomutPaleti } from "@/app/(panel)/genel-arama/components/komut-paleti";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -104,6 +105,7 @@ export default async function PanelLayout({
         </header>
         <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4">{children}</div>
       </SidebarInset>
+      <KomutPaleti />
     </SidebarProvider>
   );
 }
