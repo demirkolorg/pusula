@@ -38,3 +38,9 @@ export const TIP_BASLIK: Record<AramaTipi, string> = {
   proje: "Projeler",
   liste: "Listeler",
 };
+
+/** Service çıktı paketi: sonuçlar + sorgu süresi (ms). UI'da göstermek için. */
+export type AramaCikti = {
+  sonuclar: AramaSonucu[];
+  sureMs: number;
+};

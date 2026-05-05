@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import { kullaniciErisimBilgisi } from "@/lib/yetki";
 import { tsqueryyeCevir } from "./genel-arama-helper";
 import type { AramaSorgusu } from "./schemas";
-import type { AramaSonucu } from "./tipler";
+import type { AramaCikti, AramaSonucu } from "./tipler";
 
 /**
  * Genel arama: 9 tabloyu UNION ALL ile arar, yetki filtresi uygular,
@@ -25,9 +25,10 @@ import type { AramaSonucu } from "./tipler";
 export async function genelArama(
   girdi: AramaSorgusu,
   kullaniciId: string,
-): Promise<AramaSonucu[]> {
+): Promise<AramaCikti> {
+  const baslangic = performance.now();
   const tsq = tsqueryyeCevir(girdi.sorgu);
-  if (!tsq) return [];
+  if (!tsq) return { sonuclar: [], sureMs: 0 };
 
   const erisim = await kullaniciErisimBilgisi(kullaniciId);
   const erisimliProjeIdleri = erisim.makam
@@ -36,11 +37,14 @@ export async function genelArama(
 
   // Makam değilse ve erişebileceği proje yoksa, proje-bağlı tablolar boş döner.
   // Sadece kullanici/birim global aranabilir kalır.
+  let sonuclar: AramaSonucu[];
   if (!erisim.makam && erisimliProjeIdleri && erisimliProjeIdleri.length === 0) {
-    return aramaSadeceKullaniciBirim(tsq, girdi);
+    sonuclar = await aramaSadeceKullaniciBirim(tsq, girdi);
+  } else {
+    sonuclar = await aramaTumTablolar(tsq, girdi, erisim.makam, erisimliProjeIdleri ?? []);
   }
 
-  return aramaTumTablolar(tsq, girdi, erisim.makam, erisimliProjeIdleri ?? []);
+  return { sonuclar, sureMs: Math.round(performance.now() - baslangic) };
 }
 
 /**

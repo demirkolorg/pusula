@@ -8,7 +8,7 @@ import { aramaLimiter } from "@/lib/rate-limit";
 import { HATA_KODU } from "@/lib/sonuc";
 import { aramaSorgusuSemasi } from "./schemas";
 import { genelArama } from "./services";
-import type { AramaSonucu } from "./tipler";
+import type { AramaCikti } from "./tipler";
 
 /**
  * Genel arama eylemi: oturum kullanıcısı için 9 tabloyu arar.
@@ -20,7 +20,7 @@ import type { AramaSonucu } from "./tipler";
 export const genelAramaEylem = eylem({
   ad: "genel-arama:ara",
   girdi: aramaSorgusuSemasi,
-  calistir: async (girdi, ctx): Promise<AramaSonucu[]> => {
+  calistir: async (girdi, ctx): Promise<AramaCikti> => {
     const kullaniciId = ctx.oturum!.kullaniciId;
     if (!aramaLimiter.tryConsume(kullaniciId)) {
       throw new EylemHatasi(

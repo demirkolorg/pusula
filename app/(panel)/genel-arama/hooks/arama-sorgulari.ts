@@ -7,7 +7,7 @@ import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { genelAramaEylem } from "../actions";
 import type { AramaSorgusu } from "../schemas";
-import type { AramaSonucu } from "../tipler";
+import type { AramaCikti } from "../tipler";
 
 /**
  * Debounce hook'u — yazı yazılırken her tuş basımında sorgu atmak yerine
@@ -33,7 +33,7 @@ export function useGenelArama(girdi: Partial<AramaSorgusu>) {
   const debouncedSorgu = useDebounce(girdi.sorgu ?? "", 250);
   const aktif = debouncedSorgu.trim().length >= 2;
 
-  return useQuery<AramaSonucu[]>({
+  return useQuery<AramaCikti>({
     queryKey: ["genel-arama", debouncedSorgu, girdi.tipler ?? "hepsi"],
     queryFn: async () => {
       const sonuc = await genelAramaEylem({
