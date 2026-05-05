@@ -11,6 +11,7 @@ import {
 } from "@/lib/yetki";
 import { HATA_KODU } from "@/lib/sonuc";
 import {
+  kartArsivSemasi,
   kartGeriYukleSemasi,
   kartGuncelleSemasi,
   kartOlusturSemasi,
@@ -23,6 +24,7 @@ import {
   projeDetaySemasi,
 } from "./schemas";
 import {
+  kartArsivToggle,
   kartGeriYukle,
   kartGuncelle as kartGuncelleSrv,
   kartiTasi,
@@ -190,6 +192,18 @@ export const kartTasiEylem = eylem({
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:tasi", girdi.id);
     await yetkiZorunluListe(ctx.oturum?.kullaniciId, "liste:edit", girdi.hedef_liste_id);
     return kartiTasi(kullaniciIdAl(ctx), girdi);
+  },
+});
+
+// ADR-0009 — Kartı arşivle/arşivden çıkar.
+// Sistem Arşiv listesine taşır veya arsiv_oncesi_liste_id'ye geri yükler.
+export const kartArsivEylem = eylem({
+  ad: "kart:arsiv",
+  girdi: kartArsivSemasi,
+  calistir: async (girdi, ctx) => {
+    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
+    await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.id);
+    return kartArsivToggle(kullaniciIdAl(ctx), girdi);
   },
 });
 

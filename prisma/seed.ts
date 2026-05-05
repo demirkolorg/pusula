@@ -1,4 +1,5 @@
 import {
+  ListeTipi,
   PrismaClient,
   type BirimTipi,
   type ProjeYetkiSeviyesi,
@@ -449,6 +450,15 @@ async function projeOlustur(args: {
       olusturan_id: al(args.ctx.kullanicilar, args.olusturan, "Kullanıcı").id,
     },
     select: { id: true },
+  });
+  // ADR-0009 — her projede otomatik Arşiv sistem listesi (sira=ZZZZ, en sağda)
+  await db.liste.create({
+    data: {
+      proje_id: proje.id,
+      ad: "Arşiv",
+      sira: "ZZZZ",
+      tip: ListeTipi.ARSIV,
+    },
   });
   await db.projeYetkilisi.createMany({
     data: args.yetkililer.map((y) => ({

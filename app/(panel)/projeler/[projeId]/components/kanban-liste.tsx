@@ -11,7 +11,9 @@ import {
 } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
+import { ListeTipi } from "@prisma/client";
 import {
+  ArchiveIcon,
   MoreHorizontalIcon,
   Plus,
   PencilIcon,
@@ -43,8 +45,6 @@ type Props = {
   liste: ListeOzeti;
   projeId: string;
   yetkiler: KanbanYetkileri;
-  // Tüm proje listeleri — kart bağlam menüsünde "Listeye taşı ›" submenu için.
-  tumListeler: ReadonlyArray<ListeOzeti>;
   kartPlaceholder: {
     liste_id: string;
     index: number;
@@ -71,7 +71,6 @@ export function KanbanListe({
   liste,
   projeId,
   yetkiler,
-  tumListeler,
   kartPlaceholder,
   onKartAc,
 }: Props) {
@@ -81,16 +80,10 @@ export function KanbanListe({
     () => ({
       duzenle: yetkiler.kartDuzenle,
       yetkiliYonet: yetkiler.yetkiliYonet,
-      tasi: yetkiler.kartTasi,
       arsivle: yetkiler.kartDuzenle,
       sil: yetkiler.kartSil,
     }),
-    [
-      yetkiler.kartDuzenle,
-      yetkiler.kartSil,
-      yetkiler.kartTasi,
-      yetkiler.yetkiliYonet,
-    ],
+    [yetkiler.kartDuzenle, yetkiler.kartSil, yetkiler.yetkiliYonet],
   );
   // anahtar her render'da yeni array referansı olmasın diye memoize.
   const anahtar = React.useMemo(() => projeDetayKey(projeId), [projeId]);
@@ -104,6 +97,8 @@ export function KanbanListe({
   const [yeniAd, setYeniAd] = React.useState(liste.ad);
 
   const taslak = tempIdMi(liste.id);
+  // ADR-0009 — sistem ARSIV listesi: rename/sil/handle yok, ama kart drop hedefi.
+  const sistemArsivMi = liste.tip === ListeTipi.ARSIV;
 
   // KRİTİK: dnd-kit useSortable/useDroppable'a verilen `data` her render'da
   // yeni referans olursa hook diff tetikleyip state güncelleyebiliyor →
@@ -118,15 +113,17 @@ export function KanbanListe({
   );
 
   // Liste kendisi sortable (yatay sıralama için).
+  // ADR-0009 — Arşiv listesi sürüklenemez (sira sabit "ZZZZ").
   const sortable = useSortable({
     id: liste.id,
     data: listeSortableData,
-    disabled: taslak || !yetkiler.listeDuzenle,
+    disabled: taslak || sistemArsivMi || !yetkiler.listeDuzenle,
     transition: null,
   });
 
   // Liste body'si droppable — kartların düşürüleceği bölge.
   // Boş listeye de düşürmek için zorunlu (sortable kart kümesi alone yetmiyor).
+  // ADR-0009 — Arşiv listesi de drop hedefi (kart oraya sürüklenince arşivlenir).
   const bodyDroppable = useDroppable({
     id: `liste-body-${liste.id}`,
     data: bodyDroppableData,
@@ -171,8 +168,9 @@ export function KanbanListe({
   // Header tıklaması: drag yoktuysa rename moduna gir.
   // Distance kısıtı (5px) sayesinde küçük tıklama drag'i tetiklemez,
   // PointerSensor onClick'i pass-through eder.
+  // ADR-0009 — Arşiv sistem listesi yeniden adlandırılamaz.
   const headerClick = () => {
-    if (taslak || !yetkiler.listeDuzenle) return;
+    if (taslak || sistemArsivMi || !yetkiler.listeDuzenle) return;
     if (sortable.isDragging) return;
     setYeniAd(liste.ad);
     setDuzenlemeAcik(true);
@@ -200,9 +198,13 @@ export function KanbanListe({
       // Trello: liste içeriğe göre yükseliyor; max-height pano viewport'una göre.
       // Liste container'ında ring/highlight YOK — drag feedback sadece kartlar
       // arasındaki dashed placeholder ile verilir (kart-mini.tsx). Tutarlılık.
+      // ADR-0009 — Arşiv listesi soluk arka plan ile ayırt edilir.
       className={cn(
-        "bg-muted/40 flex w-72 shrink-0 flex-col self-start rounded-lg border",
+        "flex w-72 shrink-0 flex-col self-start rounded-lg border",
         "max-h-[calc(100vh-12rem)]",
+        sistemArsivMi
+          ? "bg-muted/20 border-dashed"
+          : "bg-muted/40",
       )}
     >
       {/* HEADER — sortable handle (sadece bu bölge sürükle başlatır) */}
@@ -213,10 +215,13 @@ export function KanbanListe({
         onClick={duzenlemeAcik ? undefined : headerClick}
         style={{
           cursor:
-            yetkiler.listeDuzenle && !taslak && !duzenlemeAcik
+            yetkiler.listeDuzenle &&
+            !taslak &&
+            !sistemArsivMi &&
+            !duzenlemeAcik
               ? "grab"
               : "default",
-          touchAction: "none",
+          touchAction: sistemArsivMi ? "auto" : "none",
         }}
       >
         {duzenlemeAcik ? (
@@ -239,13 +244,19 @@ export function KanbanListe({
           />
         ) : (
           <div className="flex flex-1 items-center gap-2 truncate text-sm font-medium">
+            {sistemArsivMi && (
+              <ArchiveIcon
+                className="text-muted-foreground size-4 shrink-0"
+                aria-hidden
+              />
+            )}
             <span className="truncate">{liste.ad}</span>
             <span className="text-muted-foreground text-xs font-normal">
               {liste.kartlar.length}
             </span>
           </div>
         )}
-        {!taslak && yetkiler.yetkiliYonet && !duzenlemeAcik && (
+        {!taslak && !sistemArsivMi && yetkiler.yetkiliYonet && !duzenlemeAcik && (
           <YetkililerPaneliPopover
             kaynak={{
               tip: "liste",
@@ -267,6 +278,7 @@ export function KanbanListe({
           />
         )}
         {!taslak &&
+          !sistemArsivMi &&
           (yetkiler.listeDuzenle || yetkiler.listeSil) &&
           !duzenlemeAcik && (
           <DropdownMenu>
@@ -333,7 +345,6 @@ export function KanbanListe({
                   listeId={liste.id}
                   surukleyebilir={yetkiler.kartTasi}
                   baglamYetkileri={baglamYetkileri}
-                  listeler={tumListeler}
                   projeId={projeId}
                   onAc={() => onKartAc(k.id)}
                 />
@@ -347,7 +358,8 @@ export function KanbanListe({
         </div>
 
         {/* FOOTER — yeni kart ekle (içeriğin hemen altında, drop alanı içinde) */}
-        {yetkiler.kartOlustur && !taslak && (
+        {/* ADR-0009 — Arşiv listesinde yeni kart yaratma yok; sadece taşıma. */}
+        {yetkiler.kartOlustur && !taslak && !sistemArsivMi && (
           <div className="p-2">
             {yeniKartAcik ? (
               <div className="bg-card flex flex-col gap-1 rounded-md p-2 shadow-sm">

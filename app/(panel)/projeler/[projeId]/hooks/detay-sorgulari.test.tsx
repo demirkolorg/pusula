@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ListeTipi } from "@prisma/client";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { ok, hata } from "@/lib/sonuc";
@@ -24,6 +25,7 @@ vi.mock("../actions", () => ({
   kartSilEylem: vi.fn(),
   kartGeriYukleEylem: vi.fn(),
   kartTasiEylem: vi.fn(),
+  kartArsivEylem: vi.fn(),
 }));
 
 import {
@@ -108,6 +110,10 @@ function ornekKart(p: Partial<ListeKartOzeti> = {}): ListeKartOzeti {
     silindi_mi: p.silindi_mi ?? false,
     yetkili_sayisi: p.yetkili_sayisi ?? 0,
     etiket_sayisi: p.etiket_sayisi ?? 0,
+    yorum_sayisi: p.yorum_sayisi ?? 0,
+    ek_sayisi: p.ek_sayisi ?? 0,
+    madde_toplam: p.madde_toplam ?? 0,
+    madde_tamamlanan: p.madde_tamamlanan ?? 0,
   };
 }
 
@@ -117,6 +123,7 @@ function ornekListe(p: Partial<ListeOzeti> = {}): ListeOzeti {
     proje_id: p.proje_id ?? "proje-1",
     ad: p.ad ?? "Liste",
     sira: p.sira ?? "M",
+    tip: p.tip ?? ListeTipi.NORMAL,
     arsiv_mi: p.arsiv_mi ?? false,
     wip_limit: p.wip_limit ?? null,
     kartlar: p.kartlar ?? [],

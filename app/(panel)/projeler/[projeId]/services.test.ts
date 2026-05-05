@@ -13,6 +13,7 @@ vi.mock("@/auth", () => ({
 }));
 
 import {
+  arsivListesiniSagla,
   projeDetayiniGetir,
   listeOlustur,
   listeGuncelle,
@@ -23,8 +24,10 @@ import {
   kartSil,
   kartGeriYukle,
   kartiTasi,
+  kartArsivToggle,
   projedeTumKartlar,
 } from "./services";
+import { ListeTipi } from "@prisma/client";
 import {
   ortamKur,
   projeOlusturFiks,
@@ -907,4 +910,202 @@ describe("projedeTumKartlar", () => {
   });
 
   // Eski birim izolasyonu testi yetkilendirme modeliyle kapsam dışı kaldı.
+});
+
+// ============================================================
+// ADR-0009 — Arşiv sistem listesi
+// ============================================================
+
+describe("arsivListesiniSagla (ADR-0009)", () => {
+  it("ilk çağrıda Arşiv listesi yaratır (tip=ARSIV, sira=ZZZZ, ad=Arşiv)", async () => {
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+
+    const id = await arsivListesiniSagla(proje.id);
+
+    const liste = await adminDb.liste.findUnique({ where: { id } });
+    expect(liste).toBeTruthy();
+    expect(liste!.tip).toBe(ListeTipi.ARSIV);
+    expect(liste!.sira).toBe("ZZZZ");
+    expect(liste!.ad).toBe("Arşiv");
+    expect(liste!.proje_id).toBe(proje.id);
+  });
+
+  it("ikinci çağrıda mevcut listeyi döndürür (idempotent)", async () => {
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+
+    const id1 = await arsivListesiniSagla(proje.id);
+    const id2 = await arsivListesiniSagla(proje.id);
+
+    expect(id1).toBe(id2);
+    const sayi = await adminDb.liste.count({
+      where: { proje_id: proje.id, tip: ListeTipi.ARSIV },
+    });
+    expect(sayi).toBe(1);
+  });
+});
+
+describe("Sistem ARSIV listesi koruması (ADR-0009)", () => {
+  it("listeSil arşiv listesini reddeder (YETKISIZ)", async () => {
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+    const arsivId = await arsivListesiniSagla(proje.id);
+
+    await expect(listeSil(ortam.superAdmin.id, arsivId)).rejects.toMatchObject(
+      { kod: "YETKISIZ" },
+    );
+    const l = await adminDb.liste.findUnique({ where: { id: arsivId } });
+    expect(l).toBeTruthy();
+  });
+
+  it("listeGuncelle arşiv listesinin adını değiştirmeyi reddeder", async () => {
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+    const arsivId = await arsivListesiniSagla(proje.id);
+
+    await expect(
+      listeGuncelle(ortam.superAdmin.id, { id: arsivId, ad: "Yeni Ad" }),
+    ).rejects.toMatchObject({ kod: "YETKISIZ" });
+  });
+
+  it("listeyeSiraVer arşiv listesini sürüklemeyi reddeder", async () => {
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+    const arsivId = await arsivListesiniSagla(proje.id);
+    const normalListe = await listeOlusturFiks(adminDb, { projeId: proje.id });
+
+    await expect(
+      listeyeSiraVer(ortam.superAdmin.id, {
+        id: arsivId,
+        proje_id: proje.id,
+        onceki_id: null,
+        sonraki_id: normalListe.id,
+      }),
+    ).rejects.toMatchObject({ kod: "YETKISIZ" });
+  });
+
+  it("listeyeSiraVer normal listeyi arşivin sağına atmayı reddeder", async () => {
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+    const arsivId = await arsivListesiniSagla(proje.id);
+    const normal1 = await listeOlusturFiks(adminDb, { projeId: proje.id });
+    const normal2 = await listeOlusturFiks(adminDb, {
+      projeId: proje.id,
+      oncekiSira: normal1.sira,
+    });
+
+    await expect(
+      listeyeSiraVer(ortam.superAdmin.id, {
+        id: normal2.id,
+        proje_id: proje.id,
+        onceki_id: arsivId,
+        sonraki_id: null,
+      }),
+    ).rejects.toMatchObject({ kod: "YETKISIZ" });
+  });
+});
+
+describe("kartArsivToggle (ADR-0009)", () => {
+  it("arsiv:true kartı Arşiv listesine taşır + arsiv_oncesi_liste_id'yi saklar", async () => {
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+    const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
+    const kart = await kartOlusturFiks(adminDb, { listeId: liste.id });
+    const arsivId = await arsivListesiniSagla(proje.id);
+
+    const sonuc = await kartArsivToggle(ortam.superAdmin.id, {
+      id: kart.id,
+      arsiv: true,
+    });
+
+    expect(sonuc.liste_id).toBe(arsivId);
+    const guncelKart = await adminDb.kart.findUnique({ where: { id: kart.id } });
+    expect(guncelKart!.liste_id).toBe(arsivId);
+    expect(guncelKart!.arsiv_mi).toBe(true);
+    expect(guncelKart!.arsiv_oncesi_liste_id).toBe(liste.id);
+    expect(guncelKart!.arsiv_zamani).toBeTruthy();
+  });
+
+  it("arsiv:false kartı arsiv_oncesi_liste_id'ye geri yükler", async () => {
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+    const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
+    const kart = await kartOlusturFiks(adminDb, { listeId: liste.id });
+    await arsivListesiniSagla(proje.id);
+
+    await kartArsivToggle(ortam.superAdmin.id, { id: kart.id, arsiv: true });
+    const sonuc = await kartArsivToggle(ortam.superAdmin.id, {
+      id: kart.id,
+      arsiv: false,
+    });
+
+    expect(sonuc.liste_id).toBe(liste.id);
+    const guncelKart = await adminDb.kart.findUnique({ where: { id: kart.id } });
+    expect(guncelKart!.liste_id).toBe(liste.id);
+    expect(guncelKart!.arsiv_mi).toBe(false);
+    expect(guncelKart!.arsiv_oncesi_liste_id).toBeNull();
+    expect(guncelKart!.arsiv_zamani).toBeNull();
+  });
+
+  it("arsiv:false eski liste silinmişse projenin ilk NORMAL listesine yükler", async () => {
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+    const eskiListe = await listeOlusturFiks(adminDb, {
+      projeId: proje.id,
+      ad: "Eski",
+    });
+    const kart = await kartOlusturFiks(adminDb, { listeId: eskiListe.id });
+    await arsivListesiniSagla(proje.id);
+    await kartArsivToggle(ortam.superAdmin.id, { id: kart.id, arsiv: true });
+
+    await adminDb.liste.delete({ where: { id: eskiListe.id } });
+    const yeniListe = await listeOlusturFiks(adminDb, {
+      projeId: proje.id,
+      ad: "Yeni",
+    });
+
+    const sonuc = await kartArsivToggle(ortam.superAdmin.id, {
+      id: kart.id,
+      arsiv: false,
+    });
+    expect(sonuc.liste_id).toBe(yeniListe.id);
+  });
+});
+
+describe("kartiTasi NORMAL ↔ ARSIV geçişi (ADR-0009)", () => {
+  it("Arşiv listesine drag → arsiv_mi=true + arsiv_oncesi_liste_id set", async () => {
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+    const normalListe = await listeOlusturFiks(adminDb, { projeId: proje.id });
+    const kart = await kartOlusturFiks(adminDb, { listeId: normalListe.id });
+    const arsivId = await arsivListesiniSagla(proje.id);
+
+    await kartiTasi(ortam.superAdmin.id, {
+      id: kart.id,
+      hedef_liste_id: arsivId,
+      onceki_id: null,
+      sonraki_id: null,
+    });
+
+    const guncel = await adminDb.kart.findUnique({ where: { id: kart.id } });
+    expect(guncel!.liste_id).toBe(arsivId);
+    expect(guncel!.arsiv_mi).toBe(true);
+    expect(guncel!.arsiv_oncesi_liste_id).toBe(normalListe.id);
+  });
+
+  it("Arşivden NORMAL'a drag → arsiv_mi=false + arsiv_oncesi_liste_id null", async () => {
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+    const normalListe = await listeOlusturFiks(adminDb, { projeId: proje.id });
+    const kart = await kartOlusturFiks(adminDb, { listeId: normalListe.id });
+    const arsivId = await arsivListesiniSagla(proje.id);
+
+    await kartiTasi(ortam.superAdmin.id, {
+      id: kart.id,
+      hedef_liste_id: arsivId,
+      onceki_id: null,
+      sonraki_id: null,
+    });
+    await kartiTasi(ortam.superAdmin.id, {
+      id: kart.id,
+      hedef_liste_id: normalListe.id,
+      onceki_id: null,
+      sonraki_id: null,
+    });
+
+    const guncel = await adminDb.kart.findUnique({ where: { id: kart.id } });
+    expect(guncel!.liste_id).toBe(normalListe.id);
+    expect(guncel!.arsiv_mi).toBe(false);
+    expect(guncel!.arsiv_oncesi_liste_id).toBeNull();
+  });
 });

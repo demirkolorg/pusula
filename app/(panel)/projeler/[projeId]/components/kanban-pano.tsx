@@ -44,7 +44,10 @@ import {
 } from "../hooks/detay-sorgulari";
 import { KartModal } from "./kart-modal";
 import { useQueryClient } from "@tanstack/react-query";
+import { ListeTipi } from "@prisma/client";
+import { toast } from "@/lib/toast";
 import {
+  arsivGecisiBelirle,
   hedefTipi,
   kartDropKonumuHesapla,
   kartTasimasiDegistirirMi,
@@ -72,7 +75,6 @@ export type KanbanYetkileri = {
 const DEVRE_DISI_BAGLAM = {
   duzenle: false,
   yetkiliYonet: false,
-  tasi: false,
   arsivle: false,
   sil: false,
 } as const;
@@ -336,6 +338,13 @@ export function KanbanPano({ projeId, ilkVeri, yetkiler }: Props) {
     // LİSTE DROP
     // ============================================================
     if (aktif.tip === "liste") {
+      // ADR-0009 — Sistem ARSIV listesi sürüklenemez (UI'da zaten disabled
+      // ama defansif).
+      if (aktif.liste.tip === ListeTipi.ARSIV) {
+        baslangicaDon();
+        return;
+      }
+
       const overTip = hedefTipi(detay, e.over.id);
       let hedefListeId: string;
       if (overTip === "liste") hedefListeId = String(e.over.id);
@@ -354,6 +363,21 @@ export function KanbanPano({ projeId, ilkVeri, yetkiler }: Props) {
       }
 
       const yenidenSiralanmis = arrayMove(detay.listeler, eskiIdx, yeniIdx);
+
+      // ADR-0009 — Arşiv listesi her zaman en sağda kalmalı; reorder sonucu
+      // başka liste Arşiv'in sağına düşerse drop reddedilir.
+      const arsivIdx = yenidenSiralanmis.findIndex(
+        (l) => l.tip === ListeTipi.ARSIV,
+      );
+      if (
+        arsivIdx !== -1 &&
+        arsivIdx !== yenidenSiralanmis.length - 1
+      ) {
+        toast.bilgi("Arşiv listesi her zaman en sağdadır.");
+        baslangicaDon();
+        return;
+      }
+
       // Cache'i optimistic reorder
       istemci.setQueryData<ProjeDetayOzeti>(anahtar, (eski) => {
         if (!eski) return eski;
@@ -445,6 +469,13 @@ export function KanbanPano({ projeId, ilkVeri, yetkiler }: Props) {
           ? hedefListe.kartlar[hedefIndex + 1]
           : null;
 
+      // ADR-0009 — NORMAL ↔ ARSIV drag geçişinde toast bilgi.
+      const arsivGecisi = arsivGecisiBelirle(
+        detay.listeler,
+        aktif.liste_id,
+        konum.liste_id,
+      );
+
       kartTasi.mutate(
         {
           id: aktif.kart.id,
@@ -459,6 +490,11 @@ export function KanbanPano({ projeId, ilkVeri, yetkiler }: Props) {
           onError: baslangicaDon,
           onSuccess: () => {
             baslangicSnapshotRef.current = null;
+            if (arsivGecisi === "arsivle") {
+              toast.bilgi("Kart arşivlendi");
+            } else if (arsivGecisi === "arsivden-cikar") {
+              toast.bilgi("Kart arşivden çıkarıldı");
+            }
           },
         },
       );
@@ -523,7 +559,6 @@ export function KanbanPano({ projeId, ilkVeri, yetkiler }: Props) {
                 liste={l}
                 projeId={projeId}
                 yetkiler={yetkiler}
-                tumListeler={detay.listeler}
                 kartPlaceholder={
                   kartPlaceholder?.liste_id === l.id ? kartPlaceholder : null
                 }
@@ -588,7 +623,6 @@ export function KanbanPano({ projeId, ilkVeri, yetkiler }: Props) {
                 listeId={aktifDrag.liste_id}
                 surukleyebilir={false}
                 baglamYetkileri={DEVRE_DISI_BAGLAM}
-                listeler={[]}
                 projeId={projeId}
                 onAc={() => undefined}
               />

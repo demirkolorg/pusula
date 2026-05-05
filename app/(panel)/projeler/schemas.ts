@@ -1,7 +1,15 @@
 import { z } from "zod";
 import { KAPAK_RENK_TOKENLERI } from "@/lib/kapak-renk";
+import { ikonMu } from "@/lib/kapak-ikon";
 
 const KAPAK_RENK = z.enum(KAPAK_RENK_TOKENLERI);
+// Lucide-react ikon ismi (kebab-case) — whitelist runtime kontrol.
+// Bkz. ADR-0010 ve `lib/kapak-ikon.ts`.
+const KAPAK_IKON = z
+  .string()
+  .min(1)
+  .max(64)
+  .refine(ikonMu, { message: "Geçersiz ikon" });
 
 export const projeOlusturSemasi = z.object({
   // Geçici ID (temp-...) ile gönderim — server kendi UUID'sini üretir.
@@ -9,6 +17,7 @@ export const projeOlusturSemasi = z.object({
   ad: z.string().min(2, "Ad en az 2 karakter").max(200),
   aciklama: z.string().max(2000).optional().nullable(),
   kapak_renk: KAPAK_RENK.optional().nullable(),
+  kapak_ikon: KAPAK_IKON.optional().nullable(),
   sira_referansi: z
     .object({
       onceki: z.string().nullable(),
@@ -22,6 +31,7 @@ export const projeGuncelleSemasi = z.object({
   ad: z.string().min(2).max(200).optional(),
   aciklama: z.string().max(2000).optional().nullable(),
   kapak_renk: KAPAK_RENK.optional().nullable(),
+  kapak_ikon: KAPAK_IKON.optional().nullable(),
   yildizli_mi: z.boolean().optional(),
 });
 

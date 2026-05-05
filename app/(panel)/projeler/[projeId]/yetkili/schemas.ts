@@ -56,6 +56,34 @@ export const kartaYetkiliEkleSemasi = z.object({
 
 export const kartaYetkiliKaldirSemasi = kartaYetkiliEkleSemasi;
 
+// =====================================================================
+// Proje davet bağlamı — sistemde kayıtsız bir e-postayı projeye davet et
+// (Bölüm V/146 + ADR-0010)
+// =====================================================================
+
+export const projeyeDavetGonderSemasi = z
+  .object({
+    proje_id: z.string().uuid(),
+    email: z.string().min(1).email(),
+    seviye: projeYetkiSeviyesiSemasi.default("NORMAL"),
+    birim_id: z.string().uuid().nullable().optional(),
+    rol_id: z.string().uuid().nullable().optional(),
+  })
+  .strict();
+
+export const projeBekleyenDavetleriSemasi = z.object({
+  proje_id: z.string().uuid(),
+});
+
+export const projeDavetIptalSemasi = z.object({
+  proje_id: z.string().uuid(),
+  davet_id: z.string().uuid(),
+});
+
+export type ProjeyeDavetGonder = z.infer<typeof projeyeDavetGonderSemasi>;
+export type ProjeBekleyenDavetleri = z.infer<typeof projeBekleyenDavetleriSemasi>;
+export type ProjeDavetIptal = z.infer<typeof projeDavetIptalSemasi>;
+
 export type ProjeYetkilileriListele = z.infer<typeof projeYetkilileriListeleSemasi>;
 export type ProjeyeYetkiliEkle = z.infer<typeof projeyeYetkiliEkleSemasi>;
 export type ProjeyeYetkiliKaldir = z.infer<typeof projeyeYetkiliKaldirSemasi>;

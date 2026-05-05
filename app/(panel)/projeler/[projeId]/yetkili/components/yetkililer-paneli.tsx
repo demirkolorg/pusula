@@ -27,17 +27,26 @@ type PanelProps = {
 export function YetkililerPaneli({ kaynak, className }: PanelProps) {
   return (
     <div className={cn("flex flex-col", className)}>
-      <header className="border-b p-3">
-        <div className="flex items-center gap-1.5">
-          <ShieldCheckIcon className="size-3.5" />
-          <h2 className="text-sm font-semibold">{panelBasligi(kaynak)}</h2>
+      <header className="border-b border-border p-4">
+        <div className="flex items-center gap-2">
+          <span
+            className="bg-muted flex size-8 items-center justify-center rounded-md"
+            aria-hidden
+          >
+            <ShieldCheckIcon className="size-4" />
+          </span>
+          <div className="grid gap-0.5">
+            <h2 className="text-sm font-semibold leading-none">
+              {panelBasligi(kaynak)}
+            </h2>
+            <p className="text-muted-foreground text-xs">
+              {panelAciklamasi(kaynak)}
+            </p>
+          </div>
         </div>
-        <p className="text-muted-foreground mt-0.5 text-xs">
-          {panelAciklamasi(kaynak)}
-        </p>
       </header>
 
-      <div className="grid gap-5 p-3 md:grid-cols-2 md:gap-6 md:divide-x">
+      <div className="grid gap-4 p-4 md:grid-cols-2 md:gap-6 md:divide-x md:divide-border">
         <div className="md:pr-4">
           <YetkiliBirimSutunu kaynak={kaynak} />
         </div>

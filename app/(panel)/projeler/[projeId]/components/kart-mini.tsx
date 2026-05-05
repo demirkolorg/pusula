@@ -7,7 +7,14 @@ import * as React from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { useDndContext } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { CalendarIcon, TagIcon, UsersIcon } from "lucide-react";
+import {
+  CalendarIcon,
+  ListChecksIcon,
+  MessageSquareIcon,
+  PaperclipIcon,
+  TagIcon,
+  UsersIcon,
+} from "lucide-react";
 import { tempIdMi } from "@/lib/temp-id";
 import { cn } from "@/lib/utils";
 import { kapakArkaplanSinifi } from "@/lib/kapak-renk";
@@ -15,7 +22,7 @@ import {
   ContextMenu,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import type { ListeKartOzeti, ListeOzeti } from "../services";
+import type { ListeKartOzeti } from "../services";
 import {
   KartBaglamMenusu,
   type KartBaglamYetkileri,
@@ -28,8 +35,6 @@ type Props = {
   surukleyebilir: boolean;
   // Sağ tık menüsü için granüler yetkiler (Kural 138).
   baglamYetkileri: KartBaglamYetkileri;
-  // Liste taşı submenu'sü için proje listeleri.
-  listeler: ReadonlyArray<ListeOzeti>;
   projeId: string;
   onAc: () => void;
 };
@@ -48,7 +53,6 @@ export function KartMini({
   listeId,
   surukleyebilir,
   baglamYetkileri,
-  listeler,
   projeId,
   onAc,
 }: Props) {
@@ -147,7 +151,12 @@ export function KartMini({
           <span className="line-clamp-3 font-medium leading-snug">
             {kart.baslik}
           </span>
-          {(tarih || kart.yetkili_sayisi > 0 || kart.etiket_sayisi > 0) && (
+          {(tarih ||
+            kart.yetkili_sayisi > 0 ||
+            kart.etiket_sayisi > 0 ||
+            kart.yorum_sayisi > 0 ||
+            kart.ek_sayisi > 0 ||
+            kart.madde_toplam > 0) && (
             <div className="text-muted-foreground mt-1 flex items-center gap-2 text-xs">
               {tarih && (
                 <span className="inline-flex items-center gap-1">
@@ -165,6 +174,38 @@ export function KartMini({
                 <span className="inline-flex items-center gap-1">
                   <UsersIcon className="size-3" />
                   {kart.yetkili_sayisi}
+                </span>
+              )}
+              {kart.madde_toplam > 0 && (
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1",
+                    // Why: tüm maddeler bittiyse vurgu — Trello davranışı.
+                    kart.madde_tamamlanan === kart.madde_toplam &&
+                      "text-emerald-600 dark:text-emerald-400",
+                  )}
+                  aria-label={`${kart.madde_tamamlanan}/${kart.madde_toplam} madde tamamlandı`}
+                >
+                  <ListChecksIcon className="size-3" />
+                  {kart.madde_tamamlanan}/{kart.madde_toplam}
+                </span>
+              )}
+              {kart.yorum_sayisi > 0 && (
+                <span
+                  className="inline-flex items-center gap-1"
+                  aria-label={`${kart.yorum_sayisi} yorum`}
+                >
+                  <MessageSquareIcon className="size-3" />
+                  {kart.yorum_sayisi}
+                </span>
+              )}
+              {kart.ek_sayisi > 0 && (
+                <span
+                  className="inline-flex items-center gap-1"
+                  aria-label={`${kart.ek_sayisi} ek`}
+                >
+                  <PaperclipIcon className="size-3" />
+                  {kart.ek_sayisi}
                 </span>
               )}
             </div>
@@ -191,9 +232,7 @@ export function KartMini({
       </ContextMenuTrigger>
       <KartBaglamMenusu
         kart={kart}
-        listeId={listeId}
         projeId={projeId}
-        listeler={listeler}
         yetkiler={baglamYetkileri}
       />
     </ContextMenu>

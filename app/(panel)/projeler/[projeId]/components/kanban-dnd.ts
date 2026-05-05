@@ -1,7 +1,10 @@
 import type { ClientRect, UniqueIdentifier } from "@dnd-kit/core";
+import { ListeTipi } from "@prisma/client";
 import type { ListeKartOzeti, ListeOzeti, ProjeDetayOzeti } from "../services";
 
 export type HedefTipi = "kart" | "liste" | "liste-body" | null;
+// ADR-0009 — drag ile NORMAL ↔ ARSIV geçişi UX feedback için.
+export type ArsivGecisi = "arsivle" | "arsivden-cikar" | null;
 
 export type KartDropKonumu = {
   liste_id: string;
@@ -157,4 +160,25 @@ export function kartTasimasiDegistirirMi(
   const liste = listeler.find((l) => l.id === kaynakListeId);
   if (!liste) return false;
   return liste.kartlar.findIndex((k) => k.id === kartId) !== hedefIndex;
+}
+
+// ADR-0009 — Drag-drop ile NORMAL ↔ ARSIV geçişini tespit et.
+// Server zaten arsiv_mi/arsiv_oncesi_liste_id'yi günceller; UI burayı sadece
+// toast mesajı seçimi için kullanır.
+export function arsivGecisiBelirle(
+  listeler: ListeOzeti[],
+  kaynakListeId: string,
+  hedefListeId: string,
+): ArsivGecisi {
+  if (kaynakListeId === hedefListeId) return null;
+  const kaynak = listeler.find((l) => l.id === kaynakListeId);
+  const hedef = listeler.find((l) => l.id === hedefListeId);
+  if (!kaynak || !hedef) return null;
+  if (kaynak.tip === ListeTipi.NORMAL && hedef.tip === ListeTipi.ARSIV) {
+    return "arsivle";
+  }
+  if (kaynak.tip === ListeTipi.ARSIV && hedef.tip === ListeTipi.NORMAL) {
+    return "arsivden-cikar";
+  }
+  return null;
 }

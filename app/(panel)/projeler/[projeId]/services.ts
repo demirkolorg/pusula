@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import { ListeTipi, type Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { siraArasi, siraSonuna } from "@/lib/sira";
 import { EylemHatasi } from "@/lib/action-wrapper";
@@ -8,6 +8,7 @@ import { yayinla } from "@/lib/realtime";
 import { SOCKET, room } from "@/lib/socket-events";
 import { kullaniciErisimBilgisi } from "@/lib/yetki";
 import type {
+  KartArsiv,
   KartGuncelle,
   KartOlustur,
   KartTasi,
@@ -15,6 +16,30 @@ import type {
   ListeOlustur,
   ListeSira,
 } from "./schemas";
+
+// ADR-0009 — Arşiv sistem listesi.
+// `ARSIV_LISTESI_SIRA` LexoRank'in "Z" prefix sona ekleme garantisi;
+// NORMAL listeler arasındaki yeni sıralar bunun öncesini üretir.
+const ARSIV_LISTESI_SIRA = "ZZZZ";
+const ARSIV_LISTESI_AD = "Arşiv";
+
+export async function arsivListesiniSagla(projeId: string): Promise<string> {
+  const mevcut = await db.liste.findFirst({
+    where: { proje_id: projeId, tip: ListeTipi.ARSIV },
+    select: { id: true },
+  });
+  if (mevcut) return mevcut.id;
+  const yeni = await db.liste.create({
+    data: {
+      proje_id: projeId,
+      ad: ARSIV_LISTESI_AD,
+      sira: ARSIV_LISTESI_SIRA,
+      tip: ListeTipi.ARSIV,
+    },
+    select: { id: true },
+  });
+  return yeni.id;
+}
 
 // ============================================================
 // Tipler
@@ -41,6 +66,10 @@ export type ListeKartOzeti = {
   silindi_mi: boolean;
   yetkili_sayisi: number;
   etiket_sayisi: number;
+  yorum_sayisi: number;
+  ek_sayisi: number;
+  madde_toplam: number;
+  madde_tamamlanan: number;
 };
 
 export type ListeOzeti = {
@@ -48,6 +77,8 @@ export type ListeOzeti = {
   proje_id: string;
   ad: string;
   sira: string;
+  // ADR-0009 — sistem ARSIV listesi UI'da farklı render edilir.
+  tip: ListeTipi;
   arsiv_mi: boolean;
   wip_limit: number | null;
   kartlar: ListeKartOzeti[];
@@ -58,6 +89,7 @@ export type ProjeDetayOzeti = {
   ad: string;
   aciklama: string | null;
   kapak_renk: string | null;
+  kapak_ikon: string | null;
   yildizli_mi: boolean;
   arsiv_mi: boolean;
   silindi_mi: boolean;
@@ -203,6 +235,7 @@ export async function projeDetayiniGetir(
       ad: true,
       aciklama: true,
       kapak_renk: true,
+      kapak_ikon: true,
       yildizli_mi: true,
       arsiv_mi: true,
       silindi_mi: true,
@@ -214,6 +247,7 @@ export async function projeDetayiniGetir(
           proje_id: true,
           ad: true,
           sira: true,
+          tip: true,
           arsiv_mi: true,
           wip_limit: true,
           kartlar: {
@@ -229,7 +263,23 @@ export async function projeDetayiniGetir(
               bitis: true,
               arsiv_mi: true,
               silindi_mi: true,
-              _count: { select: { yetkililer: true, etiketler: true } },
+              _count: {
+                select: {
+                  yetkililer: true,
+                  etiketler: true,
+                  yorumlar: true,
+                  eklentiler: true,
+                },
+              },
+              // Why: kart-mini'deki "tamamlanan/toplam" rozeti için —
+              // KontrolMaddesi Kart'a iki seviye uzakta, _count doğrudan
+              // ulaşamaz. Tek query'de tüm maddelerin yalnızca
+              // `tamamlandi_mi` alanını çek, JS'te topla (N+1 yok).
+              kontrol_listeleri: {
+                select: {
+                  maddeler: { select: { tamamlandi_mi: true } },
+                },
+              },
             },
           },
         },
@@ -276,6 +326,7 @@ export async function projeDetayiniGetir(
     ad: proje.ad,
     aciklama: proje.aciklama,
     kapak_renk: proje.kapak_renk,
+    kapak_ikon: proje.kapak_ikon,
     yildizli_mi: proje.yildizli_mi,
     arsiv_mi: proje.arsiv_mi,
     silindi_mi: proje.silindi_mi,
@@ -284,21 +335,31 @@ export async function projeDetayiniGetir(
       proje_id: l.proje_id,
       ad: l.ad,
       sira: l.sira,
+      tip: l.tip,
       arsiv_mi: l.arsiv_mi,
       wip_limit: l.wip_limit,
-      kartlar: l.kartlar.map((k) => ({
-        id: k.id,
-        baslik: k.baslik,
-        aciklama: k.aciklama,
-        sira: k.sira,
-        kapak_renk: k.kapak_renk,
-        kapak: k.kapak_dosya_id ? kapakMap.get(k.kapak_dosya_id) ?? null : null,
-        bitis: k.bitis,
-        arsiv_mi: k.arsiv_mi,
-        silindi_mi: k.silindi_mi,
-        yetkili_sayisi: k._count.yetkililer,
-        etiket_sayisi: k._count.etiketler,
-      })),
+      kartlar: l.kartlar.map((k) => {
+        const tumMaddeler = k.kontrol_listeleri.flatMap((kl) => kl.maddeler);
+        const madde_toplam = tumMaddeler.length;
+        const madde_tamamlanan = tumMaddeler.filter((m) => m.tamamlandi_mi).length;
+        return {
+          id: k.id,
+          baslik: k.baslik,
+          aciklama: k.aciklama,
+          sira: k.sira,
+          kapak_renk: k.kapak_renk,
+          kapak: k.kapak_dosya_id ? kapakMap.get(k.kapak_dosya_id) ?? null : null,
+          bitis: k.bitis,
+          arsiv_mi: k.arsiv_mi,
+          silindi_mi: k.silindi_mi,
+          yetkili_sayisi: k._count.yetkililer,
+          etiket_sayisi: k._count.etiketler,
+          yorum_sayisi: k._count.yorumlar,
+          ek_sayisi: k._count.eklentiler,
+          madde_toplam,
+          madde_tamamlanan,
+        };
+      }),
     })),
   };
 }
@@ -314,8 +375,10 @@ export async function listeOlustur(
   await projeyeErisimDogrula(kullaniciId, girdi.proje_id);
   const erisim = await kaynakErisimi(kullaniciId);
 
+  // ADR-0009 — Yeni NORMAL liste Arşiv'in (sira="ZZZZ") ÖNCESİNE eklenir.
+  // findFirst + tip=NORMAL ile son normal listenin sıraısını alıp ardı.
   const son = await db.liste.findFirst({
-    where: { proje_id: girdi.proje_id },
+    where: { proje_id: girdi.proje_id, tip: ListeTipi.NORMAL },
     orderBy: { sira: "desc" },
     select: { sira: true },
   });
@@ -326,6 +389,7 @@ export async function listeOlustur(
       proje_id: girdi.proje_id,
       ad: girdi.ad.trim(),
       sira,
+      tip: ListeTipi.NORMAL,
       yetkililer: { create: { kullanici_id: kullaniciId } },
       birimler: erisim.birimId
         ? { create: { birim_id: erisim.birimId } }
@@ -336,6 +400,7 @@ export async function listeOlustur(
       proje_id: true,
       ad: true,
       sira: true,
+      tip: true,
       arsiv_mi: true,
       wip_limit: true,
     },
@@ -348,12 +413,27 @@ export async function listeOlustur(
   return { ...yeni, kartlar: [] };
 }
 
+// ADR-0009 — sistem ARSIV listesinde rename/sil/sıra değişikliği reddedilir.
+async function sistemListesiKoru(listeId: string): Promise<void> {
+  const l = await db.liste.findUnique({
+    where: { id: listeId },
+    select: { tip: true },
+  });
+  if (l?.tip === ListeTipi.ARSIV) {
+    throw new EylemHatasi(
+      "Arşiv listesi sistem listesidir, değiştirilemez veya silinemez.",
+      HATA_KODU.YETKISIZ,
+    );
+  }
+}
+
 export async function listeGuncelle(
   birimId: string,
   girdi: ListeGuncelle,
 ): Promise<void> {
   const { proje_id } = await listeyiBulVeProjeAl(birimId, girdi.id);
   await projeyeErisimDogrula(birimId, proje_id);
+  await sistemListesiKoru(girdi.id);
 
   const veri: Record<string, unknown> = {};
   if (girdi.ad !== undefined) veri.ad = girdi.ad.trim();
@@ -369,6 +449,7 @@ export async function listeGuncelle(
 export async function listeSil(birimId: string, id: string): Promise<void> {
   const { proje_id } = await listeyiBulVeProjeAl(birimId, id);
   await projeyeErisimDogrula(birimId, proje_id);
+  await sistemListesiKoru(id);
   // Liste tamamen kaldırılır (kartlar onDelete: Cascade ile birlikte gider).
   // Çöp kutusu liste düzeyinde MVP dışında, ileride eklenebilir.
   await db.liste.delete({ where: { id } });
@@ -406,19 +487,21 @@ export async function listeyeSiraVer(
   girdi: ListeSira,
 ): Promise<{ sira: string }> {
   await projeyeErisimDogrula(birimId, girdi.proje_id);
+  // ADR-0009 — sistem ARSIV listesi sürüklenemez.
+  await sistemListesiKoru(girdi.id);
 
   async function komsulariOku() {
     const [onceki, sonraki] = await Promise.all([
       girdi.onceki_id
         ? db.liste.findUnique({
             where: { id: girdi.onceki_id },
-            select: { sira: true, proje_id: true },
+            select: { sira: true, proje_id: true, tip: true },
           })
         : null,
       girdi.sonraki_id
         ? db.liste.findUnique({
             where: { id: girdi.sonraki_id },
-            select: { sira: true, proje_id: true },
+            select: { sira: true, proje_id: true, tip: true },
           })
         : null,
     ]);
@@ -431,6 +514,14 @@ export async function listeyeSiraVer(
     if (sonraki && sonraki.proje_id !== girdi.proje_id) {
       throw new EylemHatasi(
         "Sonraki liste farklı projeden.",
+        HATA_KODU.YETKISIZ,
+      );
+    }
+    // ADR-0009 — Arşiv listesinin sağına başka liste atılamaz.
+    // (Arşiv `onceki` olarak verilmesi yasaktır; `sonraki` her zaman Arşiv olabilir.)
+    if (onceki?.tip === ListeTipi.ARSIV) {
+      throw new EylemHatasi(
+        "Arşiv listesi her zaman en sağdadır; sağına liste konulamaz.",
         HATA_KODU.YETKISIZ,
       );
     }
@@ -520,6 +611,10 @@ export async function kartOlustur(
     silindi_mi: yeni.silindi_mi,
     yetkili_sayisi: 1,
     etiket_sayisi: 0,
+    yorum_sayisi: 0,
+    ek_sayisi: 0,
+    madde_toplam: 0,
+    madde_tamamlanan: 0,
   };
   yayinla(SOCKET.KART_OLUSTUR, room.proje(proje_id), {
     proje_id,
@@ -610,11 +705,31 @@ export async function kartiTasi(
   birimId: string,
   girdi: KartTasi,
 ): Promise<{ sira: string; liste_id: string }> {
-  const { proje_id: kaynakProjeId } = await kartiBulVeProjeAl(birimId, girdi.id);
-  const { proje_id: hedefProjeId } = await listeyiBulVeProjeAl(
-    birimId,
-    girdi.hedef_liste_id,
-  );
+  // ADR-0009 — taşınan kartın mevcut listesi + hedef liste tipini birlikte oku
+  // (NORMAL ↔ ARSIV geçişlerinde arsiv_mi/arsiv_oncesi_liste_id de güncellenir).
+  const kart = await db.kart.findUnique({
+    where: { id: girdi.id },
+    select: {
+      liste_id: true,
+      arsiv_oncesi_liste_id: true,
+      liste: { select: { proje_id: true, tip: true } },
+    },
+  });
+  if (!kart) {
+    throw new EylemHatasi("Kart bulunamadı.", HATA_KODU.BULUNAMADI);
+  }
+  const kaynakProjeId = kart.liste.proje_id;
+  const kaynakTip = kart.liste.tip;
+
+  const hedefListe = await db.liste.findUnique({
+    where: { id: girdi.hedef_liste_id },
+    select: { proje_id: true, tip: true },
+  });
+  if (!hedefListe) {
+    throw new EylemHatasi("Hedef liste bulunamadı.", HATA_KODU.BULUNAMADI);
+  }
+  const hedefProjeId = hedefListe.proje_id;
+  const hedefTip = hedefListe.tip;
 
   // Aynı proje içinde olmalı (proje arası taşıma şu anda kapsam dışı).
   // Plan S3: drag-drop "proje içi/arası" yazıyor — proje arası ileride
@@ -679,11 +794,26 @@ export async function kartiTasi(
     }
   }
 
+  // ADR-0009 — drag-drop ile NORMAL ↔ ARSIV geçişinde arşiv state'i güncellenir.
+  const arsivVerisi: Prisma.KartUncheckedUpdateInput = {};
+  if (kaynakTip === ListeTipi.NORMAL && hedefTip === ListeTipi.ARSIV) {
+    // Arşivle: eski liste id'sini sakla
+    arsivVerisi.arsiv_mi = true;
+    arsivVerisi.arsiv_oncesi_liste_id = kart.liste_id;
+    arsivVerisi.arsiv_zamani = new Date();
+  } else if (kaynakTip === ListeTipi.ARSIV && hedefTip === ListeTipi.NORMAL) {
+    // Arşivden çıkar
+    arsivVerisi.arsiv_mi = false;
+    arsivVerisi.arsiv_oncesi_liste_id = null;
+    arsivVerisi.arsiv_zamani = null;
+  }
+
   await db.kart.update({
     where: { id: girdi.id },
     data: {
       liste_id: girdi.hedef_liste_id,
       sira: yeniSira,
+      ...arsivVerisi,
     },
   });
   yayinla(SOCKET.KART_TASI, room.proje(hedefProjeId), {
@@ -694,6 +824,110 @@ export async function kartiTasi(
   }).catch(() => {});
 
   return { sira: yeniSira, liste_id: girdi.hedef_liste_id };
+}
+
+// ADR-0009 — Kart arşivle/arşivden çıkar (sistem ARSIV listesine taşır veya
+// arsiv_oncesi_liste_id'ye geri yükler). Bağlam menüsü ve kart modalı bunu
+// kullanır; drag-drop alternatif yol.
+export async function kartArsivToggle(
+  birimId: string,
+  girdi: KartArsiv,
+): Promise<{ liste_id: string }> {
+  const kart = await db.kart.findUnique({
+    where: { id: girdi.id },
+    select: {
+      liste_id: true,
+      arsiv_oncesi_liste_id: true,
+      liste: { select: { proje_id: true, tip: true } },
+    },
+  });
+  if (!kart) {
+    throw new EylemHatasi("Kart bulunamadı.", HATA_KODU.BULUNAMADI);
+  }
+
+  const projeId = kart.liste.proje_id;
+  await projeyeErisimDogrula(birimId, projeId);
+
+  let hedefListeId: string;
+  const guncelleme: Prisma.KartUncheckedUpdateInput = {};
+
+  if (girdi.arsiv) {
+    // ARŞİVLE
+    if (kart.liste.tip === ListeTipi.ARSIV) {
+      // Zaten arşivde — no-op
+      return { liste_id: kart.liste_id };
+    }
+    hedefListeId = await arsivListesiniSagla(projeId);
+    guncelleme.arsiv_mi = true;
+    guncelleme.arsiv_oncesi_liste_id = kart.liste_id;
+    guncelleme.arsiv_zamani = new Date();
+  } else {
+    // ARŞİVDEN ÇIKAR
+    if (kart.liste.tip === ListeTipi.NORMAL) {
+      // Zaten arşiv değil — no-op
+      return { liste_id: kart.liste_id };
+    }
+    // Önceki liste hala mevcut mu?
+    let geriDonusListeId: string | null = null;
+    if (kart.arsiv_oncesi_liste_id) {
+      const eski = await db.liste.findUnique({
+        where: { id: kart.arsiv_oncesi_liste_id },
+        select: { id: true, tip: true, proje_id: true },
+      });
+      if (
+        eski &&
+        eski.tip === ListeTipi.NORMAL &&
+        eski.proje_id === projeId
+      ) {
+        geriDonusListeId = eski.id;
+      }
+    }
+    if (!geriDonusListeId) {
+      // Önceki liste yoksa veya silinmişse, projenin ilk NORMAL listesine
+      const ilkNormal = await db.liste.findFirst({
+        where: { proje_id: projeId, tip: ListeTipi.NORMAL },
+        orderBy: { sira: "asc" },
+        select: { id: true },
+      });
+      if (!ilkNormal) {
+        throw new EylemHatasi(
+          "Geri yüklenecek normal liste bulunamadı.",
+          HATA_KODU.BULUNAMADI,
+        );
+      }
+      geriDonusListeId = ilkNormal.id;
+    }
+    hedefListeId = geriDonusListeId;
+    guncelleme.arsiv_mi = false;
+    guncelleme.arsiv_oncesi_liste_id = null;
+    guncelleme.arsiv_zamani = null;
+  }
+
+  // Hedef listenin sonuna ekle
+  const sonKart = await db.kart.findFirst({
+    where: { liste_id: hedefListeId },
+    orderBy: { sira: "desc" },
+    select: { sira: true },
+  });
+  const yeniSira = siraSonuna(sonKart?.sira ?? null);
+
+  await db.kart.update({
+    where: { id: girdi.id },
+    data: {
+      liste_id: hedefListeId,
+      sira: yeniSira,
+      ...guncelleme,
+    },
+  });
+
+  yayinla(SOCKET.KART_TASI, room.proje(projeId), {
+    proje_id: projeId,
+    kart_id: girdi.id,
+    liste_id: hedefListeId,
+    sira: yeniSira,
+  }).catch(() => {});
+
+  return { liste_id: hedefListeId };
 }
 
 // Liste görünümü için düz kart listesi (DataTable beslemesi).
@@ -726,11 +960,27 @@ export async function projedeTumKartlar(
       bitis: true,
       arsiv_mi: true,
       silindi_mi: true,
-      _count: { select: { yetkililer: true, etiketler: true } },
+      _count: {
+        select: {
+          yetkililer: true,
+          etiketler: true,
+          yorumlar: { where: { silindi_mi: false } },
+          eklentiler: { where: { silindi_mi: false } },
+        },
+      },
+      kontrol_listeleri: {
+        select: {
+          maddeler: { select: { tamamlandi_mi: true } },
+        },
+      },
     },
   });
 
-  return kartlar.map((k) => ({
+  return kartlar.map((k) => {
+    const tumMaddeler = k.kontrol_listeleri.flatMap((kl) => kl.maddeler);
+    const madde_toplam = tumMaddeler.length;
+    const madde_tamamlanan = tumMaddeler.filter((m) => m.tamamlandi_mi).length;
+    return {
     id: k.id,
     liste_id: k.liste_id,
     liste_ad: k.liste.ad,
@@ -746,5 +996,10 @@ export async function projedeTumKartlar(
     silindi_mi: k.silindi_mi,
     yetkili_sayisi: k._count.yetkililer,
     etiket_sayisi: k._count.etiketler,
-  }));
+    yorum_sayisi: k._count.yorumlar,
+    ek_sayisi: k._count.eklentiler,
+    madde_toplam,
+    madde_tamamlanan,
+    };
+  });
 }

@@ -227,6 +227,7 @@ describe("makam rol politikası", () => {
       email: "davet-kaymakam@test.local",
       rol_id: await rolIdAl("KAYMAKAM"),
       birim_id: null,
+      proje_baglamlari: [],
     });
 
     const kayit = await adminDb.davetTokeni.findUnique({
@@ -242,6 +243,7 @@ describe("makam rol politikası", () => {
       email: "ilk-kaymakam-daveti@test.local",
       rol_id: rolId,
       birim_id: null,
+      proje_baglamlari: [],
     });
 
     await expect(
@@ -249,6 +251,7 @@ describe("makam rol politikası", () => {
         email: "ikinci-kaymakam-daveti@test.local",
         rol_id: rolId,
         birim_id: null,
+        proje_baglamlari: [],
       }),
     ).rejects.toThrow("zaten geçerli bir davet");
   });

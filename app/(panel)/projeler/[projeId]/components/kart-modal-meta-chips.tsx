@@ -3,11 +3,9 @@
 import * as React from "react";
 import {
   CalendarIcon,
-  ChevronDownIcon,
-  HashIcon,
   PaletteIcon,
+  ShieldIcon,
   TagIcon,
-  UserIcon,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -37,7 +35,8 @@ type Props = {
 };
 
 // Sancak `meta-chip` strip'i — pill chip'ler: ICON · sayı/metin · (preview) · chevron.
-// Sırası referansla aynı: Yetkililer · Tarih · Etiketler · Birimler · Kapak.
+// Sırası: Yetkililer · Tarih · Etiketler · Kapak. (Yetkili chip'i hem kişi hem
+// birim sayısının toplamını gösterir; tek panel her ikisini yönetir.)
 export function KartModalMetaChips({
   kartId,
   projeId,
@@ -47,7 +46,7 @@ export function KartModalMetaChips({
   kapakRenk,
 }: Props) {
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div className="-ml-2 flex flex-wrap items-center gap-0.5">
       <YetkiliChipBaglanti
         kartId={kartId}
         projeId={projeId}
@@ -55,11 +54,6 @@ export function KartModalMetaChips({
       />
       <BitisChip bitis={bitis} bitisKaydet={bitisKaydet} />
       <EtiketChipBaglanti kartId={kartId} projeId={projeId} />
-      <BirimChipBaglanti
-        kartId={kartId}
-        projeId={projeId}
-        yetkiliYonet={yetkiliYonet}
-      />
       <KapakChipBaglanti
         kartId={kartId}
         projeId={projeId}
@@ -87,34 +81,29 @@ const ChipButon = React.forwardRef<HTMLButtonElement, ChipProps>(
     { icon: Icon, metin, sayi, bosMu, onPreview, className, ...rest },
     ref,
   ) {
+    const dolu = !bosMu && (typeof sayi === "number" ? sayi > 0 : Boolean(metin));
     return (
       <button
         ref={ref}
         type="button"
         className={cn(
-          "border-input hover:border-foreground/30 hover:bg-muted/60",
-          "inline-flex h-[26px] items-center gap-1.5 rounded-full border bg-background pl-2 pr-1.5",
-          "text-xs font-medium text-foreground/80 transition-colors",
+          "group inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors",
+          "text-muted-foreground hover:bg-muted hover:text-foreground",
           "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
-          "data-[state=open]:bg-primary/10 data-[state=open]:border-primary data-[state=open]:text-primary",
+          "data-[state=open]:bg-muted data-[state=open]:text-foreground",
+          dolu && "text-foreground",
           className,
         )}
         {...rest}
       >
-        <Icon className="size-3" strokeWidth={1.8} />
+        <Icon className="size-4 shrink-0" strokeWidth={1.75} />
         {!bosMu && metin && (
-          <span className="text-foreground text-[11.5px]">{metin}</span>
+          <span className="text-[12px]">{metin}</span>
         )}
         {!bosMu && typeof sayi === "number" && (
-          <span className="text-foreground text-[11px] font-semibold tabular-nums">
-            {sayi}
-          </span>
-        )}
-        {bosMu && (
-          <span className="text-muted-foreground/70 text-[11px]">—</span>
+          <span className="text-[12px] font-semibold tabular-nums">{sayi}</span>
         )}
         {onPreview}
-        <ChevronDownIcon className="size-2.5 opacity-60" strokeWidth={2} />
       </button>
     );
   },
@@ -149,11 +138,22 @@ function YetkiliChipBaglanti({
   projeId: string;
   yetkiliYonet: boolean;
 }) {
-  const sorgu = useKartYetkilileri(kartId);
-  const sayi = sorgu.data?.length ?? 0;
+  const kisiSorgu = useKartYetkilileri(kartId);
+  // Why: birim ve kişi yetkilileri tek panelde yönetiliyor; tek chip ikisinin
+  // toplam sayısını gösterir. Adaptör ile aynı cache key'i paylaşır.
+  const birimSorgu = useQuery({
+    queryKey: ["kart-birimler", kartId] as const,
+    queryFn: async () => {
+      const r = await kartBirimleriEylem({ kart_id: kartId });
+      if (!r.basarili) throw new Error(r.hata);
+      return r.veri;
+    },
+    staleTime: 30_000,
+  });
+  const sayi = (kisiSorgu.data?.length ?? 0) + (birimSorgu.data?.length ?? 0);
   const trigger = (
     <ChipButon
-      icon={UserIcon}
+      icon={ShieldIcon}
       sayi={sayi}
       bosMu={sayi === 0}
       aria-label="Yetkililer"
@@ -266,45 +266,6 @@ function EtiketChipBaglanti({
           }
         />
       }
-    />
-  );
-}
-
-function BirimChipBaglanti({
-  kartId,
-  projeId,
-  yetkiliYonet,
-}: {
-  kartId: string;
-  projeId: string;
-  yetkiliYonet: boolean;
-}) {
-  // Adaptör'le aynı cache key — chip ve panel tek cache paylaşır.
-  const sorgu = useQuery({
-    queryKey: ["kart-birimler", kartId] as const,
-    queryFn: async () => {
-      const r = await kartBirimleriEylem({ kart_id: kartId });
-      if (!r.basarili) throw new Error(r.hata);
-      return r.veri;
-    },
-    staleTime: 30_000,
-  });
-  const sayi = sorgu.data?.length ?? 0;
-  const trigger = (
-    <ChipButon
-      icon={HashIcon}
-      sayi={sayi}
-      bosMu={sayi === 0}
-      aria-label="Yetkili birimler"
-    />
-  );
-  if (!yetkiliYonet) return trigger;
-  return (
-    <YetkililerPaneliPopover
-      kaynak={kartYetkiliKaynagi(kartId, projeId, yetkiliYonet)}
-      side="bottom"
-      align="start"
-      trigger={trigger}
     />
   );
 }

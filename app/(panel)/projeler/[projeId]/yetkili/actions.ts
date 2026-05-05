@@ -1,18 +1,28 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { eylem, EylemHatasi } from "@/lib/action-wrapper";
 import { yetkiZorunlu, IZIN_KODLARI } from "@/lib/permissions";
 import { yetkiZorunluProje, yetkiZorunluKart } from "@/lib/yetki";
 import { HATA_KODU } from "@/lib/sonuc";
+import { davetLimiter } from "@/lib/rate-limit";
 import { tetikleKartYetkiliAtama } from "@/app/(panel)/bildirimler/tetikleyiciler";
+import {
+  davetOlustur,
+  projeBekleyenDavetleriListele,
+  projeDavetBaglamiKaldir,
+} from "@/app/(panel)/ayarlar/kullanicilar/services";
 import {
   kartAdayKullanicilarSemasi,
   kartaYetkiliEkleSemasi,
   kartaYetkiliKaldirSemasi,
   kartinYetkilileriSemasi,
   projeAdayKullanicilarSemasi,
+  projeBekleyenDavetleriSemasi,
+  projeDavetIptalSemasi,
   projeYetkilileriListeleSemasi,
   projeYetkilisiSeviyeGuncelleSemasi,
+  projeyeDavetGonderSemasi,
   projeyeYetkiliEkleSemasi,
   projeyeYetkiliKaldirSemasi,
 } from "./schemas";
@@ -175,5 +185,83 @@ export const kartaYetkiliKaldirEylem = eylem({
     await yetkiZorunluProje(ctx.oturum?.kullaniciId, "proje:authorize", projeId);
     await kartaYetkiliKaldirSrv(birimIdAl(ctx), girdi.kart_id, girdi.kullanici_id);
     return { kart_id: girdi.kart_id, kullanici_id: girdi.kullanici_id };
+  },
+});
+
+// =====================================================================
+// Proje davet bağlamı (ADR-0010): sistemde olmayan e-postaya davet gönder,
+// kabul edildiğinde otomatik olarak projeye yetkili olarak eklenir.
+// =====================================================================
+
+export const projeyeDavetGonderEylem = eylem({
+  ad: "proje:davet-gonder",
+  girdi: projeyeDavetGonderSemasi,
+  calistir: async (girdi, ctx) => {
+    const kullaniciId = birimIdAl(ctx);
+    // Çift yetki: hem kullanıcı davet hem proje yetkili yönetimi
+    await yetkiZorunlu(
+      kullaniciId,
+      IZIN_KODLARI.KULLANICI_DAVET,
+      IZIN_KODLARI.PROJE_YETKILI_YONET,
+    );
+    await yetkiZorunluProje(kullaniciId, "proje:authorize", girdi.proje_id);
+
+    if (!davetLimiter.tryConsume(`proje-davet:${kullaniciId}`)) {
+      throw new EylemHatasi(
+        "Çok hızlı davet gönderiyorsunuz, biraz bekleyin.",
+        HATA_KODU.RATE_LIMIT,
+      );
+    }
+
+    try {
+      const sonuc = await davetOlustur(kullaniciId, {
+        email: girdi.email,
+        rol_id: girdi.rol_id ?? null,
+        birim_id: girdi.birim_id ?? null,
+        proje_baglamlari: [
+          { proje_id: girdi.proje_id, seviye: girdi.seviye },
+        ],
+      });
+      revalidatePath(`/projeler/${girdi.proje_id}`);
+      return { davet_id: sonuc.id, email: girdi.email.toLowerCase() };
+    } catch (err) {
+      if (err instanceof EylemHatasi) throw err;
+      if (err instanceof Error) {
+        throw new EylemHatasi(err.message, HATA_KODU.CAKISMA);
+      }
+      throw err;
+    }
+  },
+});
+
+export const projeBekleyenDavetleriEylem = eylem({
+  ad: "proje:bekleyen-davetler",
+  girdi: projeBekleyenDavetleriSemasi,
+  calistir: async (girdi, ctx) => {
+    await yetkiZorunluProje(
+      ctx.oturum?.kullaniciId,
+      "proje:authorize",
+      girdi.proje_id,
+    );
+    return projeBekleyenDavetleriListele(girdi.proje_id);
+  },
+});
+
+export const projeDavetIptalEylem = eylem({
+  ad: "proje:davet-iptal",
+  girdi: projeDavetIptalSemasi,
+  calistir: async (girdi, ctx) => {
+    await yetkiZorunlu(
+      ctx.oturum?.kullaniciId,
+      IZIN_KODLARI.PROJE_YETKILI_YONET,
+    );
+    await yetkiZorunluProje(
+      ctx.oturum?.kullaniciId,
+      "proje:authorize",
+      girdi.proje_id,
+    );
+    await projeDavetBaglamiKaldir(girdi.davet_id, girdi.proje_id);
+    revalidatePath(`/projeler/${girdi.proje_id}`);
+    return { davet_id: girdi.davet_id, proje_id: girdi.proje_id };
   },
 });

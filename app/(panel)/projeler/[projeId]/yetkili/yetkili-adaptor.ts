@@ -19,18 +19,21 @@ import {
   kartaYetkiliKaldirEylem,
   kartinYetkilileriEylem,
   projeAdayKullanicilarEylem,
+  projeBekleyenDavetleriEylem,
+  projeDavetIptalEylem,
   projeYetkilileriniListeleEylem,
   projeYetkilisiSeviyeGuncelleEylem,
+  projeyeDavetGonderEylem,
   projeyeYetkiliEkleEylem,
   projeyeYetkiliKaldirEylem,
 } from "./actions";
 import type { ProjeYetkiSeviyesi } from "./schemas";
-import {
-  type YetkiliBirimOzeti,
-  type YetkiliKaynagi,
-  type YetkiliKisiAdayi,
-  type YetkiliKisiOzeti,
-  kaynakId,
+import type {
+  BekleyenDavetOzeti,
+  YetkiliBirimOzeti,
+  YetkiliKaynagi,
+  YetkiliKisiAdayi,
+  YetkiliKisiOzeti,
 } from "./yetkili-tipler";
 
 type Sonuc<T> =
@@ -358,6 +361,57 @@ function karttanKisiyeNormalize(ozet: {
     birim_ad: null,
     seviye: null,
     eklenme_zamani: new Date(),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Davet adaptörü — yalnız proje kaynağı için (ADR-0010)
+// Why: kart/liste'de davet anlamsız; daveti kabul eden kullanıcı önce projeye
+// yetkili olur, gerekirse sonradan liste/kart yetkisi verilir.
+// ---------------------------------------------------------------------------
+
+export type DavetAdaptor = {
+  bekleyenleriQueryKey: QueryKey;
+  bekleyenler: () => Promise<BekleyenDavetOzeti[]>;
+  davetGonder: (girdi: {
+    email: string;
+    seviye: ProjeYetkiSeviyesi;
+  }) => Promise<{ davet_id: string; email: string }>;
+  davetIptal: (davet_id: string) => Promise<{ davet_id: string }>;
+};
+
+export function davetAdaptor(
+  kaynak: YetkiliKaynagi,
+): DavetAdaptor | null {
+  if (kaynak.tip !== "proje") return null;
+  const projeId = kaynak.projeId;
+  return {
+    bekleyenleriQueryKey: ["proje-bekleyen-davetler", projeId] as const,
+    bekleyenler: () =>
+      paket(projeBekleyenDavetleriEylem({ proje_id: projeId })).then((veri) =>
+        veri.map((d) => ({
+          davet_id: d.davet_id,
+          email: d.email,
+          seviye: d.seviye,
+          son_kullanma: d.son_kullanma,
+          olusturma_zamani: d.olusturma_zamani,
+        })),
+      ),
+    davetGonder: ({ email, seviye }) =>
+      paket(
+        projeyeDavetGonderEylem({
+          proje_id: projeId,
+          email,
+          seviye,
+        }),
+      ),
+    davetIptal: (davet_id) =>
+      paket(
+        projeDavetIptalEylem({
+          proje_id: projeId,
+          davet_id,
+        }),
+      ).then(() => ({ davet_id })),
   };
 }
 

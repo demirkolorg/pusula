@@ -1,10 +1,12 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { ListeTipi } from "@prisma/client";
 import { eylemMutasyonu, useOptimisticMutation } from "@/lib/optimistic";
 import { siraArasi, siraKarsilastir, siraSonuna } from "@/lib/sira";
 import { tempId } from "@/lib/temp-id";
 import {
+  kartArsivEylem,
   kartGeriYukleEylem,
   kartGuncelleEylem,
   kartOlusturEylem,
@@ -17,6 +19,8 @@ import {
   projeDetayEylem,
   projeKartlarEylem,
 } from "../actions";
+import { projeGuncelleEylem } from "../../actions";
+import type { ProjeGuncelle } from "../../schemas";
 import { kartAktiviteleriKey } from "../aktivite/keys";
 import type {
   ListeKartOzeti,
@@ -25,6 +29,7 @@ import type {
   ProjeDetayOzeti,
 } from "../services";
 import type {
+  KartArsiv,
   KartGuncelle,
   KartOlustur,
   KartSil,
@@ -149,6 +154,7 @@ export function useListeOlustur(anahtar: DetayKey) {
           proje_id: vars.proje_id,
           ad: vars.ad,
           sira: siraSonuna(sonSira),
+          tip: ListeTipi.NORMAL,
           arsiv_mi: false,
           wip_limit: null,
           kartlar: [],
@@ -261,6 +267,10 @@ export function useKartOlustur(anahtar: DetayKey) {
             silindi_mi: false,
             yetkili_sayisi: 0,
             etiket_sayisi: 0,
+            yorum_sayisi: 0,
+            ek_sayisi: 0,
+            madde_toplam: 0,
+            madde_tamamlanan: 0,
           };
           return { ...l, kartlar: [...l.kartlar, taslak] };
         }),
@@ -340,6 +350,60 @@ export function useKartGeriYukle(anahtar: DetayKey) {
   });
 }
 
+// ADR-0009 — Kart arşivle/arşivden çıkar.
+// Optimistic: kartı kaynaktan çıkar, hedef listeye (Arşiv veya geri yükleme
+// hedef'i) ekle. Hedef arşivden çıkarmada arsiv_oncesi_liste_id'den biliniyorsa
+// orası, yoksa ilk NORMAL liste (server da aynı kuralı uygular).
+export function useKartArsivToggle(anahtar: DetayKey) {
+  return useOptimisticMutation<KartArsiv, { liste_id: string }>({
+    queryKey: anahtar,
+    mutationFn: eylemMutasyonu(kartArsivEylem),
+    optimistic: (eski, vars) =>
+      detayHaritala(eski, (d) => {
+        const arsivListesi = d.listeler.find((l) => l.tip === ListeTipi.ARSIV);
+        if (!arsivListesi) return d;
+
+        // Kartı bul + kaynaktan çıkar
+        let bulunan: ListeKartOzeti | undefined;
+        const aktifsiz = d.listeler.map((l) => {
+          const idx = l.kartlar.findIndex((k) => k.id === vars.id);
+          if (idx >= 0) {
+            bulunan = l.kartlar[idx];
+            return { ...l, kartlar: l.kartlar.filter((_, i) => i !== idx) };
+          }
+          return l;
+        });
+        if (!bulunan) return d;
+
+        // Hedef liste id'si: arşivle → Arşiv listesi; arşivden çıkar → ilk NORMAL.
+        // Server arsiv_oncesi_liste_id'yi tercih eder; cevap invalidate ile gelir.
+        const hedefListeId = vars.arsiv
+          ? arsivListesi.id
+          : aktifsiz.find((l) => l.tip === ListeTipi.NORMAL)?.id;
+        if (!hedefListeId) return d;
+
+        const hedef = aktifsiz.find((l) => l.id === hedefListeId);
+        const sonSira = hedef?.kartlar[hedef.kartlar.length - 1]?.sira ?? null;
+        const yeniKart: ListeKartOzeti = {
+          ...bulunan,
+          arsiv_mi: vars.arsiv,
+          sira: siraSonuna(sonSira),
+        };
+
+        return {
+          ...d,
+          listeler: aktifsiz.map((l) =>
+            l.id === hedefListeId
+              ? { ...l, kartlar: [...l.kartlar, yeniKart] }
+              : l,
+          ),
+        };
+      }),
+    ekInvalidate: (vars) => [kartAktiviteleriKey(vars.id)],
+    hataMesaji: "Kart arşivlenemedi",
+  });
+}
+
 // Kart taşıma (drag-drop): kanban-pano dragOver sırasında cache'i ZATEN
 // transient olarak yeni pozisyona getiriyor. Burada optimistic update YOK —
 // kanban-pano `dragBaslat`'ta orijinal snapshot alıyor, hata durumunda manuel
@@ -366,6 +430,29 @@ export function useKartTasi(anahtar: DetayKey) {
     // Kart taşıma da audit log'a düşer; aktivite log'u canlı yansısın.
     ekInvalidate: (vars) => [kartAktiviteleriKey(vars.id)],
     hataMesaji: "Kart taşınamadı",
+  });
+}
+
+// Proje detay sayfasında ad/açıklama/yıldız/kapak güncelleme — projeler liste
+// hook'unun (`useProjeGuncelle`) optimistic'i `ProjeKart[]` varsayar; detay
+// cache'i tek obje olduğundan ayrı bir wrapper. Aynı server action'ı kullanır.
+export function useProjeDetayGuncelle(anahtar: DetayKey) {
+  return useOptimisticMutation<ProjeGuncelle, { id: string }>({
+    queryKey: anahtar,
+    mutationFn: eylemMutasyonu(projeGuncelleEylem),
+    optimistic: (eski, vars) => {
+      const d = eski as ProjeDetayOzeti | undefined;
+      if (!d) return eski;
+      return {
+        ...d,
+        ad: vars.ad ?? d.ad,
+        aciklama: vars.aciklama === undefined ? d.aciklama : vars.aciklama,
+        kapak_renk:
+          vars.kapak_renk === undefined ? d.kapak_renk : vars.kapak_renk,
+        yildizli_mi: vars.yildizli_mi ?? d.yildizli_mi,
+      } satisfies ProjeDetayOzeti;
+    },
+    hataMesaji: "Proje güncellenemedi",
   });
 }
 

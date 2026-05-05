@@ -1,86 +1,99 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { KanbanIcon, ListIcon, ShieldCheckIcon, StarIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { kapakArkaplanSinifi } from "@/lib/kapak-renk";
 import type { ProjeDetayOzeti } from "../services";
-import { YetkililerPaneliPopover } from "../yetkili/components/yetkililer-paneli";
+import { ProjeBaslikKimlik } from "./proje-baslik-kimlik";
+import { ProjeBaslikSekmeler } from "./proje-baslik-sekmeler";
+import {
+  ProjeBaslikAksiyonlar,
+  type ProjeBaslikAksiyonYetkileri,
+} from "./proje-baslik-aksiyonlar";
+import { ProjeAramaSheet } from "./proje-arama-sheet";
+
+export type ProjeBaslikYetkileri = {
+  yildizla: boolean;
+  yetkililerYonet: boolean;
+  arama: boolean;
+  arsivle: boolean;
+};
 
 type Props = {
   proje: ProjeDetayOzeti;
-  yetkiliYonet?: boolean;
+  yetkiler: ProjeBaslikYetkileri;
 };
 
-export function ProjeBaslik({ proje, yetkiliYonet = false }: Props) {
-  const yol = usePathname();
-  const listedeMi = yol?.endsWith("/liste");
+// Tek satır header — sol kimlik, orta sekmeler (desktop), sağ aksiyonlar.
+// Mobile'da sekme stripi alt satıra düşer. Header altında border yok —
+// görsel olarak sayfa içeriğiyle akıcı geçiş.
+//
+// Cmd/Ctrl+K → Arama sheet aç. Global keyboard shortcut header mount olduğu
+// sürece aktif (proje detay sayfasında her zaman mount).
+export function ProjeBaslik({ proje, yetkiler }: Props) {
+  const [aramaAcik, setAramaAcik] = React.useState(false);
 
-  const kapakSinifi = kapakArkaplanSinifi(proje.kapak_renk);
+  // Cmd/Ctrl+K shortcut — input içinde değilken yakalanır.
+  React.useEffect(() => {
+    if (!yetkiler.arama) return;
+    const dinleyici = (e: KeyboardEvent) => {
+      const meta = e.metaKey || e.ctrlKey;
+      if (!meta || e.key.toLowerCase() !== "k") return;
+      e.preventDefault();
+      setAramaAcik((a) => !a);
+    };
+    window.addEventListener("keydown", dinleyici);
+    return () => window.removeEventListener("keydown", dinleyici);
+  }, [yetkiler.arama]);
+
+  const aksiyonYetkileri: ProjeBaslikAksiyonYetkileri = React.useMemo(
+    () => ({
+      arama: yetkiler.arama,
+      yetkililerYonet: yetkiler.yetkililerYonet,
+      arsivle: yetkiler.arsivle,
+    }),
+    [yetkiler.arama, yetkiler.yetkililerYonet, yetkiler.arsivle],
+  );
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-3">
-        <div
-          className={cn(
-            "size-10 shrink-0 rounded-md",
-            kapakSinifi ?? "bg-muted",
-          )}
-          aria-hidden="true"
+    <>
+      {/* Tek satır header — h-13 (52px) mobile, h-14 (56px) desktop.
+          Border yok; sayfayla görsel akıcı geçiş. */}
+      <header
+        className={cn(
+          "flex h-13 items-center gap-3 bg-background px-3 sm:h-14 sm:gap-4 sm:px-4",
+        )}
+      >
+        <ProjeBaslikKimlik
+          proje={proje}
+          yildizlayabilir={yetkiler.yildizla}
+          className="min-w-0 flex-1"
         />
-        <div className="flex flex-1 flex-col">
-          <h1 className="flex items-center gap-2 text-xl font-semibold leading-tight">
-            {proje.ad}
-            {proje.yildizli_mi && (
-              <StarIcon
-                className="text-secondary size-4"
-                fill="currentColor"
-              />
-            )}
-          </h1>
-          {proje.aciklama && (
-            <p className="text-muted-foreground line-clamp-1 text-sm">
-              {proje.aciklama}
-            </p>
-          )}
-        </div>
+
+        <ProjeBaslikSekmeler
+          projeId={proje.id}
+          className="hidden md:inline-flex"
+        />
+
+        <ProjeBaslikAksiyonlar
+          projeId={proje.id}
+          yetkiler={aksiyonYetkileri}
+          onAramaAc={() => setAramaAcik(true)}
+        />
+      </header>
+
+      {/* Mobile sekme stripi — desktop'ta gizli; tek satır kapasitesi olmayan
+          ekranlarda alt satırda yer alır. */}
+      <div className="bg-background overflow-x-auto px-3 py-1.5 md:hidden">
+        <ProjeBaslikSekmeler projeId={proje.id} />
       </div>
 
-      <div className="flex flex-wrap gap-1">
-        <Button
-          size="sm"
-          variant={listedeMi ? "outline" : "default"}
-          nativeButton={false}
-          render={<Link href={`/projeler/${proje.id}`} />}
-        >
-          <KanbanIcon className="size-4" /> Pano
-        </Button>
-        <Button
-          size="sm"
-          variant={listedeMi ? "default" : "outline"}
-          nativeButton={false}
-          render={<Link href={`/projeler/${proje.id}/liste`} />}
-        >
-          <ListIcon className="size-4" /> Liste
-        </Button>
-        {yetkiliYonet && (
-          <YetkililerPaneliPopover
-            kaynak={{
-              tip: "proje",
-              projeId: proje.id,
-              izinler: { birimYonet: true, kisiYonet: true },
-            }}
-            trigger={
-              <Button size="sm" variant="outline">
-                <ShieldCheckIcon className="size-4" /> Yetkililer
-              </Button>
-            }
-          />
-        )}
-      </div>
-    </div>
+      {yetkiler.arama && (
+        <ProjeAramaSheet
+          projeId={proje.id}
+          acik={aramaAcik}
+          setAcik={setAramaAcik}
+        />
+      )}
+    </>
   );
 }

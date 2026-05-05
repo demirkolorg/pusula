@@ -220,6 +220,18 @@ export async function davetOlustur(
     );
   }
 
+  const mevcutDavet = await db.davetTokeni.findFirst({
+    where: { email, kullanildi_mi: false, son_kullanma: { gt: new Date() } },
+    select: { id: true },
+  });
+  if (mevcutDavet) {
+    throw new EylemHatasi(
+      "Bu e-posta için aktif bir davet zaten var.",
+      HATA_KODU.CAKISMA,
+      { email: "Bu e-posta için aktif bir davet zaten var." },
+    );
+  }
+
   const token = tokenUret();
   const sonKullanma = new Date(
     Date.now() + DAVET_OMUR_GUN * 24 * 60 * 60 * 1000,
@@ -246,7 +258,26 @@ export async function davetOlustur(
       }
     }
 
-    return tx.davetTokeni.create({
+    if (girdi.proje_baglamlari.length > 0) {
+      const projeIdleri = girdi.proje_baglamlari.map((b) => b.proje_id);
+      const projeler = await tx.proje.findMany({
+        where: { id: { in: projeIdleri } },
+        select: { id: true, silindi_mi: true },
+      });
+      const bulunan = new Map(projeler.map((p) => [p.id, p.silindi_mi]));
+      for (const baglam of girdi.proje_baglamlari) {
+        const silindi = bulunan.get(baglam.proje_id);
+        if (silindi === undefined || silindi) {
+          throw new EylemHatasi(
+            "Seçilen projelerden biri geçerli değil.",
+            HATA_KODU.GECERSIZ_GIRDI,
+            { proje_baglamlari: "Geçersiz proje seçimi." },
+          );
+        }
+      }
+    }
+
+    const olusturulan = await tx.davetTokeni.create({
       data: {
         token,
         email,
@@ -257,6 +288,19 @@ export async function davetOlustur(
       },
       select: { id: true, token: true },
     });
+
+    if (girdi.proje_baglamlari.length > 0) {
+      await tx.davetProjeBaglami.createMany({
+        data: girdi.proje_baglamlari.map((b) => ({
+          davet_id: olusturulan.id,
+          proje_id: b.proje_id,
+          seviye: b.seviye,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    return olusturulan;
   });
 
   const url = `${process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:2500"}/davet/${kayit.token}`;
@@ -267,6 +311,56 @@ export async function davetOlustur(
   });
 
   return kayit;
+}
+
+export type ProjeBekleyenDavetSatiri = {
+  davet_id: string;
+  email: string;
+  seviye: "ADMIN" | "NORMAL" | "IZLEYICI";
+  davet_eden_id: string;
+  son_kullanma: Date;
+  olusturma_zamani: Date;
+};
+
+export async function projeBekleyenDavetleriListele(
+  projeId: string,
+): Promise<ProjeBekleyenDavetSatiri[]> {
+  const satirlar = await db.davetProjeBaglami.findMany({
+    where: {
+      proje_id: projeId,
+      davet: { kullanildi_mi: false, son_kullanma: { gt: new Date() } },
+    },
+    orderBy: { olusturma_zamani: "desc" },
+    select: {
+      davet_id: true,
+      seviye: true,
+      olusturma_zamani: true,
+      davet: {
+        select: {
+          email: true,
+          son_kullanma: true,
+          davet_eden_id: true,
+        },
+      },
+    },
+  });
+  return satirlar.map((s) => ({
+    davet_id: s.davet_id,
+    email: s.davet.email,
+    seviye: s.seviye,
+    davet_eden_id: s.davet.davet_eden_id,
+    son_kullanma: s.davet.son_kullanma,
+    olusturma_zamani: s.olusturma_zamani,
+  }));
+}
+
+export async function projeDavetBaglamiKaldir(
+  davetId: string,
+  projeId: string,
+): Promise<void> {
+  await db.davetProjeBaglami.deleteMany({
+    where: { davet_id: davetId, proje_id: projeId },
+  });
 }
 
 export async function bekleyenKullanicilariListele() {

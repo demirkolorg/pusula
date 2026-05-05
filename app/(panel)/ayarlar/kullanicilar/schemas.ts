@@ -27,10 +27,27 @@ export const kullaniciGuncelleSemasi = z.object({
 
 export const kullaniciSilSemasi = z.object({ id: z.string().uuid() });
 
+export const PROJE_YETKI_SEVIYESI_DAVET = ["ADMIN", "NORMAL", "IZLEYICI"] as const;
+export const projeYetkiSeviyesiDavetSemasi = z.enum(PROJE_YETKI_SEVIYESI_DAVET);
+
+export const davetProjeBaglamiSemasi = z.object({
+  proje_id: z.string().uuid(),
+  seviye: projeYetkiSeviyesiDavetSemasi.default("NORMAL"),
+});
+
 export const davetGonderSemasi = z.object({
   email: z.string().min(1).email(),
   rol_id: z.string().uuid().optional().nullable(),
   birim_id: birimIdSemasi,
+  proje_baglamlari: z.array(davetProjeBaglamiSemasi).max(10).default([]),
+});
+
+export const davetIptalSemasi = z.object({
+  davet_id: z.string().uuid(),
+});
+
+export const projeBekleyenDavetlerSemasi = z.object({
+  proje_id: z.string().uuid(),
 });
 
 export const kullaniciOnaylaSemasi = z.object({ id: z.string().uuid() });
@@ -42,5 +59,8 @@ export const kullaniciReddetSemasi = z.object({
 export type KullaniciListe = z.infer<typeof kullaniciListeSemasi>;
 export type KullaniciGuncelle = z.infer<typeof kullaniciGuncelleSemasi>;
 export type DavetGonder = z.infer<typeof davetGonderSemasi>;
+export type DavetProjeBaglami = z.infer<typeof davetProjeBaglamiSemasi>;
+export type DavetIptal = z.infer<typeof davetIptalSemasi>;
+export type ProjeBekleyenDavetler = z.infer<typeof projeBekleyenDavetlerSemasi>;
 export type KullaniciOnayla = z.infer<typeof kullaniciOnaylaSemasi>;
 export type KullaniciReddet = z.infer<typeof kullaniciReddetSemasi>;

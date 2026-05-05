@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { ListeTipi } from "@prisma/client";
 import type { ListeKartOzeti, ListeOzeti, ProjeDetayOzeti } from "../services";
 import {
+  arsivGecisiBelirle,
   kartDropKonumuHesapla,
   kartTasimasiDegistirirMi,
   kartiKonumaTasi,
@@ -20,15 +22,24 @@ function kart(id: string): ListeKartOzeti {
     silindi_mi: false,
     yetkili_sayisi: 0,
     etiket_sayisi: 0,
+    yorum_sayisi: 0,
+    ek_sayisi: 0,
+    madde_toplam: 0,
+    madde_tamamlanan: 0,
   };
 }
 
-function liste(id: string, kartlar: string[]): ListeOzeti {
+function liste(
+  id: string,
+  kartlar: string[],
+  tip: ListeTipi = ListeTipi.NORMAL,
+): ListeOzeti {
   return {
     id,
     proje_id: "p1",
     ad: id,
     sira: id,
+    tip,
     arsiv_mi: false,
     wip_limit: null,
     kartlar: kartlar.map(kart),
@@ -118,5 +129,45 @@ describe("kanban dnd hedef hesabi", () => {
     expect(
       kartTasimasiDegistirirMi(listeler, "b", "l1", konum!.liste_id, konum!.index),
     ).toBe(false);
+  });
+});
+
+// ADR-0009 — Arşiv sistem listesi ↔ NORMAL geçişi tespiti.
+describe("arsivGecisiBelirle (ADR-0009)", () => {
+  it("NORMAL → ARSIV: 'arsivle' döner", () => {
+    const listeler = [
+      liste("l1", ["a"], ListeTipi.NORMAL),
+      liste("arsiv", ["x"], ListeTipi.ARSIV),
+    ];
+    expect(arsivGecisiBelirle(listeler, "l1", "arsiv")).toBe("arsivle");
+  });
+
+  it("ARSIV → NORMAL: 'arsivden-cikar' döner", () => {
+    const listeler = [
+      liste("l1", ["a"], ListeTipi.NORMAL),
+      liste("arsiv", ["x"], ListeTipi.ARSIV),
+    ];
+    expect(arsivGecisiBelirle(listeler, "arsiv", "l1")).toBe(
+      "arsivden-cikar",
+    );
+  });
+
+  it("NORMAL → NORMAL: null döner (arşiv geçişi yok)", () => {
+    const listeler = [
+      liste("l1", ["a"], ListeTipi.NORMAL),
+      liste("l2", ["b"], ListeTipi.NORMAL),
+    ];
+    expect(arsivGecisiBelirle(listeler, "l1", "l2")).toBeNull();
+  });
+
+  it("aynı listeye taşımada null döner", () => {
+    const listeler = [liste("l1", ["a"], ListeTipi.NORMAL)];
+    expect(arsivGecisiBelirle(listeler, "l1", "l1")).toBeNull();
+  });
+
+  it("bilinmeyen liste id'lerinde null döner", () => {
+    const listeler = [liste("l1", ["a"], ListeTipi.NORMAL)];
+    expect(arsivGecisiBelirle(listeler, "l1", "yok")).toBeNull();
+    expect(arsivGecisiBelirle(listeler, "yok", "l1")).toBeNull();
   });
 });

@@ -1,10 +1,14 @@
-import type { Prisma } from "@prisma/client";
+import { ListeTipi, type Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { siraArasi, siraSonuna } from "@/lib/sira";
 import { EylemHatasi } from "@/lib/action-wrapper";
 import { HATA_KODU } from "@/lib/sonuc";
 import { aramaUuidIdleri } from "@/lib/arama";
 import { kullaniciErisimBilgisi } from "@/lib/yetki";
+
+// ADR-0009 — Yeni proje yaratıldığında otomatik Arşiv sistem listesi seed.
+const ARSIV_LISTESI_SIRA = "ZZZZ";
+const ARSIV_LISTESI_AD = "Arşiv";
 import type {
   ProjeArsiv,
   ProjeGuncelle,
@@ -18,6 +22,7 @@ export type ProjeKart = {
   ad: string;
   aciklama: string | null;
   kapak_renk: string | null;
+  kapak_ikon: string | null;
   yildizli_mi: boolean;
   arsiv_mi: boolean;
   silindi_mi: boolean;
@@ -118,6 +123,7 @@ export async function projeleriListele(
       ad: true,
       aciklama: true,
       kapak_renk: true,
+      kapak_ikon: true,
       yildizli_mi: true,
       arsiv_mi: true,
       silindi_mi: true,
@@ -133,6 +139,7 @@ export async function projeleriListele(
     ad: p.ad,
     aciklama: p.aciklama,
     kapak_renk: p.kapak_renk,
+    kapak_ikon: p.kapak_ikon,
     yildizli_mi: p.yildizli_mi,
     arsiv_mi: p.arsiv_mi,
     silindi_mi: p.silindi_mi,
@@ -165,6 +172,7 @@ export async function projeOlustur(
       ad: girdi.ad.trim(),
       aciklama: girdi.aciklama?.trim() || null,
       kapak_renk: girdi.kapak_renk || null,
+      kapak_ikon: girdi.kapak_ikon || null,
       sira,
       olusturan_id: olusturanId,
       yetkililer: {
@@ -173,12 +181,21 @@ export async function projeOlustur(
       birimler: olusturan?.birim_id
         ? { create: { birim_id: olusturan.birim_id } }
         : undefined,
+      // ADR-0009 — projeyle birlikte Arşiv sistem listesini de oluştur
+      listeler: {
+        create: {
+          ad: ARSIV_LISTESI_AD,
+          sira: ARSIV_LISTESI_SIRA,
+          tip: ListeTipi.ARSIV,
+        },
+      },
     },
     select: {
       id: true,
       ad: true,
       aciklama: true,
       kapak_renk: true,
+      kapak_ikon: true,
       yildizli_mi: true,
       arsiv_mi: true,
       silindi_mi: true,
@@ -210,6 +227,7 @@ export async function projeGuncelle(girdi: ProjeGuncelle): Promise<void> {
   if (girdi.ad !== undefined) veri.ad = girdi.ad.trim();
   if (girdi.aciklama !== undefined) veri.aciklama = girdi.aciklama?.trim() || null;
   if (girdi.kapak_renk !== undefined) veri.kapak_renk = girdi.kapak_renk || null;
+  if (girdi.kapak_ikon !== undefined) veri.kapak_ikon = girdi.kapak_ikon || null;
   if (girdi.yildizli_mi !== undefined) veri.yildizli_mi = girdi.yildizli_mi;
   await db.proje.update({ where: { id: girdi.id }, data: veri });
 }

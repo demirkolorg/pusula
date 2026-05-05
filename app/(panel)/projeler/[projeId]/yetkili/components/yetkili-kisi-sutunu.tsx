@@ -2,9 +2,8 @@
 
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { PlusIcon, SearchIcon, UserRoundIcon, XIcon } from "lucide-react";
+import { MailIcon, PlusIcon, UserRoundIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -13,14 +12,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useOptimisticMutation } from "@/lib/optimistic";
-import { cn } from "@/lib/utils";
 import {
   PROJE_YETKI_SEVIYELERI,
   type ProjeYetkiSeviyesi,
 } from "../schemas";
-import { extraKisiKeys, kisiAdaptor } from "../yetkili-adaptor";
+import { davetAdaptor, extraKisiKeys, kisiAdaptor } from "../yetkili-adaptor";
 import {
-  optimistikKisiEkle,
   optimistikKisiKaldir,
   optimistikSeviyeGuncelle,
 } from "../yetkili-optimistic";
@@ -28,10 +25,10 @@ import {
   kisiAciklamasi,
   seviyeDestekliMi,
   type YetkiliKaynagi,
-  type YetkiliKisiAdayi,
   type YetkiliKisiOzeti,
 } from "../yetkili-tipler";
 import { KisiAvatar } from "./kisi-avatar";
+import { YetkiliKisiEkleDialog } from "./yetkili-kisi-ekle-dialog";
 
 type Props = {
   kaynak: YetkiliKaynagi;
@@ -45,9 +42,10 @@ const SEVIYE_ETIKET: Record<ProjeYetkiSeviyesi, string> = {
 
 export function YetkiliKisiSutunu({ kaynak }: Props) {
   const adaptor = React.useMemo(() => kisiAdaptor(kaynak), [kaynak]);
-  const [q, setQ] = React.useState("");
+  const davet = React.useMemo(() => davetAdaptor(kaynak), [kaynak]);
   const yonetebilir = kaynak.izinler.kisiYonet;
   const seviyeli = seviyeDestekliMi(kaynak);
+  const [ekleAcik, setEkleAcik] = React.useState(false);
 
   const yetkililer = useQuery({
     queryKey: adaptor.queryKey,
@@ -55,38 +53,15 @@ export function YetkiliKisiSutunu({ kaynak }: Props) {
     staleTime: 30_000,
   });
 
-  const adaylar = useQuery({
-    queryKey: adaptor.adayQueryKey(q),
-    queryFn: () => adaptor.adaylar(q),
-    enabled: yonetebilir,
+  const bekleyenDavetler = useQuery({
+    queryKey: davet?.bekleyenleriQueryKey ?? ["proje-bekleyen-davetler", "yok"],
+    queryFn: () => (davet ? davet.bekleyenler() : Promise.resolve([])),
+    enabled: Boolean(davet) && yonetebilir,
     staleTime: 30_000,
   });
+  const bekleyenSayisi = bekleyenDavetler.data?.length ?? 0;
 
   const ekKeys = React.useMemo(() => extraKisiKeys(kaynak), [kaynak]);
-
-  const ekle = useOptimisticMutation<
-    { kullanici_id: string; seviye: ProjeYetkiSeviyesi; aday: YetkiliKisiAdayi },
-    { kullanici_id: string; ozet?: YetkiliKisiOzeti }
-  >({
-    queryKey: adaptor.queryKey,
-    mutationFn: ({ kullanici_id, seviye }) =>
-      adaptor.ekle(kullanici_id, seviye),
-    optimistic: (eski, vars) =>
-      optimistikKisiEkle(
-        eski as YetkiliKisiOzeti[] | undefined,
-        vars.aday,
-        seviyeli ? vars.seviye : null,
-      ),
-    swap: (eski, vars, yanit) => {
-      if (!yanit.ozet) return eski as YetkiliKisiOzeti[] | undefined;
-      const liste = (eski as YetkiliKisiOzeti[] | undefined) ?? [];
-      return liste.map((k) =>
-        k.kullanici_id === vars.kullanici_id ? yanit.ozet! : k,
-      );
-    },
-    ekInvalidate: ekKeys,
-    hataMesaji: "Yetkili eklenemedi",
-  });
 
   const kaldir = useOptimisticMutation<
     { kullanici_id: string },
@@ -119,14 +94,15 @@ export function YetkiliKisiSutunu({ kaynak }: Props) {
     hataMesaji: "Yetki seviyesi güncellenemedi",
   });
 
-  const mevcutlar = yetkililer.data ?? [];
-  const yetkiliSet = new Set(mevcutlar.map((k) => k.kullanici_id));
-  const filtreliAdaylar = (adaylar.data ?? []).filter(
-    (aday) => !yetkiliSet.has(aday.id),
+  const mevcutlar = React.useMemo(
+    () => yetkililer.data ?? [],
+    [yetkililer.data],
   );
-
+  const mevcutIdleri = React.useMemo(
+    () => mevcutlar.map((k) => k.kullanici_id),
+    [mevcutlar],
+  );
   const yukleniyor = yetkililer.isLoading;
-  const adetMetni = yukleniyor ? "..." : mevcutlar.length;
 
   return (
     <section className="grid gap-3">
@@ -135,18 +111,40 @@ export function YetkiliKisiSutunu({ kaynak }: Props) {
           <UserRoundIcon className="size-3.5" />
           <h3 className="text-sm font-medium">Kişiler</h3>
         </div>
-        <p className="text-muted-foreground text-[11px]">
+        <p className="text-muted-foreground text-xs">
           {kisiAciklamasi(kaynak)}
         </p>
       </header>
 
-      <div>
-        <div className="text-muted-foreground mb-1.5 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide">
-          <span>Yetkili kişiler</span>
-          <span className="bg-muted text-foreground inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold tabular-nums">
-            {adetMetni}
-          </span>
+      <div className="grid gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <SutunBasliği
+            metin="Yetkili kişiler"
+            sayi={yukleniyor ? null : mevcutlar.length}
+          />
+          {yonetebilir ? (
+            <div className="flex items-center gap-2">
+              {bekleyenSayisi > 0 ? (
+                <span
+                  className="text-muted-foreground inline-flex items-center gap-1 text-xs"
+                  title={`${bekleyenSayisi} davet bekliyor`}
+                >
+                  <MailIcon className="size-3.5" />
+                  {bekleyenSayisi}
+                </span>
+              ) : null}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setEkleAcik(true)}
+              >
+                <PlusIcon className="size-3.5" /> Ekle
+              </Button>
+            </div>
+          ) : null}
         </div>
+
         {yukleniyor ? (
           <p className="text-muted-foreground text-xs">Yükleniyor...</p>
         ) : mevcutlar.length === 0 ? (
@@ -154,18 +152,18 @@ export function YetkiliKisiSutunu({ kaynak }: Props) {
             Henüz kişi yetkisi verilmemiş.
           </p>
         ) : (
-          <ul className="flex max-h-44 flex-col gap-1 overflow-y-auto">
+          <ul className="border-border bg-card divide-border max-h-64 divide-y overflow-y-auto rounded-md border">
             {mevcutlar.map((kisi) => (
               <li
                 key={kisi.kullanici_id}
-                className="bg-muted/40 hover:bg-muted/70 group flex items-center gap-2 rounded px-2 py-1.5"
+                className="hover:bg-accent group flex items-center gap-3 px-3 py-2.5 transition-colors"
               >
                 <KisiAvatar ad={kisi.ad} soyad={kisi.soyad} />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm">
+                  <p className="truncate text-sm font-medium">
                     {kisi.ad} {kisi.soyad}
                   </p>
-                  <p className="text-muted-foreground truncate text-[11px]">
+                  <p className="text-muted-foreground truncate text-xs">
                     {kisi.birim_ad ?? kisi.email}
                   </p>
                 </div>
@@ -192,13 +190,13 @@ export function YetkiliKisiSutunu({ kaynak }: Props) {
                     type="button"
                     size="icon-sm"
                     variant="ghost"
-                    className="size-6 opacity-60 group-hover:opacity-100"
+                    className="size-7 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
                     onClick={() =>
                       kaldir.mutate({ kullanici_id: kisi.kullanici_id })
                     }
                     aria-label={`${kisi.ad} ${kisi.soyad} yetkisini kaldır`}
                   >
-                    <XIcon className="size-3.5" />
+                    <XIcon className="size-4" />
                   </Button>
                 ) : null}
               </li>
@@ -208,61 +206,25 @@ export function YetkiliKisiSutunu({ kaynak }: Props) {
       </div>
 
       {yonetebilir ? (
-        <div className="bg-muted/20 rounded-md border border-dashed p-2">
-          <div className="text-muted-foreground mb-1.5 flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide">
-            <PlusIcon className="size-3" />
-            <span>Kişi yetkisi ekle</span>
-          </div>
-          <div className="relative">
-            <SearchIcon className="text-muted-foreground absolute top-1/2 left-2 size-3 -translate-y-1/2" />
-            <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="İsim veya birim yazın..."
-              className="bg-background h-8 pl-7"
-            />
-          </div>
-          {filtreliAdaylar.length > 0 ? (
-            <ul className="mt-1.5 flex max-h-40 flex-col gap-0.5 overflow-y-auto">
-              {filtreliAdaylar.map((aday) => (
-                <li key={aday.id}>
-                  <button
-                    type="button"
-                    disabled={ekle.isPending}
-                    onClick={() =>
-                      ekle.mutate({
-                        kullanici_id: aday.id,
-                        seviye: "NORMAL",
-                        aday,
-                      })
-                    }
-                    className={cn(
-                      "hover:bg-accent flex w-full items-center gap-2 rounded px-2 py-1.5 text-left",
-                      "disabled:cursor-not-allowed disabled:opacity-50",
-                    )}
-                  >
-                    <KisiAvatar ad={aday.ad} soyad={aday.soyad} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm">
-                        {aday.ad} {aday.soyad}
-                      </p>
-                      <p className="text-muted-foreground truncate text-[11px]">
-                        {aday.birim_ad ?? aday.email}
-                      </p>
-                    </div>
-                    <PlusIcon className="text-muted-foreground size-3.5" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : q.length > 0 ? (
-            <p className="text-muted-foreground mt-1.5 text-[11px]">
-              Eşleşen kişi bulunamadı.
-            </p>
-          ) : null}
-        </div>
+        <YetkiliKisiEkleDialog
+          acik={ekleAcik}
+          acikDegis={setEkleAcik}
+          kaynak={kaynak}
+          mevcutKullaniciIdleri={mevcutIdleri}
+        />
       ) : null}
     </section>
+  );
+}
+
+function SutunBasliği({ metin, sayi }: { metin: string; sayi: number | null }) {
+  return (
+    <div className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide">
+      <span>{metin}</span>
+      <span className="bg-muted text-foreground inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold tabular-nums">
+        {sayi ?? "..."}
+      </span>
+    </div>
   );
 }
 
@@ -281,7 +243,7 @@ function KisiSeviyeKontrolu({
 }) {
   if (!yonetebilir) {
     return (
-      <span className="bg-background text-muted-foreground rounded px-1.5 py-0.5 text-[10px] font-medium uppercase">
+      <span className="bg-muted text-muted-foreground rounded px-2 py-0.5 text-xs font-medium">
         {SEVIYE_ETIKET[seviye]}
       </span>
     );
@@ -294,14 +256,14 @@ function KisiSeviyeKontrolu({
     >
       <SelectTrigger
         size="sm"
-        className="bg-background h-6 w-auto px-1.5 py-0 text-[10px] font-medium uppercase"
+        className="h-7 w-auto px-2 text-xs font-medium"
         aria-label={`${kullaniciId} seviyesini değiştir`}
       >
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
         {PROJE_YETKI_SEVIYELERI.map((s) => (
-          <SelectItem key={s} value={s} className="text-xs">
+          <SelectItem key={s} value={s} className="text-sm">
             {SEVIYE_ETIKET[s]}
           </SelectItem>
         ))}

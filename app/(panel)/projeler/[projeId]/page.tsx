@@ -32,8 +32,10 @@ export default async function ProjeDetaySayfasi({ params }: SayfaProps) {
     kartTasi,
     kartDuzenle,
     kartSil,
+    projeDuzenleIzni,
     projeYetkiliYonetIzni,
     projeYetkiliYonetKaynak,
+    projeDuzenleKaynak,
   ] = await Promise.all([
     izinVarMi(kullanici.id, IZIN_KODLARI.LISTE_OLUSTUR),
     izinVarMi(kullanici.id, IZIN_KODLARI.LISTE_DUZENLE),
@@ -42,17 +44,27 @@ export default async function ProjeDetaySayfasi({ params }: SayfaProps) {
     izinVarMi(kullanici.id, IZIN_KODLARI.KART_TASI),
     izinVarMi(kullanici.id, IZIN_KODLARI.KART_DUZENLE),
     izinVarMi(kullanici.id, IZIN_KODLARI.KART_SIL),
+    izinVarMi(kullanici.id, IZIN_KODLARI.PROJE_DUZENLE),
     izinVarMi(kullanici.id, IZIN_KODLARI.PROJE_YETKILI_YONET),
     canProje(kullanici.id, "proje:authorize", projeId),
+    canProje(kullanici.id, "proje:edit", projeId),
   ]);
 
+  const yetkililerYonet = projeYetkiliYonetIzni && projeYetkiliYonetKaynak;
+  const projeDuzenle = projeDuzenleIzni && projeDuzenleKaynak;
+
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="flex h-full flex-col">
       <ProjeBaslik
         proje={detay}
-        yetkiliYonet={projeYetkiliYonetIzni && projeYetkiliYonetKaynak}
+        yetkiler={{
+          yildizla: projeDuzenle,
+          yetkililerYonet,
+          arama: true,
+          arsivle: projeDuzenle,
+        }}
       />
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden p-4">
         <KanbanPano
           projeId={projeId}
           ilkVeri={detay}
@@ -64,7 +76,7 @@ export default async function ProjeDetaySayfasi({ params }: SayfaProps) {
             kartTasi,
             kartDuzenle,
             kartSil,
-            yetkiliYonet: projeYetkiliYonetIzni && projeYetkiliYonetKaynak,
+            yetkiliYonet: yetkililerYonet,
           }}
         />
       </div>

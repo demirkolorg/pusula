@@ -424,9 +424,29 @@ model DavetTokeni {
   kullanim_zamani  DateTime?
   olusturma_zamani DateTime  @default(now())
 
+  proje_baglamlari DavetProjeBaglami[]
+
   @@index([token])
   @@index([email])
   @@index([birim_id])
+}
+
+// ADR-0010 — kullanıcı henüz sistemde yokken davet üzerinden bir veya birden çok
+// projeye yetkili tayini için bağlam tablosu. Davet kabul edildiğinde bu bağlamlar
+// ProjeYetkili kayıtlarına dönüştürülür ve bağlam silinir; davet expire olursa
+// onDelete: Cascade ile temizlenir (sync gerekmez).
+model DavetProjeBaglami {
+  id               String             @id @default(uuid()) @db.Uuid
+  davet_id         String             @db.Uuid
+  proje_id         String             @db.Uuid
+  seviye           ProjeYetkiSeviyesi @default(NORMAL)
+  olusturma_zamani DateTime           @default(now())
+
+  davet DavetTokeni @relation(fields: [davet_id], references: [id], onDelete: Cascade)
+  proje Proje       @relation(fields: [proje_id], references: [id], onDelete: Cascade)
+
+  @@unique([davet_id, proje_id])
+  @@index([proje_id])
 }
 
 model SifirlamaTokeni {
@@ -459,6 +479,7 @@ model Proje {
   ad                String
   aciklama          String?
   kapak_renk        String? // tema token'ı: "primary" | "secondary" | "tertiary"
+  kapak_ikon        String? // lucide-react ikon ismi (kebab-case) — ADR-0010
   kapak_dosya_id    String?   @db.Uuid
   yildizli_mi       Boolean   @default(false)
   arsiv_mi          Boolean   @default(false)
@@ -470,11 +491,12 @@ model Proje {
   olusturma_zamani  DateTime  @default(now())
   guncelleme_zamani DateTime  @updatedAt
 
-  olusturan  Kullanici?       @relation("ProjeOlusturan", fields: [olusturan_id], references: [id])
-  yetkililer ProjeYetkilisi[]
-  birimler   ProjeBirimi[]
-  listeler   Liste[]
-  etiketler  Etiket[]
+  olusturan         Kullanici?          @relation("ProjeOlusturan", fields: [olusturan_id], references: [id])
+  yetkililer        ProjeYetkilisi[]
+  birimler          ProjeBirimi[]
+  listeler          Liste[]
+  etiketler         Etiket[]
+  bekleyen_davetler DavetProjeBaglami[]
 
   @@index([silindi_mi, arsiv_mi])
   @@index([sira])
@@ -506,15 +528,24 @@ model ProjeBirimi {
   @@index([birim_id])
 }
 
+enum ListeTipi {
+  // Kullanıcı tarafından oluşturulan, normal kart taşıyıcı liste
+  NORMAL
+  // Sistem listesi: her projede otomatik tek tane; arşivlenen kartları barındırır.
+  // ADR-0009 — silinemez/yeniden adlandırılamaz/sıralanamaz.
+  ARSIV
+}
+
 model Liste {
-  id                String   @id @default(uuid()) @db.Uuid
-  proje_id          String   @db.Uuid
+  id                String    @id @default(uuid()) @db.Uuid
+  proje_id          String    @db.Uuid
   ad                String
-  sira              String // LexoRank — proje içi liste sırası
-  arsiv_mi          Boolean  @default(false)
+  sira              String // LexoRank — proje içi liste sırası (Arşiv: "ZZZZ")
+  tip               ListeTipi @default(NORMAL)
+  arsiv_mi          Boolean   @default(false)
   wip_limit         Int?
-  olusturma_zamani  DateTime @default(now())
-  guncelleme_zamani DateTime @updatedAt
+  olusturma_zamani  DateTime  @default(now())
+  guncelleme_zamani DateTime  @updatedAt
 
   proje      Proje            @relation(fields: [proje_id], references: [id], onDelete: Cascade)
   kartlar    Kart[]
@@ -523,6 +554,7 @@ model Liste {
 
   @@index([proje_id, sira])
   @@index([proje_id, arsiv_mi])
+  @@index([proje_id, tip])
 }
 
 model ListeYetkilisi {
@@ -551,21 +583,24 @@ model ListeBirimi {
 }
 
 model Kart {
-  id                String    @id @default(uuid()) @db.Uuid
-  liste_id          String    @db.Uuid
-  baslik            String
-  aciklama          String?
-  sira              String // LexoRank — liste içi kart sırası
-  kapak_renk        String?
-  kapak_dosya_id    String?   @db.Uuid
-  baslangic         DateTime?
-  bitis             DateTime?
-  arsiv_mi          Boolean   @default(false)
-  silindi_mi        Boolean   @default(false)
-  silinme_zamani    DateTime?
-  olusturan_id      String?   @db.Uuid
-  olusturma_zamani  DateTime  @default(now())
-  guncelleme_zamani DateTime  @updatedAt
+  id                    String    @id @default(uuid()) @db.Uuid
+  liste_id              String    @db.Uuid
+  baslik                String
+  aciklama              String?
+  sira                  String // LexoRank — liste içi kart sırası
+  kapak_renk            String?
+  kapak_dosya_id        String?   @db.Uuid
+  baslangic             DateTime?
+  bitis                 DateTime?
+  arsiv_mi              Boolean   @default(false)
+  // ADR-0009 — kart arşivlenmeden önceki listenin id'si; geri yükleme için.
+  arsiv_oncesi_liste_id String?   @db.Uuid
+  arsiv_zamani          DateTime?
+  silindi_mi            Boolean   @default(false)
+  silinme_zamani        DateTime?
+  olusturan_id          String?   @db.Uuid
+  olusturma_zamani      DateTime  @default(now())
+  guncelleme_zamani     DateTime  @updatedAt
 
   liste             Liste            @relation(fields: [liste_id], references: [id], onDelete: Cascade)
   yetkililer        KartYetkilisi[]

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AppSidebar } from "@/components/app-sidebar";
+import { GlobalSearch } from "@/components/global-search";
 import { HeaderUserMenu } from "@/components/header-user-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
@@ -88,7 +89,8 @@ export default async function PanelLayout({
               </BreadcrumbList>
             </Breadcrumb>
           </div>
-          <div className="flex items-center gap-1 px-4">
+          <div className="flex items-center gap-2 px-4">
+            <GlobalSearch />
             <ThemeToggle />
             <BildirimDropdown />
             <HeaderUserMenu

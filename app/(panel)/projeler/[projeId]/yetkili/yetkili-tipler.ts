@@ -51,6 +51,14 @@ export type YetkiliKisiAdayi = {
   birim_ad: string | null;
 };
 
+export type BekleyenDavetOzeti = {
+  davet_id: string;
+  email: string;
+  seviye: ProjeYetkiSeviyesi;
+  son_kullanma: Date | string;
+  olusturma_zamani: Date | string;
+};
+
 // ---------------------------------------------------------------------------
 // Saf yardımcılar — kaynak normalize eder
 // ---------------------------------------------------------------------------

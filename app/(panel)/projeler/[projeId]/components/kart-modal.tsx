@@ -13,6 +13,7 @@ import {
 import { toast } from "@/lib/toast";
 import {
   projeDetayKey,
+  useKartArsivToggle,
   useKartGeriYukle,
   useKartGuncelle,
   useKartSil,
@@ -93,6 +94,7 @@ function KartModalIcerik({
   const guncelle = useKartGuncelle(anahtar);
   const sil = useKartSil(anahtar);
   const geriYukle = useKartGeriYukle(anahtar);
+  const arsivToggleMut = useKartArsivToggle(anahtar);
 
   const [baslik, setBaslik] = React.useState(bulunan?.kart.baslik ?? "");
   const [aciklama, setAciklama] = React.useState(
@@ -156,8 +158,15 @@ function KartModalIcerik({
 
   const arsivToggle = () => {
     const sonraki = !kart.arsiv_mi;
-    guncelle.mutate({ id: kart.id, arsiv_mi: sonraki });
-    toast.bilgi(sonraki ? "Kart arşivlendi" : "Kart arşivden çıkarıldı");
+    // ADR-0009 — Server kartı sistem Arşiv listesine taşır veya geri yükler.
+    arsivToggleMut.mutate(
+      { id: kart.id, arsiv: sonraki },
+      {
+        onSuccess: () => {
+          toast.bilgi(sonraki ? "Kart arşivlendi" : "Kart arşivden çıkarıldı");
+        },
+      },
+    );
   };
 
   const sileBas = () => {

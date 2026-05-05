@@ -71,11 +71,19 @@ export const kartTasiSemasi = z.object({
   sonraki_id: z.string().uuid().nullable(),
 });
 
+// ADR-0009 — kartı arşivle/arşivden çıkar (Arşiv sistem listesine taşır
+// veya arsiv_oncesi_liste_id'ye geri yükler).
+export const kartArsivSemasi = z.object({
+  id: z.string().uuid(),
+  arsiv: z.boolean(),
+});
+
 export type KartOlustur = z.infer<typeof kartOlusturSemasi>;
 export type KartGuncelle = z.infer<typeof kartGuncelleSemasi>;
 export type KartSil = z.infer<typeof kartSilSemasi>;
 export type KartGeriYukle = z.infer<typeof kartGeriYukleSemasi>;
 export type KartTasi = z.infer<typeof kartTasiSemasi>;
+export type KartArsiv = z.infer<typeof kartArsivSemasi>;
 
 // ============================================================
 // Proje detayı şemaları

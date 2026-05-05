@@ -16,13 +16,9 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import {
-  BellIcon,
   BuildingIcon,
   ListChecksIcon,
-  SearchIcon,
   ShieldCheckIcon,
-  StarIcon,
-  ArchiveIcon,
   Building2Icon,
   Layers3Icon,
   UsersIcon,
@@ -36,20 +32,7 @@ const navGroups: NavGroup[] = [
   {
     label: "Projeler",
     items: [
-      { title: "Tüm Projeler", url: "/projeler", icon: <ListChecksIcon /> },
-      {
-        title: "Yıldızlananlar",
-        url: "/projeler?filtre=yildizli",
-        icon: <StarIcon />,
-      },
-      { title: "Arşiv", url: "/projeler?filtre=arsiv", icon: <ArchiveIcon /> },
-    ],
-  },
-  {
-    label: "Genel",
-    items: [
-      { title: "Bildirimler", url: "/bildirimler", icon: <BellIcon /> },
-      { title: "Arama", url: "/arama", icon: <SearchIcon /> },
+      { title: "Projeler", url: "/projeler", icon: <ListChecksIcon /> },
     ],
   },
   {

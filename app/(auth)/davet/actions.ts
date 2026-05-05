@@ -15,6 +15,11 @@ export const daveriKabul = eylem({
   calistir: async (girdi) => {
     const davet = await db.davetTokeni.findUnique({
       where: { token: girdi.token },
+      include: {
+        proje_baglamlari: {
+          select: { proje_id: true, seviye: true },
+        },
+      },
     });
 
     if (!davet) {
@@ -99,6 +104,31 @@ export const daveriKabul = eylem({
             atayan_id: davet.davet_eden_id,
           },
         });
+      }
+
+      // Davet üzerindeki proje bağlamlarını ProjeYetkili kayıtlarına dönüştür.
+      // Why: davet sahibinin sisteme katılır katılmaz ilgili projelere yetkili olması.
+      // Silinmiş projeler atlanır; bağlam tablosu davet expire/use'de Cascade ile temizlenir.
+      if (davet.proje_baglamlari.length > 0) {
+        const projeIdleri = davet.proje_baglamlari.map((b) => b.proje_id);
+        const aktifProjeler = await tx.proje.findMany({
+          where: { id: { in: projeIdleri }, silindi_mi: false },
+          select: { id: true },
+        });
+        const aktifSet = new Set(aktifProjeler.map((p) => p.id));
+        const yetkiKayitlari = davet.proje_baglamlari
+          .filter((b) => aktifSet.has(b.proje_id))
+          .map((b) => ({
+            proje_id: b.proje_id,
+            kullanici_id: kullanici.id,
+            seviye: b.seviye,
+          }));
+        if (yetkiKayitlari.length > 0) {
+          await tx.projeYetkilisi.createMany({
+            data: yetkiKayitlari,
+            skipDuplicates: true,
+          });
+        }
       }
 
       await tx.davetTokeni.update({
