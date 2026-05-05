@@ -7,6 +7,7 @@ import { tercihAliciFiltresi } from "@/lib/bildirim-tercih";
 import { susturmaSuzgeci } from "@/lib/bildirim-susturma";
 import { mailGonder, mailHtmlRender } from "@/lib/mail";
 import { BildirimMail } from "@/lib/mail-templates/bildirim";
+import { metrikArttir } from "@/lib/bildirim-metrikler";
 import { logger } from "@/lib/logger";
 import type {
   BildirimleriListele,
@@ -164,6 +165,8 @@ export async function bildirimUret(
   girdi: BildirimUretGirdi,
 ): Promise<{ id: string; alici_id: string }[]> {
   if (girdi.alici_idler.length === 0) return [];
+  metrikArttir("bildirim.uretildi.toplam");
+  metrikArttir("bildirim.tipi", 1, { tip: girdi.tip });
   // Tekilleştir + üreteni dışla (kendine bildirim atma)
   const benzersiz = Array.from(new Set(girdi.alici_idler)).filter(
     (id) => id !== girdi.ureten_id,
@@ -178,6 +181,12 @@ export async function bildirimUret(
     girdi.kart_id,
     girdi.proje_id,
   );
+  if (susturmadanGecen.length < benzersiz.length) {
+    metrikArttir(
+      "bildirim.uretildi.susturma_dustu",
+      benzersiz.length - susturmadanGecen.length,
+    );
+  }
   if (susturmadanGecen.length === 0) return [];
 
   // Faz 3.1 — Kullanıcı tercihi: in-app kapalıysa hem DB kaydı hem realtime
@@ -187,6 +196,12 @@ export async function bildirimUret(
     girdi.tip,
     "in_app",
   );
+  if (inAppAlicilari.length < susturmadanGecen.length) {
+    metrikArttir(
+      "bildirim.uretildi.in_app_dustu",
+      susturmadanGecen.length - inAppAlicilari.length,
+    );
+  }
   if (inAppAlicilari.length === 0) return [];
 
   const data = inAppAlicilari.map((aliciId) => ({
@@ -266,6 +281,12 @@ async function emailKanaliYayinla(girdi: BildirimUretGirdi): Promise<void> {
     select: { id: true, email: true },
   });
   if (kullanicilar.length === 0) return;
+  if (susturmadanGecen.length < benzersiz.length) {
+    metrikArttir(
+      "bildirim.uretildi.email_dustu",
+      benzersiz.length - emailAlicilari.length,
+    );
+  }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:2500";
   const url = bildirimDeepLink(appUrl, girdi);
@@ -292,12 +313,17 @@ async function emailKanaliYayinla(girdi: BildirimUretGirdi): Promise<void> {
         konu: girdi.baslik,
         govde,
         html,
-      }).catch((err: unknown) => {
-        logger.warn(
-          { alici: u.email, tip: girdi.tip, hata: String(err) },
-          "[bildirim-email] tek alıcıda hata",
-        );
-      }),
+      })
+        .then(() => {
+          metrikArttir("bildirim.email.gonderildi", 1, { tip: girdi.tip });
+        })
+        .catch((err: unknown) => {
+          metrikArttir("bildirim.email.basarisiz", 1, { tip: girdi.tip });
+          logger.warn(
+            { alici: u.email, tip: girdi.tip, hata: String(err) },
+            "[bildirim-email] tek alıcıda hata",
+          );
+        }),
     ),
   );
 }

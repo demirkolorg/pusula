@@ -3,6 +3,7 @@ import {
   tetikleBitisGecti,
   tetikleBitisYaklasiyor,
 } from "@/app/(panel)/bildirimler/tetikleyiciler";
+import { metrikArttir } from "@/lib/bildirim-metrikler";
 import { logger } from "@/lib/logger";
 
 // Faz 6.1 — Cron endpoint: bitiş tarihi yaklaşan / geçen kartlar için
@@ -47,12 +48,14 @@ export async function POST(req: NextRequest) {
       tetikleBitisYaklasiyor(24),
       tetikleBitisGecti(),
     ]);
+    metrikArttir("bildirim.cron.tetiklendi");
     logger.info(
       { yaklasiyor, gecti },
       "[cron] bitiş bildirimi başarıyla üretildi",
     );
     return NextResponse.json({ ok: true, yaklasiyor, gecti });
   } catch (err) {
+    metrikArttir("bildirim.cron.basarisiz");
     logger.error(
       { hata: String(err) },
       "[cron] bitiş bildirimi sırasında hata",
