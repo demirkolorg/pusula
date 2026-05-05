@@ -99,6 +99,14 @@ export const TIP_METNI: Record<BildirimTipi, TipMetni> = {
     baslik: "Madde tamamlama reddedildi",
     aciklama: "Önerdiğiniz madde tamamlama reddedildiğinde",
   },
+  ETIKET_DEGISTI: {
+    baslik: "Etiket eklendi/kaldırıldı",
+    aciklama: "Yetkili olduğunuz bir karta etiket eklendiğinde/kaldırıldığında",
+  },
+  KAPAK_DEGISTI: {
+    baslik: "Kapak/renk değişti",
+    aciklama: "Yetkili olduğunuz bir kartın kapağı veya rengi güncellendiğinde",
+  },
 };
 
 export const TERCIH_GRUPLARI: ReadonlyArray<TercihGrubu> = [
@@ -142,6 +150,11 @@ export const TERCIH_GRUPLARI: ReadonlyArray<TercihGrubu> = [
   {
     baslik: "Diğer",
     aciklama: "Düşük öncelikli olaylar",
-    tipler: ["LISTE_SILINDI", "DAVET_KABUL_EDILDI"],
+    tipler: [
+      "LISTE_SILINDI",
+      "DAVET_KABUL_EDILDI",
+      "ETIKET_DEGISTI",
+      "KAPAK_DEGISTI",
+    ],
   },
 ];

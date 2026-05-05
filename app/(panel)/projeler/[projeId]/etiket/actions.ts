@@ -4,6 +4,8 @@ import { eylem, EylemHatasi } from "@/lib/action-wrapper";
 import { yetkiZorunlu, IZIN_KODLARI } from "@/lib/permissions";
 import { yetkiZorunluProje, yetkiZorunluKart } from "@/lib/yetki";
 import { HATA_KODU } from "@/lib/sonuc";
+import { db } from "@/lib/db";
+import { tetikleEtiketDegisti } from "@/app/(panel)/bildirimler/tetikleyiciler";
 import {
   etiketGuncelleSemasi,
   etiketListeleSemasi,
@@ -89,6 +91,14 @@ export const etiketSilEylem = eylem({
 // Karta etiket ata / kaldır
 // ============================================================
 
+async function etiketAdiniGetir(etiketId: string): Promise<string> {
+  const e = await db.etiket.findUnique({
+    where: { id: etiketId },
+    select: { ad: true },
+  });
+  return e?.ad ?? "Etiket";
+}
+
 export const kartaEtiketEkleEylem = eylem({
   ad: "kart:etiket-ekle",
   girdi: kartaEtiketEkleSemasi,
@@ -97,6 +107,16 @@ export const kartaEtiketEkleEylem = eylem({
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.kart_id);
     const birimId = birimIdAl(ctx);
     await kartaEtiketEkleSrv(birimId, girdi.kart_id, girdi.etiket_id);
+    const degistirenId = ctx.oturum?.kullaniciId ?? null;
+    if (degistirenId) {
+      const etiketAd = await etiketAdiniGetir(girdi.etiket_id);
+      tetikleEtiketDegisti({
+        kartId: girdi.kart_id,
+        degistirenId,
+        etiketAd,
+        eylem: "eklendi",
+      }).catch(() => {});
+    }
     return { kart_id: girdi.kart_id, etiket_id: girdi.etiket_id };
   },
 });
@@ -108,7 +128,20 @@ export const kartaEtiketKaldirEylem = eylem({
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.kart_id);
     const birimId = birimIdAl(ctx);
+    const degistirenId = ctx.oturum?.kullaniciId ?? null;
+    // Etiket adını silmeden önce al — sonra silinir.
+    const etiketAd = degistirenId
+      ? await etiketAdiniGetir(girdi.etiket_id)
+      : null;
     await kartaEtiketKaldirSrv(birimId, girdi.kart_id, girdi.etiket_id);
+    if (degistirenId && etiketAd) {
+      tetikleEtiketDegisti({
+        kartId: girdi.kart_id,
+        degistirenId,
+        etiketAd,
+        eylem: "kaldirildi",
+      }).catch(() => {});
+    }
     return { kart_id: girdi.kart_id, etiket_id: girdi.etiket_id };
   },
 });

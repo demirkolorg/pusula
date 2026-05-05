@@ -23,6 +23,8 @@ export const BILDIRIM_TIPLERI = [
   "MADDE_TAMAMLAMA_REDDEDILDI",
   "LISTE_SILINDI",
   "DAVET_KABUL_EDILDI",
+  "ETIKET_DEGISTI",
+  "KAPAK_DEGISTI",
 ] as const;
 
 export const bildirimTipiSemasi = z.enum(BILDIRIM_TIPLERI);

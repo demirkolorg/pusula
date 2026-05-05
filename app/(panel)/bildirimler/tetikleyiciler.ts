@@ -507,6 +507,268 @@ export async function tetikleKartTamamlandi(opt: {
 }
 
 // =====================================================================
+// ADR-0019 — Kart tamamlama öneri akışı (6 tetikleyici: kart×3 + madde×3)
+// =====================================================================
+
+// KART_TAMAMLA izinli kullanıcıları bul. Öneri tetiklendiğinde KARAR
+// vereceklere (yetkililere) bildirim gider; standart kart üyesi seti yerine
+// "kart kapatabilen" set kullanılır. SUPER_ADMIN + KAYMAKAM her zaman
+// bu sete dahildir (tüm projelere makam katmanı erişimi var). Kart düzeyi
+// üyelik PR-1'de yetersiz çünkü kart üyesi olmak otomatik tamamla yetkisi
+// vermiyordu — sadece KART_TAMAMLA izinli + kart erişimli olanlar.
+async function kartTamamlamaYetkilileriniBul(
+  kartId: string,
+  haricIdler: readonly string[] = [],
+): Promise<string[]> {
+  // Adım 1: KART_TAMAMLA iznine sahip rolleri olan tüm aktif kullanıcılar.
+  const izinliler = await db.kullanici.findMany({
+    where: {
+      aktif: true,
+      silindi_mi: false,
+      onay_durumu: "ONAYLANDI",
+      roller: {
+        some: {
+          rol: {
+            izinler: {
+              some: { izin: { kod: { in: ["kart:tamamla", "*"] } } },
+            },
+          },
+        },
+      },
+    },
+    select: { id: true },
+  });
+  const izinliIdler = new Set(izinliler.map((k) => k.id));
+
+  // Adım 2: Bu kullanıcıların hangileri bu karta erişebiliyor? Kart üyesi
+  // olabilir, liste üyesi olabilir, proje üyesi olabilir veya makam (SUPER/
+  // KAYMAKAM) — onlar tüm kartlara erişir, ek filtre yok. Mevcut kartYetkili
+  // helper'ını kullanmak yerine basit bir kontrol: kart bağlamından erişim
+  // listesi alıp kesişim al.
+  const kart = await kartYetkiBaglami(kartId);
+  if (!kart) return [];
+
+  const erisenIdler = kartKisiIdleri(kart);
+  const birimIdleri = kartBirimIdleri(kart);
+  if (birimIdleri.size > 0) {
+    const birimUyeleri = await db.kullanici.findMany({
+      where: {
+        birim_id: { in: Array.from(birimIdleri) },
+        aktif: true,
+        silindi_mi: false,
+        onay_durumu: "ONAYLANDI",
+      },
+      select: { id: true },
+    });
+    for (const k of birimUyeleri) erisenIdler.add(k.id);
+  }
+
+  // Makam (KAYMAKAM/SUPER_ADMIN) zaten KART_TAMAMLA izinli + tüm projelere
+  // erişimli; izinliIdler içinde olduğu için kesişim onları yakalar.
+  // Sıkı kesişim: izinliler ∩ erişenler. Makam'lar erisenIdler'da olmasa
+  // bile izinliIdler'da; * iznine sahipler için ekstra dahil ediyoruz:
+  const makamlar = await db.kullanici.findMany({
+    where: {
+      aktif: true,
+      silindi_mi: false,
+      onay_durumu: "ONAYLANDI",
+      roller: {
+        some: { rol: { izinler: { some: { izin: { kod: "*" } } } } },
+      },
+    },
+    select: { id: true },
+  });
+  for (const m of makamlar) erisenIdler.add(m.id);
+
+  const haric = new Set(haricIdler);
+  const sonuc: string[] = [];
+  for (const id of izinliIdler) {
+    if (erisenIdler.has(id) && !haric.has(id)) sonuc.push(id);
+  }
+  return sonuc;
+}
+
+export async function tetikleKartTamamlamaOnerildi(opt: {
+  kartId: string;
+  onerenId: string;
+}): Promise<void> {
+  const ctx = await kartBaglami(opt.kartId);
+  if (!ctx) return;
+  // Öneren kendi öneri bildirimini almasın → haric.
+  const aliciIdler = await kartTamamlamaYetkilileriniBul(opt.kartId, [
+    opt.onerenId,
+  ]);
+  if (aliciIdler.length === 0) return;
+  const adi = await adSoyad(opt.onerenId);
+  await bildirimUret({
+    alici_idler: aliciIdler,
+    ureten_id: opt.onerenId,
+    tip: "KART_TAMAMLAMA_ONERILDI",
+    baslik: `${adi} bir kartın tamamlandığını bildirdi`,
+    ozet: ctx.baslik,
+    kart_id: opt.kartId,
+    proje_id: ctx.proje_id,
+    kaynak_tip: "Kart",
+    kaynak_id: opt.kartId,
+  });
+}
+
+export async function tetikleKartTamamlamaOnaylandi(opt: {
+  kartId: string;
+  onayliyenId: string;
+  onerenId: string;
+}): Promise<void> {
+  const ctx = await kartBaglami(opt.kartId);
+  if (!ctx) return;
+  // Bildirim öneren'e gider — kendi onayladığı bir öneri olamaz çünkü öneren
+  // yetkisiz, onaylayan yetkili (farklı kullanıcı). Yine de defansif kontrol.
+  if (opt.onayliyenId === opt.onerenId) return;
+  const adi = await adSoyad(opt.onayliyenId);
+  await bildirimUret({
+    alici_idler: [opt.onerenId],
+    ureten_id: opt.onayliyenId,
+    tip: "KART_TAMAMLAMA_ONAYLANDI",
+    baslik: `${adi} kart tamamlama önerinizi onayladı`,
+    ozet: ctx.baslik,
+    kart_id: opt.kartId,
+    proje_id: ctx.proje_id,
+    kaynak_tip: "Kart",
+    kaynak_id: opt.kartId,
+  });
+}
+
+export async function tetikleKartTamamlamaReddedildi(opt: {
+  kartId: string;
+  reddedenId: string;
+  onerenId: string;
+  sebep: string | null;
+}): Promise<void> {
+  const ctx = await kartBaglami(opt.kartId);
+  if (!ctx) return;
+  if (opt.reddedenId === opt.onerenId) return;
+  const adi = await adSoyad(opt.reddedenId);
+  // Sebep varsa ozet'e dahil et (kullanıcı bildirim listesinde sebebi görsün).
+  const ozet = opt.sebep
+    ? `${ctx.baslik} — Sebep: ${kisalt(opt.sebep, 120)}`
+    : ctx.baslik;
+  await bildirimUret({
+    alici_idler: [opt.onerenId],
+    ureten_id: opt.reddedenId,
+    tip: "KART_TAMAMLAMA_REDDEDILDI",
+    baslik: `${adi} kart tamamlama önerinizi reddetti`,
+    ozet,
+    kart_id: opt.kartId,
+    proje_id: ctx.proje_id,
+    kaynak_tip: "Kart",
+    kaynak_id: opt.kartId,
+  });
+}
+
+// Madde için aynı 3 — parent kartın `kartId` ve metin'ini de döner ki
+// bildirim ozet'i "kart > madde" formatında olsun.
+async function maddeBaglami(
+  maddeId: string,
+): Promise<{ kart_id: string; metin: string; kart_baslik: string; proje_id: string } | null> {
+  const m = await db.kontrolMaddesi.findUnique({
+    where: { id: maddeId },
+    select: {
+      metin: true,
+      kontrol_listesi: {
+        select: {
+          kart_id: true,
+          kart: {
+            select: {
+              baslik: true,
+              liste: { select: { proje_id: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!m) return null;
+  return {
+    kart_id: m.kontrol_listesi.kart_id,
+    metin: m.metin,
+    kart_baslik: m.kontrol_listesi.kart.baslik,
+    proje_id: m.kontrol_listesi.kart.liste.proje_id,
+  };
+}
+
+export async function tetikleMaddeTamamlamaOnerildi(opt: {
+  maddeId: string;
+  onerenId: string;
+}): Promise<void> {
+  const ctx = await maddeBaglami(opt.maddeId);
+  if (!ctx) return;
+  const aliciIdler = await kartTamamlamaYetkilileriniBul(ctx.kart_id, [
+    opt.onerenId,
+  ]);
+  if (aliciIdler.length === 0) return;
+  const adi = await adSoyad(opt.onerenId);
+  await bildirimUret({
+    alici_idler: aliciIdler,
+    ureten_id: opt.onerenId,
+    tip: "MADDE_TAMAMLAMA_ONERILDI",
+    baslik: `${adi} bir maddenin tamamlandığını bildirdi`,
+    ozet: `${ctx.kart_baslik} → ${kisalt(ctx.metin, 80)}`,
+    kart_id: ctx.kart_id,
+    proje_id: ctx.proje_id,
+    kaynak_tip: "KontrolMaddesi",
+    kaynak_id: opt.maddeId,
+  });
+}
+
+export async function tetikleMaddeTamamlamaOnaylandi(opt: {
+  maddeId: string;
+  onayliyenId: string;
+  onerenId: string;
+}): Promise<void> {
+  const ctx = await maddeBaglami(opt.maddeId);
+  if (!ctx) return;
+  if (opt.onayliyenId === opt.onerenId) return;
+  const adi = await adSoyad(opt.onayliyenId);
+  await bildirimUret({
+    alici_idler: [opt.onerenId],
+    ureten_id: opt.onayliyenId,
+    tip: "MADDE_TAMAMLAMA_ONAYLANDI",
+    baslik: `${adi} madde tamamlama önerinizi onayladı`,
+    ozet: `${ctx.kart_baslik} → ${kisalt(ctx.metin, 80)}`,
+    kart_id: ctx.kart_id,
+    proje_id: ctx.proje_id,
+    kaynak_tip: "KontrolMaddesi",
+    kaynak_id: opt.maddeId,
+  });
+}
+
+export async function tetikleMaddeTamamlamaReddedildi(opt: {
+  maddeId: string;
+  reddedenId: string;
+  onerenId: string;
+  sebep: string | null;
+}): Promise<void> {
+  const ctx = await maddeBaglami(opt.maddeId);
+  if (!ctx) return;
+  if (opt.reddedenId === opt.onerenId) return;
+  const adi = await adSoyad(opt.reddedenId);
+  const ozetBase = `${ctx.kart_baslik} → ${kisalt(ctx.metin, 80)}`;
+  const ozet = opt.sebep
+    ? `${ozetBase} — Sebep: ${kisalt(opt.sebep, 120)}`
+    : ozetBase;
+  await bildirimUret({
+    alici_idler: [opt.onerenId],
+    ureten_id: opt.reddedenId,
+    tip: "MADDE_TAMAMLAMA_REDDEDILDI",
+    baslik: `${adi} madde tamamlama önerinizi reddetti`,
+    ozet,
+    kart_id: ctx.kart_id,
+    proje_id: ctx.proje_id,
+    kaynak_tip: "KontrolMaddesi",
+    kaynak_id: opt.maddeId,
+  });
+}
+
+// =====================================================================
 // 12. Liste silindi — liste yetkililerine bildirim (silen hariç)
 // =====================================================================
 
@@ -540,6 +802,66 @@ export async function tetikleListeSilindi(opt: {
     proje_id: liste.proje_id,
     kaynak_tip: "Liste",
     kaynak_id: opt.listeId,
+  });
+}
+
+// =====================================================================
+// 12b. Karta etiket eklendi/kaldırıldı — kart üyelerine düşük öncelik
+// =====================================================================
+
+export async function tetikleEtiketDegisti(opt: {
+  kartId: string;
+  degistirenId: string;
+  etiketAd: string;
+  eylem: "eklendi" | "kaldirildi";
+}): Promise<void> {
+  const ctx = await kartUyeleriniToplaHaricli(opt.kartId, opt.degistirenId);
+  if (!ctx || ctx.aliciIdler.length === 0) return;
+  const adi = await adSoyad(opt.degistirenId);
+  const eylemMetni = opt.eylem === "eklendi" ? "ekledi" : "kaldırdı";
+  await bildirimUret({
+    alici_idler: ctx.aliciIdler,
+    ureten_id: opt.degistirenId,
+    tip: "ETIKET_DEGISTI",
+    baslik: `${adi} bir karta etiket ${eylemMetni}`,
+    ozet: `${ctx.baslik}: ${opt.etiketAd}`,
+    kart_id: opt.kartId,
+    proje_id: ctx.projeId,
+    kaynak_tip: "Etiket",
+    kaynak_id: opt.kartId,
+    meta: { eylem: opt.eylem },
+  });
+}
+
+// =====================================================================
+// 12c. Kart kapağı/rengi değişti — kart üyelerine düşük öncelik
+// =====================================================================
+
+export async function tetikleKapakDegisti(opt: {
+  kartId: string;
+  degistirenId: string;
+  alt_eylem: "kapak-ayarlandi" | "kapak-kaldirildi" | "renk-ayarlandi" | "renk-kaldirildi";
+}): Promise<void> {
+  const ctx = await kartUyeleriniToplaHaricli(opt.kartId, opt.degistirenId);
+  if (!ctx || ctx.aliciIdler.length === 0) return;
+  const adi = await adSoyad(opt.degistirenId);
+  const aciklama: Record<typeof opt.alt_eylem, string> = {
+    "kapak-ayarlandi": "kart kapağı ayarladı",
+    "kapak-kaldirildi": "kart kapağını kaldırdı",
+    "renk-ayarlandi": "kart kapak rengini değiştirdi",
+    "renk-kaldirildi": "kart kapak rengini kaldırdı",
+  };
+  await bildirimUret({
+    alici_idler: ctx.aliciIdler,
+    ureten_id: opt.degistirenId,
+    tip: "KAPAK_DEGISTI",
+    baslik: `${adi} ${aciklama[opt.alt_eylem]}`,
+    ozet: ctx.baslik,
+    kart_id: opt.kartId,
+    proje_id: ctx.projeId,
+    kaynak_tip: "Kart",
+    kaynak_id: opt.kartId,
+    meta: { alt_eylem: opt.alt_eylem },
   });
 }
 

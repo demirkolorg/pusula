@@ -10,11 +10,13 @@ import {
   CheckCircle2Icon,
   CheckSquareIcon,
   ClipboardCheckIcon,
+  ImageIcon,
   ListXIcon,
   MailCheckIcon,
   MessageSquareIcon,
   MoveIcon,
   PaperclipIcon,
+  TagIcon,
   Trash2Icon,
   UserMinusIcon,
   UserPlusIcon,
@@ -89,6 +91,8 @@ const TIP_IKON: Record<
   MADDE_TAMAMLAMA_REDDEDILDI: XCircleIcon,
   LISTE_SILINDI: ListXIcon,
   DAVET_KABUL_EDILDI: MailCheckIcon,
+  ETIKET_DEGISTI: TagIcon,
+  KAPAK_DEGISTI: ImageIcon,
 };
 
 const TIP_RENK: Record<BildirimTipi, string> = {
@@ -113,6 +117,8 @@ const TIP_RENK: Record<BildirimTipi, string> = {
   MADDE_TAMAMLAMA_REDDEDILDI: "bg-red-100 text-red-700",
   LISTE_SILINDI: "bg-slate-100 text-slate-700",
   DAVET_KABUL_EDILDI: "bg-emerald-100 text-emerald-700",
+  ETIKET_DEGISTI: "bg-purple-100 text-purple-700",
+  KAPAK_DEGISTI: "bg-slate-100 text-slate-700",
 };
 
 export function BildirimDropdown() {

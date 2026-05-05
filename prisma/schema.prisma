@@ -996,6 +996,10 @@ enum BildirimTipi {
   LISTE_SILINDI
   // Gönderdiğin davet kabul edildi (davet edene)
   DAVET_KABUL_EDILDI
+  // Karta etiket eklendi/kaldırıldı (kart üyelerine, düşük öncelik)
+  ETIKET_DEGISTI
+  // Kart kapağı/renk değişti (kart üyelerine, düşük öncelik)
+  KAPAK_DEGISTI
 }
 
 model Bildirim {
