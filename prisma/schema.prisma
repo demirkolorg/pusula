@@ -301,6 +301,7 @@ model Kullanici {
   sablonlari                   ProjeSablonu[]   @relation("SablonOlusturan")
   bildirim_tercihleri          BildirimTercih[]
   kart_susturmalari            KartSusturma[]
+  proje_susturmalari           ProjeSusturma[]
   proje_ziyaretleri            ProjeZiyareti[]
 
   // ADR-0017: global arama (tsvector + GIN) — trigger ile otomatik güncellenir.
@@ -556,6 +557,7 @@ model Proje {
   etiketler         Etiket[]
   bekleyen_davetler DavetProjeBaglami[]
   ziyaretler        ProjeZiyareti[]
+  susturanlar       ProjeSusturma[]
 
   // ADR-0017: global arama (tsvector + GIN) — trigger ile otomatik güncellenir.
   arama_vektoru Unsupported("tsvector")?
@@ -1065,4 +1067,20 @@ model KartSusturma {
 
   @@id([kullanici_id, kart_id])
   @@index([kart_id])
+}
+
+// Faz 5.3 paraleli — Proje susturma (per-resource mute, geniş kapsam).
+// Bir projeyi susturan kullanıcı, o projedeki TÜM olaylar (kart-bazlı veya
+// proje-bazlı) için bildirim almaz. Kart bazlı susturma ile bağımsız:
+// kullanıcı projeyi susturmuyorsa kart susturma yine geçerlidir.
+model ProjeSusturma {
+  kullanici_id     String   @db.Uuid
+  proje_id         String   @db.Uuid
+  olusturma_zamani DateTime @default(now())
+
+  kullanici Kullanici @relation(fields: [kullanici_id], references: [id], onDelete: Cascade)
+  proje     Proje     @relation(fields: [proje_id], references: [id], onDelete: Cascade)
+
+  @@id([kullanici_id, proje_id])
+  @@index([proje_id])
 }

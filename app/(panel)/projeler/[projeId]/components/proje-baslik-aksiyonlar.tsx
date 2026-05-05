@@ -3,6 +3,8 @@
 import * as React from "react";
 import {
   ArchiveIcon,
+  BellIcon,
+  BellOffIcon,
   DownloadIcon,
   MoreVerticalIcon,
   PencilIcon,
@@ -21,6 +23,10 @@ import {
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { YetkililerPaneliPopover } from "../yetkili/components/yetkililer-paneli";
+import {
+  useProjeSusturmaDurumu,
+  useProjeSusturmaToggle,
+} from "../proje-susturma/hooks";
 import type { ProjeDetayOzeti } from "../services";
 import {
   ProjeBaslikDialoglari,
@@ -62,9 +68,35 @@ export function ProjeBaslikAksiyonlar({
     }
   };
 
+  // Adım 2 — Proje susturma toggle (her kullanıcıya açık, izin gerekmez —
+  // kendi tercihi).
+  const susturmaSorgu = useProjeSusturmaDurumu(proje.id);
+  const susturmaMut = useProjeSusturmaToggle(proje.id);
+  const susturuluyor: boolean | null =
+    susturmaSorgu.data?.susturuluyor ?? null;
+  const susturmaToggle = () => {
+    if (susturuluyor === null) return;
+    const sonraki = !susturuluyor;
+    susturmaMut.mutate(
+      { sustur: sonraki },
+      {
+        onSuccess: () => {
+          toast.bilgi(
+            sonraki
+              ? "Bu proje için bildirimler susturuldu"
+              : "Bu proje için bildirimler tekrar açıldı",
+          );
+        },
+      },
+    );
+  };
+
   // Menü öğesi sayısı sıfırsa More butonunu hiç render etme.
   const menudeAksiyonVar =
-    yetkiler.duzenle || yetkiler.arsivle || /* dışa aktar herkese */ true;
+    yetkiler.duzenle ||
+    yetkiler.arsivle ||
+    susturuluyor !== null ||
+    /* dışa aktar herkese */ true;
 
   return (
     <div className={cn("flex items-center gap-1", className)}>
@@ -136,6 +168,19 @@ export function ProjeBaslikAksiyonlar({
             <DropdownMenuItem onClick={disaAktar}>
               <DownloadIcon className="size-4" /> Dışa aktar
             </DropdownMenuItem>
+            {susturuluyor !== null && (
+              <DropdownMenuItem onClick={susturmaToggle}>
+                {susturuluyor ? (
+                  <>
+                    <BellIcon className="size-4" /> Bildirimleri tekrar aç
+                  </>
+                ) : (
+                  <>
+                    <BellOffIcon className="size-4" /> Bu projeyi sustur
+                  </>
+                )}
+              </DropdownMenuItem>
+            )}
             {yetkiler.arsivle && (
               <>
                 <DropdownMenuSeparator />

@@ -170,10 +170,14 @@ export async function bildirimUret(
   );
   if (benzersiz.length === 0) return [];
 
-  // Faz 5.3 — Kart susturma (per-resource mute): bu kartı susturanlar
-  // hem in-app hem email kanalından çıkarılır. kart_id yoksa (proje/davet
-  // bağlamı) süzgeç no-op.
-  const susturmadanGecen = await susturmaSuzgeci(benzersiz, girdi.kart_id);
+  // Faz 5.3 + Adım 2 — Susturma süzgeçleri (kart-bazlı + proje-bazlı):
+  // her iki katman da bağımsız çalışır, AND mantığı. Her ikisinden de
+  // geçen alıcılar in-app ve email kanallarına gider.
+  const susturmadanGecen = await susturmaSuzgeci(
+    benzersiz,
+    girdi.kart_id,
+    girdi.proje_id,
+  );
   if (susturmadanGecen.length === 0) return [];
 
   // Faz 3.1 — Kullanıcı tercihi: in-app kapalıysa hem DB kaydı hem realtime
@@ -243,8 +247,12 @@ async function emailKanaliYayinla(girdi: BildirimUretGirdi): Promise<void> {
     (id) => id !== girdi.ureten_id,
   );
   if (benzersiz.length === 0) return;
-  // Susturma süzgeci email için de geçerli (Faz 5.3).
-  const susturmadanGecen = await susturmaSuzgeci(benzersiz, girdi.kart_id);
+  // Susturma süzgeci email için de geçerli (Faz 5.3 kart + Adım 2 proje).
+  const susturmadanGecen = await susturmaSuzgeci(
+    benzersiz,
+    girdi.kart_id,
+    girdi.proje_id,
+  );
   if (susturmadanGecen.length === 0) return;
   const emailAlicilari = await tercihAliciFiltresi(
     susturmadanGecen,
