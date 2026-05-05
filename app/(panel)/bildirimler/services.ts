@@ -4,6 +4,9 @@ import { HATA_KODU } from "@/lib/sonuc";
 import { yayinla } from "@/lib/realtime";
 import { SOCKET, room } from "@/lib/socket-events";
 import { tercihAliciFiltresi } from "@/lib/bildirim-tercih";
+import { mailGonder, mailHtmlRender } from "@/lib/mail";
+import { BildirimMail } from "@/lib/mail-templates/bildirim";
+import { logger } from "@/lib/logger";
 import type {
   BildirimleriListele,
   BildirimOkuduIsaretle,
@@ -192,5 +195,83 @@ export async function bildirimUret(
     }).catch(() => {});
   }
 
+  // Faz 4 — E-mail kanalı (anlık). Bildirim DB kaydı + realtime'dan ayrı:
+  // tercih `email_acik=true` olan alıcılar için fire-and-forget mailGonder.
+  // Email aktif alıcı listesi in-app'tan farklı olabilir (ikisi bağımsız).
+  // Hata yutulur (logger üzerinden gözlemlenebilir) — ana akış bozulmaz.
+  void emailKanaliYayinla(girdi).catch((err: unknown) => {
+    logger.error(
+      { tip: girdi.tip, hata: String(err) },
+      "[bildirim-email] gönderim hatası (yutuldu)",
+    );
+  });
+
   return map;
+}
+
+// E-mail kanal süzgeci + gönderim. bildirimUret sonrası asenkron çalışır.
+async function emailKanaliYayinla(girdi: BildirimUretGirdi): Promise<void> {
+  const benzersiz = Array.from(new Set(girdi.alici_idler)).filter(
+    (id) => id !== girdi.ureten_id,
+  );
+  if (benzersiz.length === 0) return;
+  const emailAlicilari = await tercihAliciFiltresi(
+    benzersiz,
+    girdi.tip,
+    "email",
+  );
+  if (emailAlicilari.length === 0) return;
+
+  const kullanicilar = await db.kullanici.findMany({
+    where: { id: { in: emailAlicilari }, aktif: true, silindi_mi: false },
+    select: { id: true, email: true },
+  });
+  if (kullanicilar.length === 0) return;
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:2500";
+  const url = bildirimDeepLink(appUrl, girdi);
+  const tercihUrl = `${appUrl}/ayarlar/bildirimler`;
+
+  const html = await mailHtmlRender(
+    BildirimMail({
+      baslik: girdi.baslik,
+      ozet: girdi.ozet ?? null,
+      url,
+      tercihUrl,
+    }) as React.ReactElement,
+  );
+  const govde =
+    `${girdi.baslik}\n\n${girdi.ozet ?? ""}\n\nAç: ${url}\n\n` +
+    `Bu bildirimi almak istemiyorsanız: ${tercihUrl}`;
+
+  // Tek tek gönderim — paralel ama hatalar izole. Promise.all bekler ama
+  // dış katman zaten void ile fire-and-forget.
+  await Promise.all(
+    kullanicilar.map((u) =>
+      mailGonder({
+        alici: u.email,
+        konu: girdi.baslik,
+        govde,
+        html,
+      }).catch((err: unknown) => {
+        logger.warn(
+          { alici: u.email, tip: girdi.tip, hata: String(err) },
+          "[bildirim-email] tek alıcıda hata",
+        );
+      }),
+    ),
+  );
+}
+
+function bildirimDeepLink(
+  appUrl: string,
+  girdi: BildirimUretGirdi,
+): string {
+  if (girdi.kart_id && girdi.proje_id) {
+    return `${appUrl}/projeler/${girdi.proje_id}?kart=${girdi.kart_id}`;
+  }
+  if (girdi.proje_id) {
+    return `${appUrl}/projeler/${girdi.proje_id}`;
+  }
+  return `${appUrl}/bildirimler`;
 }
