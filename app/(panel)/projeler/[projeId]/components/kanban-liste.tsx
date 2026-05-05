@@ -82,8 +82,14 @@ export function KanbanListe({
       yetkiliYonet: yetkiler.yetkiliYonet,
       arsivle: yetkiler.kartDuzenle,
       sil: yetkiler.kartSil,
+      tamamla: yetkiler.kartTamamla,
     }),
-    [yetkiler.kartDuzenle, yetkiler.kartSil, yetkiler.yetkiliYonet],
+    [
+      yetkiler.kartDuzenle,
+      yetkiler.kartSil,
+      yetkiler.yetkiliYonet,
+      yetkiler.kartTamamla,
+    ],
   );
   // anahtar her render'da yeni array referansı olmasın diye memoize.
   const anahtar = React.useMemo(() => projeDetayKey(projeId), [projeId]);

@@ -37,6 +37,10 @@ export type KartBaglamYetkileri = {
   yetkiliYonet: boolean;
   arsivle: boolean;
   sil: boolean;
+  // ADR-0018 — kart bütünü tamamlama yetkisi. Düzenleyebilen herkes
+  // kapatamaz; KART_TAMAMLA izni ayrı kontrol edilir. KartMini ve KartModal
+  // toggle'ı bu bayrağa göre disabled kalır.
+  tamamla: boolean;
 };
 
 type Props = {

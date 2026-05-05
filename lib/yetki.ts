@@ -24,7 +24,17 @@ export type ProjeAksiyon =
 
 export type ListeAksiyon = "liste:read" | "liste:create" | "liste:edit" | "liste:delete";
 
-export type KartAksiyon = "kart:read" | "kart:edit" | "kart:delete" | "kart:tasi" | "kart:create";
+// ADR-0018 — `kart:tamamla` ayrı aksiyon: düzenleyebilen herkes kapatamaz.
+// Kaynak-bazlı kontrol mevcut canKart davranışını paylaşır (kart erişim
+// kümesi + makam atlatma); sistem-rolü izni (KART_TAMAMLA) action wrapper'da
+// `yetkiZorunlu` ile kontrol edilir, iki katman gereklidir.
+export type KartAksiyon =
+  | "kart:read"
+  | "kart:edit"
+  | "kart:delete"
+  | "kart:tasi"
+  | "kart:create"
+  | "kart:tamamla";
 
 type ErisimBilgisi = {
   birimId: string | null;

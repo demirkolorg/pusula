@@ -4,7 +4,13 @@ import { eylem, EylemHatasi } from "@/lib/action-wrapper";
 import { yetkiZorunlu, IZIN_KODLARI } from "@/lib/permissions";
 import { yetkiZorunluKart } from "@/lib/yetki";
 import { HATA_KODU } from "@/lib/sonuc";
-import { tetikleMaddeAtama } from "@/app/(panel)/bildirimler/tetikleyiciler";
+import { db } from "@/lib/db";
+import {
+  tetikleMaddeAtama,
+  tetikleMaddeTamamlamaOnaylandi,
+  tetikleMaddeTamamlamaOnerildi,
+  tetikleMaddeTamamlamaReddedildi,
+} from "@/app/(panel)/bildirimler/tetikleyiciler";
 import {
   kontrolListeleriListeleSemasi,
   kontrolListesiGuncelleSemasi,
@@ -14,6 +20,9 @@ import {
   maddeGuncelleSemasi,
   maddeOlusturSemasi,
   maddeSilSemasi,
+  maddeTamamlamaOneriSemasi,
+  maddeTamamlamaOnaySemasi,
+  maddeTamamlamaReddetSemasi,
 } from "./schemas";
 import {
   kartKontrolListeleriniListele,
@@ -24,6 +33,9 @@ import {
   maddeGuncelle as maddeGuncelleSrv,
   maddeOlustur as maddeOlusturSrv,
   maddeSil as maddeSilSrv,
+  maddeTamamlamaOneri as maddeTamamlamaOneriSrv,
+  maddeTamamlamaOnay as maddeTamamlamaOnaySrv,
+  maddeTamamlamaReddet as maddeTamamlamaReddetSrv,
 } from "./services";
 
 function birimIdAl(ctx: { oturum: { kullaniciId?: string } | null }): string {
@@ -111,6 +123,25 @@ export const maddeGuncelleEylem = eylem({
   girdi: maddeGuncelleSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
+    // ADR-0018 — madde'nin tamamlandi_mi alanı değişiyorsa kart:tamamla
+    // yetkisi ZORUNLU (kart düzeyiyle aynı kural; atanan/yetkili olmak hak
+    // vermez). Madde'den parent kart'ı bulup hem global hem resource
+    // kontrolü uygula.
+    if (girdi.tamamlandi_mi !== undefined) {
+      const madde = await db.kontrolMaddesi.findUnique({
+        where: { id: girdi.id },
+        select: { kontrol_listesi: { select: { kart_id: true } } },
+      });
+      if (!madde) {
+        throw new EylemHatasi("Madde bulunamadı.", HATA_KODU.BULUNAMADI);
+      }
+      await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_TAMAMLA);
+      await yetkiZorunluKart(
+        ctx.oturum?.kullaniciId,
+        "kart:tamamla",
+        madde.kontrol_listesi.kart_id,
+      );
+    }
     const atayanId = ctx.oturum?.kullaniciId ?? null;
     await maddeGuncelleSrv(birimIdAl(ctx), kullaniciIdAl(ctx), girdi);
     // atanan_id explicit verildiyse (yeni atama veya değişim) bildir.
@@ -132,6 +163,77 @@ export const maddeSilEylem = eylem({
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
     await maddeSilSrv(birimIdAl(ctx), girdi.id);
+    return { id: girdi.id };
+  },
+});
+
+// ADR-0019 — Madde tamamlama öneri/onay/red action'ları (kart ile aynı kural).
+// Yetki: parent kart üzerinden çözülür — madde'den kart_id'yi DB'den oku.
+
+async function maddeninParentKartId(maddeId: string): Promise<string> {
+  const m = await db.kontrolMaddesi.findUnique({
+    where: { id: maddeId },
+    select: { kontrol_listesi: { select: { kart_id: true } } },
+  });
+  if (!m) {
+    throw new EylemHatasi("Madde bulunamadı.", HATA_KODU.BULUNAMADI);
+  }
+  return m.kontrol_listesi.kart_id;
+}
+
+export const maddeTamamlamaOneriEylem = eylem({
+  ad: "kontrol-maddesi:tamamlama-oneri",
+  girdi: maddeTamamlamaOneriSemasi,
+  calistir: async (girdi, ctx) => {
+    const kartId = await maddeninParentKartId(girdi.id);
+    await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:read", kartId);
+    const onerenId = kullaniciIdAl(ctx);
+    await maddeTamamlamaOneriSrv(onerenId, girdi);
+    tetikleMaddeTamamlamaOnerildi({
+      maddeId: girdi.id,
+      onerenId,
+    }).catch(() => {});
+    return { id: girdi.id };
+  },
+});
+
+export const maddeTamamlamaOnayEylem = eylem({
+  ad: "kontrol-maddesi:tamamlama-onay",
+  girdi: maddeTamamlamaOnaySemasi,
+  calistir: async (girdi, ctx) => {
+    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_TAMAMLA);
+    const kartId = await maddeninParentKartId(girdi.id);
+    await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:tamamla", kartId);
+    const onayliyenId = kullaniciIdAl(ctx);
+    const { onerenId } = await maddeTamamlamaOnaySrv(onayliyenId, girdi);
+    if (onerenId) {
+      tetikleMaddeTamamlamaOnaylandi({
+        maddeId: girdi.id,
+        onayliyenId,
+        onerenId,
+      }).catch(() => {});
+    }
+    return { id: girdi.id };
+  },
+});
+
+export const maddeTamamlamaReddetEylem = eylem({
+  ad: "kontrol-maddesi:tamamlama-reddet",
+  girdi: maddeTamamlamaReddetSemasi,
+  calistir: async (girdi, ctx) => {
+    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_TAMAMLA);
+    const kartId = await maddeninParentKartId(girdi.id);
+    await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:tamamla", kartId);
+    const reddedenId = kullaniciIdAl(ctx);
+    const { onerenId } = await maddeTamamlamaReddetSrv(reddedenId, girdi);
+    if (onerenId) {
+      tetikleMaddeTamamlamaReddedildi({
+        maddeId: girdi.id,
+        reddedenId,
+        onerenId,
+        sebep: girdi.sebep ?? null,
+      }).catch(() => {});
+    }
     return { id: girdi.id };
   },
 });

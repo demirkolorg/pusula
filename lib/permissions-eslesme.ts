@@ -58,7 +58,8 @@ export const ESKI_YENI_ESLEME: Record<string, IzinKodu[]> = {
     IZIN_KODLARI.KART_KAPAK_GORSEL,
     IZIN_KODLARI.KART_TARIH_BASLANGIC,
     IZIN_KODLARI.KART_TARIH_BITIS,
-    IZIN_KODLARI.KART_TARIH_TAMAMLANDI,
+    // ADR-0018 — KART_TAMAMLA `kart:edit` çatısından ÇIKARILDI; ayrı `kart:tamamla`
+    // aksiyonu ile kontrol edilir. Düzenleyebilen herkes kapatamaz (Karar 4B).
     IZIN_KODLARI.KART_ETIKET_ATA,
     IZIN_KODLARI.KART_ETIKET_CIKAR,
     IZIN_KODLARI.KART_KOPYALA,
@@ -74,6 +75,9 @@ export const ESKI_YENI_ESLEME: Record<string, IzinKodu[]> = {
   ],
   "kart:delete": [IZIN_KODLARI.KART_SIL, IZIN_KODLARI.KART_GERI_YUKLE],
   "kart:move": [IZIN_KODLARI.KART_TASI],
+  // ADR-0018 — Kart bütünü tamamlama. Düzenleyebilen herkes kapatamaz; bu
+  // aksiyon kuruluş hiyerarşisinde üst karar (default: SUPER_ADMIN + KAYMAKAM).
+  "kart:tamamla": [IZIN_KODLARI.KART_TAMAMLA],
   "kart:authorize": [
     IZIN_KODLARI.KART_YETKILI_LISTELE,
     IZIN_KODLARI.KART_YETKILI_KISI_ATA,

@@ -15,7 +15,14 @@ import type {
   MaddeAdayKullanicilar,
   MaddeGuncelle,
   MaddeOlustur,
+  MaddeTamamlamaOneri,
+  MaddeTamamlamaOnay,
+  MaddeTamamlamaReddet,
 } from "./schemas";
+
+// ADR-0019 string union — Prisma enum'unu runtime'da import etmemek için
+// literal type kullanılır (kart-tamamla-kontrol.ts'teki OneriDurumu ile aynı).
+type OneriDurumu = "YOK" | "BEKLIYOR" | "REDDEDILDI";
 
 export type MaddeOzeti = {
   id: string;
@@ -24,6 +31,12 @@ export type MaddeOzeti = {
   tamamlandi_mi: boolean;
   tamamlama_zamani: Date | null;
   tamamlayan_id: string | null;
+  // ADR-0019 — öneri akışı alanları
+  tamamlanma_oneri_durumu: OneriDurumu;
+  tamamlanma_oneren_id: string | null;
+  tamamlanma_oneren: { ad: string; soyad: string } | null;
+  tamamlanma_oneri_zamani: Date | null;
+  tamamlanma_red_sebebi: string | null;
   atanan_id: string | null;
   atanan: { ad: string; soyad: string } | null;
   bitis: Date | null;
@@ -188,10 +201,15 @@ export async function kartKontrolListeleriniListele(
           tamamlandi_mi: true,
           tamamlama_zamani: true,
           tamamlayan_id: true,
+          tamamlanma_oneri_durumu: true,
+          tamamlanma_oneren_id: true,
+          tamamlanma_oneri_zamani: true,
+          tamamlanma_red_sebebi: true,
           atanan_id: true,
           bitis: true,
           sira: true,
           atanan: { select: { ad: true, soyad: true } },
+          oneren: { select: { ad: true, soyad: true } },
         },
       },
     },
@@ -208,6 +226,11 @@ export async function kartKontrolListeleriniListele(
       tamamlandi_mi: m.tamamlandi_mi,
       tamamlama_zamani: m.tamamlama_zamani,
       tamamlayan_id: m.tamamlayan_id,
+      tamamlanma_oneri_durumu: m.tamamlanma_oneri_durumu,
+      tamamlanma_oneren_id: m.tamamlanma_oneren_id,
+      tamamlanma_oneren: m.oneren,
+      tamamlanma_oneri_zamani: m.tamamlanma_oneri_zamani,
+      tamamlanma_red_sebebi: m.tamamlanma_red_sebebi,
       atanan_id: m.atanan_id,
       atanan: m.atanan,
       bitis: m.bitis,
@@ -302,10 +325,15 @@ export async function maddeOlustur(
       tamamlandi_mi: true,
       tamamlama_zamani: true,
       tamamlayan_id: true,
+      tamamlanma_oneri_durumu: true,
+      tamamlanma_oneren_id: true,
+      tamamlanma_oneri_zamani: true,
+      tamamlanma_red_sebebi: true,
       atanan_id: true,
       bitis: true,
       sira: true,
       atanan: { select: { ad: true, soyad: true } },
+      oneren: { select: { ad: true, soyad: true } },
     },
   });
   // kart_id için kontrol listesi'ne tekrar bak (madde'nin parent zinciri)
@@ -313,13 +341,30 @@ export async function maddeOlustur(
     where: { id: girdi.kontrol_listesi_id },
     select: { kart_id: true },
   });
+  const sonuc: MaddeOzeti = {
+    id: yeni.id,
+    kontrol_listesi_id: yeni.kontrol_listesi_id,
+    metin: yeni.metin,
+    tamamlandi_mi: yeni.tamamlandi_mi,
+    tamamlama_zamani: yeni.tamamlama_zamani,
+    tamamlayan_id: yeni.tamamlayan_id,
+    tamamlanma_oneri_durumu: yeni.tamamlanma_oneri_durumu,
+    tamamlanma_oneren_id: yeni.tamamlanma_oneren_id,
+    tamamlanma_oneren: yeni.oneren,
+    tamamlanma_oneri_zamani: yeni.tamamlanma_oneri_zamani,
+    tamamlanma_red_sebebi: yeni.tamamlanma_red_sebebi,
+    atanan_id: yeni.atanan_id,
+    atanan: yeni.atanan,
+    bitis: yeni.bitis,
+    sira: yeni.sira,
+  };
   if (kl) {
     yayinla(SOCKET.MADDE_OLUSTUR, room.kart(kl.kart_id), {
       kart_id: kl.kart_id,
-      madde: yeni,
+      madde: sonuc,
     }).catch(() => {});
   }
-  return yeni;
+  return sonuc;
 }
 
 export async function maddeGuncelle(
@@ -340,6 +385,14 @@ export async function maddeGuncelle(
     veri.tamamlandi_mi = girdi.tamamlandi_mi;
     veri.tamamlama_zamani = girdi.tamamlandi_mi ? new Date() : null;
     veri.tamamlayan_id = girdi.tamamlandi_mi ? yapanId : null;
+    // ADR-0019 — yetkili kullanıcı doğrudan tamamlandi=true derse var olan
+    // öneri/red kaydı sıfırlanır (atomicity).
+    if (girdi.tamamlandi_mi) {
+      veri.tamamlanma_oneri_durumu = "YOK";
+      veri.tamamlanma_oneren_id = null;
+      veri.tamamlanma_oneri_zamani = null;
+      veri.tamamlanma_red_sebebi = null;
+    }
   }
 
   if (Object.keys(veri).length === 0) return;
@@ -348,6 +401,136 @@ export async function maddeGuncelle(
     kart_id,
     madde_id: girdi.id,
   }).catch(() => {});
+}
+
+// ============================================================
+// ADR-0019 — Madde tamamlama öneri/onay/red service fonksiyonları
+// (kart düzeyiyle aynı pattern; madde için "kontrol listesi yarım" sert
+// blok yok çünkü madde'nin alt kayıtları yok).
+// ============================================================
+
+export async function maddeTamamlamaOneri(
+  birimId: string,
+  girdi: MaddeTamamlamaOneri,
+): Promise<{ kart_id: string }> {
+  const { kart_id } = await maddeBul(birimId, girdi.id);
+
+  const madde = await db.kontrolMaddesi.findUnique({
+    where: { id: girdi.id },
+    select: {
+      tamamlandi_mi: true,
+      tamamlanma_oneri_durumu: true,
+    },
+  });
+  if (!madde) {
+    throw new EylemHatasi("Madde bulunamadı.", HATA_KODU.BULUNAMADI);
+  }
+  if (madde.tamamlandi_mi) {
+    throw new EylemHatasi(
+      "Madde zaten tamamlanmış.",
+      HATA_KODU.CAKISMA,
+    );
+  }
+  if (madde.tamamlanma_oneri_durumu === "BEKLIYOR") {
+    throw new EylemHatasi(
+      "Bu madde için zaten bekleyen bir öneri var.",
+      HATA_KODU.CAKISMA,
+    );
+  }
+
+  await db.kontrolMaddesi.update({
+    where: { id: girdi.id },
+    data: {
+      tamamlanma_oneri_durumu: "BEKLIYOR",
+      tamamlanma_oneren_id: birimId,
+      tamamlanma_oneri_zamani: new Date(),
+      tamamlanma_red_sebebi: null,
+    },
+  });
+  yayinla(SOCKET.MADDE_GUNCELLE, room.kart(kart_id), {
+    kart_id,
+    madde_id: girdi.id,
+  }).catch(() => {});
+  return { kart_id };
+}
+
+export async function maddeTamamlamaOnay(
+  birimId: string,
+  girdi: MaddeTamamlamaOnay,
+): Promise<{ kart_id: string; onerenId: string | null }> {
+  const { kart_id } = await maddeBul(birimId, girdi.id);
+
+  const madde = await db.kontrolMaddesi.findUnique({
+    where: { id: girdi.id },
+    select: {
+      tamamlanma_oneri_durumu: true,
+      tamamlanma_oneren_id: true,
+    },
+  });
+  if (!madde) {
+    throw new EylemHatasi("Madde bulunamadı.", HATA_KODU.BULUNAMADI);
+  }
+  if (madde.tamamlanma_oneri_durumu !== "BEKLIYOR") {
+    throw new EylemHatasi(
+      "Onaylanacak bekleyen öneri yok.",
+      HATA_KODU.CAKISMA,
+    );
+  }
+
+  await db.kontrolMaddesi.update({
+    where: { id: girdi.id },
+    data: {
+      tamamlandi_mi: true,
+      tamamlama_zamani: new Date(),
+      tamamlayan_id: birimId,
+      tamamlanma_oneri_durumu: "YOK",
+      tamamlanma_oneren_id: null,
+      tamamlanma_oneri_zamani: null,
+      tamamlanma_red_sebebi: null,
+    },
+  });
+  yayinla(SOCKET.MADDE_GUNCELLE, room.kart(kart_id), {
+    kart_id,
+    madde_id: girdi.id,
+  }).catch(() => {});
+  return { kart_id, onerenId: madde.tamamlanma_oneren_id };
+}
+
+export async function maddeTamamlamaReddet(
+  birimId: string,
+  girdi: MaddeTamamlamaReddet,
+): Promise<{ kart_id: string; onerenId: string | null }> {
+  const { kart_id } = await maddeBul(birimId, girdi.id);
+
+  const madde = await db.kontrolMaddesi.findUnique({
+    where: { id: girdi.id },
+    select: {
+      tamamlanma_oneri_durumu: true,
+      tamamlanma_oneren_id: true,
+    },
+  });
+  if (!madde) {
+    throw new EylemHatasi("Madde bulunamadı.", HATA_KODU.BULUNAMADI);
+  }
+  if (madde.tamamlanma_oneri_durumu !== "BEKLIYOR") {
+    throw new EylemHatasi(
+      "Reddedilecek bekleyen öneri yok.",
+      HATA_KODU.CAKISMA,
+    );
+  }
+
+  await db.kontrolMaddesi.update({
+    where: { id: girdi.id },
+    data: {
+      tamamlanma_oneri_durumu: "REDDEDILDI",
+      tamamlanma_red_sebebi: girdi.sebep?.trim() || null,
+    },
+  });
+  yayinla(SOCKET.MADDE_GUNCELLE, room.kart(kart_id), {
+    kart_id,
+    madde_id: girdi.id,
+  }).catch(() => {});
+  return { kart_id, onerenId: madde.tamamlanma_oneren_id };
 }
 
 export async function maddeSil(birimId: string, id: string): Promise<void> {

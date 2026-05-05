@@ -53,6 +53,10 @@ export const kartGuncelleSemasi = z.object({
   baslangic: z.coerce.date().nullable().optional(),
   bitis: z.coerce.date().nullable().optional(),
   arsiv_mi: z.boolean().optional(),
+  // Trello tarzı kart bütünü tamamlama toggle'ı. Server, true gelince
+  // tamamlanma_zamani=now() + tamamlayan_id=ctx.kullanici, false gelince
+  // ikisini de null'lar (services).
+  tamamlandi_mi: z.boolean().optional(),
 });
 
 export const kartSilSemasi = z.object({
@@ -78,12 +82,31 @@ export const kartArsivSemasi = z.object({
   arsiv: z.boolean(),
 });
 
+// ADR-0019 — Kart tamamlama önerisi/onayı/reddi.
+// Öneri vermeyi yetkisiz kullanıcı yapar (`kart:read` yeterli, KART_TAMAMLA
+// gerekmez). Onay/red için KART_TAMAMLA + `kart:tamamla` ZORUNLU.
+export const kartTamamlamaOneriSemasi = z.object({
+  id: z.string().uuid(),
+});
+export const kartTamamlamaOnaySemasi = z.object({
+  id: z.string().uuid(),
+});
+export const kartTamamlamaReddetSemasi = z.object({
+  id: z.string().uuid(),
+  // Sebep opsiyonel — boş string null'a çevrilir (UI tarafı `||
+  // undefined`). Max 500 karakter, audit log + bildirim mesajı için yeterli.
+  sebep: z.string().trim().max(500).optional().nullable(),
+});
+
 export type KartOlustur = z.infer<typeof kartOlusturSemasi>;
 export type KartGuncelle = z.infer<typeof kartGuncelleSemasi>;
 export type KartSil = z.infer<typeof kartSilSemasi>;
 export type KartGeriYukle = z.infer<typeof kartGeriYukleSemasi>;
 export type KartTasi = z.infer<typeof kartTasiSemasi>;
 export type KartArsiv = z.infer<typeof kartArsivSemasi>;
+export type KartTamamlamaOneri = z.infer<typeof kartTamamlamaOneriSemasi>;
+export type KartTamamlamaOnay = z.infer<typeof kartTamamlamaOnaySemasi>;
+export type KartTamamlamaReddet = z.infer<typeof kartTamamlamaReddetSemasi>;
 
 // ============================================================
 // Proje detayı şemaları

@@ -11,6 +11,9 @@ import {
   kartGuncelleEylem,
   kartOlusturEylem,
   kartSilEylem,
+  kartTamamlamaOneriEylem,
+  kartTamamlamaOnayEylem,
+  kartTamamlamaReddetEylem,
   kartTasiEylem,
   listeGuncelleEylem,
   listeOlusturEylem,
@@ -33,6 +36,9 @@ import type {
   KartGuncelle,
   KartOlustur,
   KartSil,
+  KartTamamlamaOneri,
+  KartTamamlamaOnay,
+  KartTamamlamaReddet,
   KartTasi,
   ListeGuncelle,
   ListeOlustur,
@@ -269,6 +275,12 @@ export function useKartOlustur(anahtar: DetayKey) {
             bitis: null,
             arsiv_mi: false,
             silindi_mi: false,
+            tamamlandi_mi: false,
+            tamamlanma_oneri_durumu: "YOK",
+            tamamlanma_oneren_id: null,
+            tamamlanma_oneren: null,
+            tamamlanma_oneri_zamani: null,
+            tamamlanma_red_sebebi: null,
             yetkili_sayisi: 0,
             etiket_sayisi: 0,
             yorum_sayisi: 0,
@@ -315,6 +327,7 @@ export function useKartGuncelle(anahtar: DetayKey) {
                   bitis:
                     vars.bitis === undefined ? k.bitis : (vars.bitis ?? null),
                   arsiv_mi: vars.arsiv_mi ?? k.arsiv_mi,
+                  tamamlandi_mi: vars.tamamlandi_mi ?? k.tamamlandi_mi,
                 }
               : k,
           ),
@@ -324,6 +337,92 @@ export function useKartGuncelle(anahtar: DetayKey) {
     // açıkken yan paneldeki Aktivite/Tümü sekmesi anında yansısın.
     ekInvalidate: (vars) => [kartAktiviteleriKey(vars.id)],
     hataMesaji: "Kart güncellenemedi",
+  });
+}
+
+// ADR-0019 — Kart tamamlama önerisi gönder (yetkisiz kullanıcı için).
+// Optimistic: durum BEKLIYOR'a geç, oneren_id geçici olarak null kalır
+// (server response'undan gelir; ama client-side oneren bilgisi mevcut
+// kullanıcı olduğundan banner'da gösterilebilir — refetch ile güncellenir).
+export function useKartTamamlamaOner(anahtar: DetayKey) {
+  return useOptimisticMutation<KartTamamlamaOneri, { id: string }>({
+    queryKey: anahtar,
+    mutationFn: eylemMutasyonu(kartTamamlamaOneriEylem),
+    optimistic: (eski, vars) =>
+      detayHaritala(eski, (d) => ({
+        ...d,
+        listeler: d.listeler.map((l) => ({
+          ...l,
+          kartlar: l.kartlar.map((k) =>
+            k.id === vars.id
+              ? {
+                  ...k,
+                  tamamlanma_oneri_durumu: "BEKLIYOR" as const,
+                  tamamlanma_oneri_zamani: new Date(),
+                  // oneren_id ve oneren bilgisi server'dan invalidate ile gelir.
+                  tamamlanma_red_sebebi: null,
+                }
+              : k,
+          ),
+        })),
+      })),
+    ekInvalidate: (vars) => [kartAktiviteleriKey(vars.id)],
+    hataMesaji: "Tamamlanma önerisi gönderilemedi",
+  });
+}
+
+export function useKartTamamlamaOnayla(anahtar: DetayKey) {
+  return useOptimisticMutation<KartTamamlamaOnay, { id: string }>({
+    queryKey: anahtar,
+    mutationFn: eylemMutasyonu(kartTamamlamaOnayEylem),
+    optimistic: (eski, vars) =>
+      detayHaritala(eski, (d) => ({
+        ...d,
+        listeler: d.listeler.map((l) => ({
+          ...l,
+          kartlar: l.kartlar.map((k) =>
+            k.id === vars.id
+              ? {
+                  ...k,
+                  tamamlandi_mi: true,
+                  tamamlanma_oneri_durumu: "YOK" as const,
+                  tamamlanma_oneren_id: null,
+                  tamamlanma_oneren: null,
+                  tamamlanma_oneri_zamani: null,
+                  tamamlanma_red_sebebi: null,
+                }
+              : k,
+          ),
+        })),
+      })),
+    ekInvalidate: (vars) => [kartAktiviteleriKey(vars.id)],
+    hataMesaji: "Öneri onaylanamadı",
+  });
+}
+
+export function useKartTamamlamaReddet(anahtar: DetayKey) {
+  return useOptimisticMutation<KartTamamlamaReddet, { id: string }>({
+    queryKey: anahtar,
+    mutationFn: eylemMutasyonu(kartTamamlamaReddetEylem),
+    optimistic: (eski, vars) =>
+      detayHaritala(eski, (d) => ({
+        ...d,
+        listeler: d.listeler.map((l) => ({
+          ...l,
+          kartlar: l.kartlar.map((k) =>
+            k.id === vars.id
+              ? {
+                  ...k,
+                  tamamlanma_oneri_durumu: "REDDEDILDI" as const,
+                  tamamlanma_red_sebebi: vars.sebep?.trim() || null,
+                  // oneren_id korunur — kim önerdi bilgisi UI'da gösterilebilir.
+                }
+              : k,
+          ),
+        })),
+      })),
+    ekInvalidate: (vars) => [kartAktiviteleriKey(vars.id)],
+    hataMesaji: "Öneri reddedilemedi",
   });
 }
 

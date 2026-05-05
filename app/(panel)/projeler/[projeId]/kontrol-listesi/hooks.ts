@@ -14,6 +14,9 @@ import {
   maddeGuncelleEylem,
   maddeOlusturEylem,
   maddeSilEylem,
+  maddeTamamlamaOneriEylem,
+  maddeTamamlamaOnayEylem,
+  maddeTamamlamaReddetEylem,
 } from "./actions";
 import type {
   KontrolListesiGuncelle,
@@ -22,6 +25,9 @@ import type {
   MaddeGuncelle,
   MaddeOlustur,
   MaddeSil,
+  MaddeTamamlamaOneri,
+  MaddeTamamlamaOnay,
+  MaddeTamamlamaReddet,
 } from "./schemas";
 import type {
   KontrolListesiOzeti,
@@ -148,6 +154,11 @@ export function useMaddeOlustur(kartId: string) {
           tamamlandi_mi: false,
           tamamlama_zamani: null,
           tamamlayan_id: null,
+          tamamlanma_oneri_durumu: "YOK",
+          tamamlanma_oneren_id: null,
+          tamamlanma_oneren: null,
+          tamamlanma_oneri_zamani: null,
+          tamamlanma_red_sebebi: null,
           atanan_id: vars.atanan_id ?? null,
           atanan: null,
           bitis: vars.bitis ?? null,
@@ -211,6 +222,86 @@ export function useMaddeGuncelle(kartId: string) {
     },
     ekInvalidate: [kartAktiviteleriKey(kartId)],
     hataMesaji: "Madde güncellenemedi",
+  });
+}
+
+// ADR-0019 — Madde tamamlama öneri/onay/red hook'ları (kart ile aynı pattern).
+
+export function useMaddeTamamlamaOner(kartId: string) {
+  return useOptimisticMutation<MaddeTamamlamaOneri, { id: string }>({
+    queryKey: kartKontrolKey(kartId),
+    mutationFn: eylemMutasyonu(maddeTamamlamaOneriEylem),
+    optimistic: (eski, vars) => {
+      const liste = (eski as KontrolListesiOzeti[] | undefined) ?? [];
+      return liste.map((kl) => ({
+        ...kl,
+        maddeler: kl.maddeler.map((m) =>
+          m.id === vars.id
+            ? {
+                ...m,
+                tamamlanma_oneri_durumu: "BEKLIYOR" as const,
+                tamamlanma_oneri_zamani: new Date(),
+                tamamlanma_red_sebebi: null,
+              }
+            : m,
+        ),
+      }));
+    },
+    ekInvalidate: [kartAktiviteleriKey(kartId)],
+    hataMesaji: "Tamamlanma önerisi gönderilemedi",
+  });
+}
+
+export function useMaddeTamamlamaOnayla(kartId: string) {
+  return useOptimisticMutation<MaddeTamamlamaOnay, { id: string }>({
+    queryKey: kartKontrolKey(kartId),
+    mutationFn: eylemMutasyonu(maddeTamamlamaOnayEylem),
+    optimistic: (eski, vars) => {
+      const liste = (eski as KontrolListesiOzeti[] | undefined) ?? [];
+      return liste.map((kl) => ({
+        ...kl,
+        maddeler: kl.maddeler.map((m) =>
+          m.id === vars.id
+            ? {
+                ...m,
+                tamamlandi_mi: true,
+                tamamlama_zamani: new Date(),
+                tamamlanma_oneri_durumu: "YOK" as const,
+                tamamlanma_oneren_id: null,
+                tamamlanma_oneren: null,
+                tamamlanma_oneri_zamani: null,
+                tamamlanma_red_sebebi: null,
+              }
+            : m,
+        ),
+      }));
+    },
+    ekInvalidate: [kartAktiviteleriKey(kartId)],
+    hataMesaji: "Öneri onaylanamadı",
+  });
+}
+
+export function useMaddeTamamlamaReddet(kartId: string) {
+  return useOptimisticMutation<MaddeTamamlamaReddet, { id: string }>({
+    queryKey: kartKontrolKey(kartId),
+    mutationFn: eylemMutasyonu(maddeTamamlamaReddetEylem),
+    optimistic: (eski, vars) => {
+      const liste = (eski as KontrolListesiOzeti[] | undefined) ?? [];
+      return liste.map((kl) => ({
+        ...kl,
+        maddeler: kl.maddeler.map((m) =>
+          m.id === vars.id
+            ? {
+                ...m,
+                tamamlanma_oneri_durumu: "REDDEDILDI" as const,
+                tamamlanma_red_sebebi: vars.sebep?.trim() || null,
+              }
+            : m,
+        ),
+      }));
+    },
+    ekInvalidate: [kartAktiviteleriKey(kartId)],
+    hataMesaji: "Öneri reddedilemedi",
   });
 }
 

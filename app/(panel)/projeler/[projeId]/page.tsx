@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { izinVarMi, IZIN_KODLARI } from "@/lib/permissions";
 import { canProje } from "@/lib/yetki";
-import { projeDetayiniGetir } from "./services";
+import { projeDetayiniGetir, projeyiZiyaretEt } from "./services";
 import { ProjeBaslik } from "./components/proje-baslik";
 import { KanbanPano } from "./components/kanban-pano";
 
@@ -24,6 +24,8 @@ export default async function ProjeDetaySayfasi({ params }: SayfaProps) {
   }
 
   const detay = await projeDetayiniGetir(kullanici.id, projeId);
+  // Fire-and-forget: ana sayfa "son ziyaret edilen" widget'ı için kayıt.
+  void projeyiZiyaretEt(kullanici.id, projeId);
   const [
     listeOlustur,
     listeDuzenle,
@@ -32,6 +34,7 @@ export default async function ProjeDetaySayfasi({ params }: SayfaProps) {
     kartTasi,
     kartDuzenle,
     kartSil,
+    kartTamamla,
     projeDuzenleIzni,
     projeYetkiliYonetIzni,
     projeYetkiliYonetKaynak,
@@ -44,6 +47,8 @@ export default async function ProjeDetaySayfasi({ params }: SayfaProps) {
     izinVarMi(kullanici.id, IZIN_KODLARI.KART_TASI),
     izinVarMi(kullanici.id, IZIN_KODLARI.KART_DUZENLE),
     izinVarMi(kullanici.id, IZIN_KODLARI.KART_SIL),
+    // ADR-0018 — kart tamamlama default sadece SUPER_ADMIN + KAYMAKAM.
+    izinVarMi(kullanici.id, IZIN_KODLARI.KART_TAMAMLA),
     izinVarMi(kullanici.id, IZIN_KODLARI.PROJE_DUZENLE),
     izinVarMi(kullanici.id, IZIN_KODLARI.PROJE_YETKILI_YONET),
     canProje(kullanici.id, "proje:authorize", projeId),
@@ -77,6 +82,7 @@ export default async function ProjeDetaySayfasi({ params }: SayfaProps) {
             kartTasi,
             kartDuzenle,
             kartSil,
+            kartTamamla,
             yetkiliYonet: yetkililerYonet,
           }}
         />

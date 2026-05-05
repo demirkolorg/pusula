@@ -32,6 +32,10 @@ type Props = {
   bitis: Date | string | null;
   bitisKaydet: (yeni: Date | null) => void;
   kapakRenk: string | null;
+  // ADR-0018 — kart tamamlandı bayrağı; bitiş geçmiş olsa bile tamamlanmış
+  // kart "Gecikti" rozeti göstermez. BitisChip bu değere göre kırmızı vurgu
+  // yapar.
+  tamamlandi: boolean;
 };
 
 // Sancak `meta-chip` strip'i — pill chip'ler: ICON · sayı/metin · (preview) · chevron.
@@ -44,6 +48,7 @@ export function KartModalMetaChips({
   bitis,
   bitisKaydet,
   kapakRenk,
+  tamamlandi,
 }: Props) {
   return (
     <div className="-ml-2 flex flex-wrap items-center gap-0.5">
@@ -52,7 +57,11 @@ export function KartModalMetaChips({
         projeId={projeId}
         yetkiliYonet={yetkiliYonet}
       />
-      <BitisChip bitis={bitis} bitisKaydet={bitisKaydet} />
+      <BitisChip
+        bitis={bitis}
+        bitisKaydet={bitisKaydet}
+        tamamlandi={tamamlandi}
+      />
       <EtiketChipBaglanti kartId={kartId} projeId={projeId} />
       <KapakChipBaglanti
         kartId={kartId}
@@ -173,9 +182,11 @@ function YetkiliChipBaglanti({
 function BitisChip({
   bitis,
   bitisKaydet,
+  tamamlandi,
 }: {
   bitis: Date | string | null;
   bitisKaydet: (yeni: Date | null) => void;
+  tamamlandi: boolean;
 }) {
   const metin = React.useMemo(() => {
     if (!bitis) return undefined;
@@ -198,6 +209,17 @@ function BitisChip({
     return fark >= 0 && fark <= 7;
   }, [bitis, simdi]);
 
+  // ADR-0018 — bitiş geçmiş + tamamlanmamış: chip kırmızı + "Gecikti" preview.
+  // SSR/hydration uyumu için `simdi` mount sonrası set edilir; ilk render
+  // hydration uyumlu kalsın diye gecikmis hesabı simdi bağımlı.
+  const gecikmis = React.useMemo(() => {
+    if (tamamlandi) return false;
+    if (simdi === null || !bitis) return false;
+    const d = bitis instanceof Date ? bitis : new Date(bitis);
+    if (Number.isNaN(d.getTime())) return false;
+    return d.getTime() < simdi;
+  }, [bitis, simdi, tamamlandi]);
+
   return (
     <KartBitisPopover
       bitis={bitis}
@@ -207,13 +229,23 @@ function BitisChip({
           icon={CalendarIcon}
           metin={metin}
           bosMu={!metin}
-          aria-label="Bitiş tarihi"
+          aria-label={gecikmis ? "Bitiş tarihi geçti — Gecikti" : "Bitiş tarihi"}
+          className={cn(
+            gecikmis &&
+              "text-red-700 bg-red-100 hover:bg-red-200 hover:text-red-900 dark:bg-red-950/60 dark:text-red-300 dark:hover:bg-red-900/60",
+          )}
           onPreview={
-            yaklasiyorMu && (
-              <span
-                className="bg-amber-500 size-1.5 rounded-full"
-                aria-hidden
-              />
+            gecikmis ? (
+              <span className="ml-0.5 rounded-sm bg-red-700 px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-red-50">
+                Gecikti
+              </span>
+            ) : (
+              yaklasiyorMu && (
+                <span
+                  className="bg-amber-500 size-1.5 rounded-full"
+                  aria-hidden
+                />
+              )
             )
           }
         />

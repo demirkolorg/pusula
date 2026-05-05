@@ -47,6 +47,22 @@ export const maddeSilSemasi = z.object({
   id: z.string().uuid(),
 });
 
+// ADR-0019 — Madde tamamlama öneri/onay/red şemaları (kart ile aynı pattern).
+export const maddeTamamlamaOneriSemasi = z.object({
+  id: z.string().uuid(),
+});
+export const maddeTamamlamaOnaySemasi = z.object({
+  id: z.string().uuid(),
+});
+export const maddeTamamlamaReddetSemasi = z.object({
+  id: z.string().uuid(),
+  sebep: z.string().trim().max(500).optional().nullable(),
+});
+
+export type MaddeTamamlamaOneri = z.infer<typeof maddeTamamlamaOneriSemasi>;
+export type MaddeTamamlamaOnay = z.infer<typeof maddeTamamlamaOnaySemasi>;
+export type MaddeTamamlamaReddet = z.infer<typeof maddeTamamlamaReddetSemasi>;
+
 // Madde sorumlu picker'ı için aday kullanıcı arama
 export const maddeAdayKullanicilarSemasi = z.object({
   kart_id: z.string().uuid(),

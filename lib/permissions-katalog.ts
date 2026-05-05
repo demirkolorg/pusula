@@ -56,6 +56,12 @@ export const IZIN_KODLARI = {
   KART_ARSIVLE: "kart:arsivle",
   KART_SIL: "kart:sil",
   KART_GERI_YUKLE: "kart:geri-yukle",
+  // ADR-0018 — eskiden KART_TARIH_TAMAMLANDI ("kart.tarih:tamamlandi") "tarih"
+  // alt-kategorisindeydi; yanlış konum (tamamlama ≠ tarih). "Temel" altına
+  // taşındı, kod sadeleşti. RBAC default'ta sadece SUPER_ADMIN + KAYMAKAM
+  // (TUM_KART_IZINLERI üzerinden otomatik); BIRIM_AMIRI ve PERSONEL
+  // varsayılan'da tamamlayamaz.
+  KART_TAMAMLA: "kart:tamamla",
 
   // ─────────── KART / Kapak ───────────
   KART_KAPAK_RENK: "kart.kapak:renk",
@@ -64,7 +70,6 @@ export const IZIN_KODLARI = {
   // ─────────── KART / Tarih ───────────
   KART_TARIH_BASLANGIC: "kart.tarih:baslangic",
   KART_TARIH_BITIS: "kart.tarih:bitis",
-  KART_TARIH_TAMAMLANDI: "kart.tarih:tamamlandi",
 
   // ─────────── KART / Etiket ───────────
   KART_ETIKET_OLUSTUR: "kart.etiket:olustur",
@@ -226,11 +231,11 @@ export const IZIN_KATEGORI: Partial<Record<IzinKodu, IzinKategorisi>> = {
   [IZIN_KODLARI.KART_ARSIVLE]: IzinKategorisi.KART,
   [IZIN_KODLARI.KART_SIL]: IzinKategorisi.KART,
   [IZIN_KODLARI.KART_GERI_YUKLE]: IzinKategorisi.KART,
+  [IZIN_KODLARI.KART_TAMAMLA]: IzinKategorisi.KART,
   [IZIN_KODLARI.KART_KAPAK_RENK]: IzinKategorisi.KART,
   [IZIN_KODLARI.KART_KAPAK_GORSEL]: IzinKategorisi.KART,
   [IZIN_KODLARI.KART_TARIH_BASLANGIC]: IzinKategorisi.KART,
   [IZIN_KODLARI.KART_TARIH_BITIS]: IzinKategorisi.KART,
-  [IZIN_KODLARI.KART_TARIH_TAMAMLANDI]: IzinKategorisi.KART,
   [IZIN_KODLARI.KART_ETIKET_OLUSTUR]: IzinKategorisi.KART,
   [IZIN_KODLARI.KART_ETIKET_DUZENLE]: IzinKategorisi.KART,
   [IZIN_KODLARI.KART_ETIKET_SIL]: IzinKategorisi.KART,
@@ -325,7 +330,7 @@ export const IZIN_ALT_KATEGORI: Partial<Record<IzinKodu, string>> = {
   // KART / tarih
   [IZIN_KODLARI.KART_TARIH_BASLANGIC]: "tarih",
   [IZIN_KODLARI.KART_TARIH_BITIS]: "tarih",
-  [IZIN_KODLARI.KART_TARIH_TAMAMLANDI]: "tarih",
+  // KART_TAMAMLA temel kategoride — alt-kategori yok (ADR-0018).
 
   // KART / etiket
   [IZIN_KODLARI.KART_ETIKET_OLUSTUR]: "etiket",
@@ -594,9 +599,10 @@ export const IZIN_TANIMLARI: Partial<
     aciklama:
       "Kartın bitiş (son) tarihini ekleme, değiştirme veya kaldırma",
   },
-  [IZIN_KODLARI.KART_TARIH_TAMAMLANDI]: {
+  [IZIN_KODLARI.KART_TAMAMLA]: {
     ad: "Kartı Tamamlandı İşaretle",
-    aciklama: "Kartı tamamlandı/açık olarak işaretleme",
+    aciklama:
+      "Kartı tamamlandı/açık olarak işaretleme — kontrol listesi tamamen bitmeden kapatılamaz (ADR-0018).",
   },
 
   // ─────────── KART / etiket ───────────
@@ -887,7 +893,8 @@ const TUM_KART_IZINLERI: IzinKodu[] = TUM_IZIN_KODLARI.filter(
   (k) => IZIN_KATEGORI[k] === IzinKategorisi.KART,
 );
 
-// PERSONEL için "iş yapan" minimum: kart yaz + yorum + eklenti + checklist madde işaretle
+// PERSONEL için "iş yapan" minimum: kart yaz + yorum + eklenti + checklist madde işaretle.
+// KART_TAMAMLA ADR-0018 ile çıkarıldı — sadece SUPER_ADMIN + KAYMAKAM kart kapatabilir.
 const PERSONEL_KART: IzinKodu[] = [
   IZIN_KODLARI.KART_OLUSTUR,
   IZIN_KODLARI.KART_BASLIK_DUZENLE,
@@ -896,7 +903,6 @@ const PERSONEL_KART: IzinKodu[] = [
   IZIN_KODLARI.KART_KAPAK_RENK,
   IZIN_KODLARI.KART_TARIH_BASLANGIC,
   IZIN_KODLARI.KART_TARIH_BITIS,
-  IZIN_KODLARI.KART_TARIH_TAMAMLANDI,
   IZIN_KODLARI.KART_ETIKET_ATA,
   IZIN_KODLARI.KART_ETIKET_CIKAR,
   IZIN_KODLARI.KART_YORUM_OKU,

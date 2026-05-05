@@ -11,6 +11,9 @@ import type {
   KartArsiv,
   KartGuncelle,
   KartOlustur,
+  KartTamamlamaOneri,
+  KartTamamlamaOnay,
+  KartTamamlamaReddet,
   KartTasi,
   ListeGuncelle,
   ListeOlustur,
@@ -50,6 +53,10 @@ export type KartKapakOzeti = {
   mime: string;
 };
 
+// ADR-0019 string union — Prisma enum'u runtime'da import etmeden literal
+// type kullanımı (kart-tamamla-kontrol.ts'teki OneriDurumu ile aynı).
+type OneriDurumu = "YOK" | "BEKLIYOR" | "REDDEDILDI";
+
 export type ListeKartOzeti = {
   id: string;
   baslik: string;
@@ -64,6 +71,16 @@ export type ListeKartOzeti = {
   bitis: Date | null;
   arsiv_mi: boolean;
   silindi_mi: boolean;
+  // Trello tarzı kart bütünü tamamlama bayrağı. Kontrol listesi maddelerinden
+  // bağımsız; KartMini ve KartModalBaslik solundaki yuvarlak toggle'ı sürer.
+  tamamlandi_mi: boolean;
+  // ADR-0019 — öneri/onay flow alanları. UI'daki ToggleModu hesabı bu alanları
+  // okur (oneriDurumuHesapla helper'ı).
+  tamamlanma_oneri_durumu: OneriDurumu;
+  tamamlanma_oneren_id: string | null;
+  tamamlanma_oneren: { ad: string; soyad: string } | null;
+  tamamlanma_oneri_zamani: Date | null;
+  tamamlanma_red_sebebi: string | null;
   yetkili_sayisi: number;
   etiket_sayisi: number;
   yorum_sayisi: number;
@@ -223,6 +240,32 @@ async function kartiBulVeProjeAl(
 }
 
 // ============================================================
+// Ziyaret kaydı — ana sayfa "son ziyaret edilen" widget'ı için
+// ============================================================
+
+// Proje detay sayfasına her girişte upsert; başarısızlık sayfayı bozmaz.
+// Audit middleware bu modeli ATLA listesinde tutar (lib/audit-middleware.ts).
+export async function projeyiZiyaretEt(
+  kullaniciId: string,
+  projeId: string,
+): Promise<void> {
+  try {
+    await db.projeZiyareti.upsert({
+      where: {
+        kullanici_id_proje_id: {
+          kullanici_id: kullaniciId,
+          proje_id: projeId,
+        },
+      },
+      create: { kullanici_id: kullaniciId, proje_id: projeId },
+      update: { son_ziyaret: new Date() },
+    });
+  } catch {
+    // Soft fail — ziyaret kaydı kritik değil, sayfa render bloklanmasın.
+  }
+}
+
+// ============================================================
 // Proje detayı (pano + liste görünümü ortak veri)
 // ============================================================
 
@@ -268,6 +311,12 @@ export async function projeDetayiniGetir(
               bitis: true,
               arsiv_mi: true,
               silindi_mi: true,
+              tamamlandi_mi: true,
+              tamamlanma_oneri_durumu: true,
+              tamamlanma_oneren_id: true,
+              tamamlanma_oneri_zamani: true,
+              tamamlanma_red_sebebi: true,
+              oneren: { select: { ad: true, soyad: true } },
               _count: {
                 select: {
                   yetkililer: true,
@@ -357,6 +406,12 @@ export async function projeDetayiniGetir(
           bitis: k.bitis,
           arsiv_mi: k.arsiv_mi,
           silindi_mi: k.silindi_mi,
+          tamamlandi_mi: k.tamamlandi_mi,
+          tamamlanma_oneri_durumu: k.tamamlanma_oneri_durumu,
+          tamamlanma_oneren_id: k.tamamlanma_oneren_id,
+          tamamlanma_oneren: k.oneren,
+          tamamlanma_oneri_zamani: k.tamamlanma_oneri_zamani,
+          tamamlanma_red_sebebi: k.tamamlanma_red_sebebi,
           yetkili_sayisi: k._count.yetkililer,
           etiket_sayisi: k._count.etiketler,
           yorum_sayisi: k._count.yorumlar,
@@ -600,6 +655,7 @@ export async function kartOlustur(
       bitis: true,
       arsiv_mi: true,
       silindi_mi: true,
+      tamamlandi_mi: true,
     },
   });
 
@@ -614,6 +670,14 @@ export async function kartOlustur(
     bitis: yeni.bitis,
     arsiv_mi: yeni.arsiv_mi,
     silindi_mi: yeni.silindi_mi,
+    tamamlandi_mi: yeni.tamamlandi_mi,
+    // Yeni kart YOK durumunda doğar (default DB). Realtime alıcısı UI tip
+    // kontrolünü geçsin diye explicit set.
+    tamamlanma_oneri_durumu: "YOK" as const,
+    tamamlanma_oneren_id: null,
+    tamamlanma_oneren: null,
+    tamamlanma_oneri_zamani: null,
+    tamamlanma_red_sebebi: null,
     yetkili_sayisi: 1,
     etiket_sayisi: 0,
     yorum_sayisi: 0,
@@ -635,6 +699,27 @@ export async function kartGuncelle(
   const { proje_id } = await kartiBulVeProjeAl(birimId, girdi.id);
   await projeyeErisimDogrula(birimId, proje_id);
 
+  // ADR-0018 — Sert blok: kart kapanırken (true geçişinde) tüm kontrol
+  // listesi maddeleri tamamlanmış olmalı. UI bunu önceden disabled ederek
+  // gösterir; bu kontrol ek savunma katmanı (race condition / API kötüye
+  // kullanım). Yeniden açma (false) için kontrol yok.
+  if (girdi.tamamlandi_mi === true) {
+    const eksik = await db.kontrolMaddesi.count({
+      where: {
+        kontrol_listesi: { kart_id: girdi.id },
+        tamamlandi_mi: false,
+      },
+    });
+    if (eksik > 0) {
+      // CAKISMA — kart durumu (yarım kontrol listesi) ile istenen sonuç (tamam)
+      // arasındaki tutarsızlık. GECERSIZ_GIRDI değil çünkü girdi şema-geçerli.
+      throw new EylemHatasi(
+        "Kontrol listesindeki tüm maddeler tamamlanmadan kart kapatılamaz.",
+        HATA_KODU.CAKISMA,
+      );
+    }
+  }
+
   const veri: Record<string, unknown> = {};
   if (girdi.baslik !== undefined) veri.baslik = girdi.baslik.trim();
   if (girdi.aciklama !== undefined) veri.aciklama = girdi.aciklama?.trim() || null;
@@ -642,12 +727,181 @@ export async function kartGuncelle(
   if (girdi.baslangic !== undefined) veri.baslangic = girdi.baslangic;
   if (girdi.bitis !== undefined) veri.bitis = girdi.bitis;
   if (girdi.arsiv_mi !== undefined) veri.arsiv_mi = girdi.arsiv_mi;
+  // tamamlandi_mi true ⇒ tamamlanma_zamani=now() + tamamlayan_id=ctx.kullanici.
+  // false ⇒ ikisini de temizle. Bu mapping client'tan gelen ham boolean'ı
+  // güvenilir denormalize alanlara dönüştürür (audit + raporlama tutarlı).
+  // ADR-0019 — Doğrudan tamamlandı=true (yetkili kullanıcı) öneri akışını
+  // bypass etmiş olur; var olan öneri/red kayıtları sıfırlanır (atomicity).
+  if (girdi.tamamlandi_mi !== undefined) {
+    veri.tamamlandi_mi = girdi.tamamlandi_mi;
+    veri.tamamlanma_zamani = girdi.tamamlandi_mi ? new Date() : null;
+    veri.tamamlayan_id = girdi.tamamlandi_mi ? birimId : null;
+    if (girdi.tamamlandi_mi) {
+      veri.tamamlanma_oneri_durumu = "YOK";
+      veri.tamamlanma_oneren_id = null;
+      veri.tamamlanma_oneri_zamani = null;
+      veri.tamamlanma_red_sebebi = null;
+    }
+  }
 
   await db.kart.update({ where: { id: girdi.id }, data: veri });
   yayinla(SOCKET.KART_GUNCELLE, room.proje(proje_id), {
     proje_id,
     kart_id: girdi.id,
   }).catch(() => {});
+}
+
+// ============================================================
+// ADR-0019 — Kart tamamlama öneri/onay/red service fonksiyonları
+// ============================================================
+
+// Yetkisiz kullanıcı kart kapatıldığını bildirir. Durum YOK veya REDDEDILDI
+// olabilir; her iki durumda da BEKLIYOR'a geçer (REDDEDILDI'den geri dönüş =
+// "yeniden öneri" senaryosu — red_sebebi temizlenir).
+export async function kartTamamlamaOneri(
+  birimId: string,
+  girdi: KartTamamlamaOneri,
+): Promise<void> {
+  const { proje_id } = await kartiBulVeProjeAl(birimId, girdi.id);
+  await projeyeErisimDogrula(birimId, proje_id);
+
+  const kart = await db.kart.findUnique({
+    where: { id: girdi.id },
+    select: {
+      tamamlandi_mi: true,
+      tamamlanma_oneri_durumu: true,
+    },
+  });
+  if (!kart) {
+    throw new EylemHatasi("Kart bulunamadı.", HATA_KODU.BULUNAMADI);
+  }
+  if (kart.tamamlandi_mi) {
+    throw new EylemHatasi(
+      "Kart zaten tamamlanmış.",
+      HATA_KODU.CAKISMA,
+    );
+  }
+  if (kart.tamamlanma_oneri_durumu === "BEKLIYOR") {
+    throw new EylemHatasi(
+      "Bu kart için zaten bekleyen bir öneri var.",
+      HATA_KODU.CAKISMA,
+    );
+  }
+
+  await db.kart.update({
+    where: { id: girdi.id },
+    data: {
+      tamamlanma_oneri_durumu: "BEKLIYOR",
+      tamamlanma_oneren_id: birimId,
+      tamamlanma_oneri_zamani: new Date(),
+      tamamlanma_red_sebebi: null,
+    },
+  });
+  yayinla(SOCKET.KART_GUNCELLE, room.proje(proje_id), {
+    proje_id,
+    kart_id: girdi.id,
+  }).catch(() => {});
+}
+
+// Yetkili kullanıcı bekleyen öneriyi onaylar → kart tamamlanır.
+// Sert blok (kontrol listesi yarım) burada da geçerli (kartGuncelle ile aynı
+// kural — onay aslında "kapat" aksiyonunun yetkili tarafından yapılan hali).
+export async function kartTamamlamaOnay(
+  birimId: string,
+  girdi: KartTamamlamaOnay,
+): Promise<{ onerenId: string | null }> {
+  const { proje_id } = await kartiBulVeProjeAl(birimId, girdi.id);
+  await projeyeErisimDogrula(birimId, proje_id);
+
+  const kart = await db.kart.findUnique({
+    where: { id: girdi.id },
+    select: {
+      tamamlanma_oneri_durumu: true,
+      tamamlanma_oneren_id: true,
+    },
+  });
+  if (!kart) {
+    throw new EylemHatasi("Kart bulunamadı.", HATA_KODU.BULUNAMADI);
+  }
+  if (kart.tamamlanma_oneri_durumu !== "BEKLIYOR") {
+    throw new EylemHatasi(
+      "Onaylanacak bekleyen öneri yok.",
+      HATA_KODU.CAKISMA,
+    );
+  }
+
+  // Sert blok kontrol listesi
+  const eksik = await db.kontrolMaddesi.count({
+    where: {
+      kontrol_listesi: { kart_id: girdi.id },
+      tamamlandi_mi: false,
+    },
+  });
+  if (eksik > 0) {
+    throw new EylemHatasi(
+      "Kontrol listesindeki tüm maddeler tamamlanmadan kart kapatılamaz.",
+      HATA_KODU.CAKISMA,
+    );
+  }
+
+  await db.kart.update({
+    where: { id: girdi.id },
+    data: {
+      tamamlandi_mi: true,
+      tamamlanma_zamani: new Date(),
+      tamamlayan_id: birimId,
+      tamamlanma_oneri_durumu: "YOK",
+      tamamlanma_oneren_id: null,
+      tamamlanma_oneri_zamani: null,
+      tamamlanma_red_sebebi: null,
+    },
+  });
+  yayinla(SOCKET.KART_GUNCELLE, room.proje(proje_id), {
+    proje_id,
+    kart_id: girdi.id,
+  }).catch(() => {});
+  return { onerenId: kart.tamamlanma_oneren_id };
+}
+
+// Yetkili kullanıcı bekleyen öneriyi reddeder → durum REDDEDILDI + sebep.
+export async function kartTamamlamaReddet(
+  birimId: string,
+  girdi: KartTamamlamaReddet,
+): Promise<{ onerenId: string | null }> {
+  const { proje_id } = await kartiBulVeProjeAl(birimId, girdi.id);
+  await projeyeErisimDogrula(birimId, proje_id);
+
+  const kart = await db.kart.findUnique({
+    where: { id: girdi.id },
+    select: {
+      tamamlanma_oneri_durumu: true,
+      tamamlanma_oneren_id: true,
+    },
+  });
+  if (!kart) {
+    throw new EylemHatasi("Kart bulunamadı.", HATA_KODU.BULUNAMADI);
+  }
+  if (kart.tamamlanma_oneri_durumu !== "BEKLIYOR") {
+    throw new EylemHatasi(
+      "Reddedilecek bekleyen öneri yok.",
+      HATA_KODU.CAKISMA,
+    );
+  }
+
+  await db.kart.update({
+    where: { id: girdi.id },
+    data: {
+      tamamlanma_oneri_durumu: "REDDEDILDI",
+      tamamlanma_red_sebebi: girdi.sebep?.trim() || null,
+      // oneren_id korunur — kim önerdi bilgisi audit ve "geçmiş" bilgisi.
+      // oneri_zamani da korunur.
+    },
+  });
+  yayinla(SOCKET.KART_GUNCELLE, room.proje(proje_id), {
+    proje_id,
+    kart_id: girdi.id,
+  }).catch(() => {});
+  return { onerenId: kart.tamamlanma_oneren_id };
 }
 
 export async function kartSil(birimId: string, id: string): Promise<void> {
@@ -965,6 +1219,12 @@ export async function projedeTumKartlar(
       bitis: true,
       arsiv_mi: true,
       silindi_mi: true,
+      tamamlandi_mi: true,
+      tamamlanma_oneri_durumu: true,
+      tamamlanma_oneren_id: true,
+      tamamlanma_oneri_zamani: true,
+      tamamlanma_red_sebebi: true,
+      oneren: { select: { ad: true, soyad: true } },
       _count: {
         select: {
           yetkililer: true,
@@ -999,6 +1259,12 @@ export async function projedeTumKartlar(
     bitis: k.bitis,
     arsiv_mi: k.arsiv_mi,
     silindi_mi: k.silindi_mi,
+    tamamlandi_mi: k.tamamlandi_mi,
+    tamamlanma_oneri_durumu: k.tamamlanma_oneri_durumu,
+    tamamlanma_oneren_id: k.tamamlanma_oneren_id,
+    tamamlanma_oneren: k.oneren,
+    tamamlanma_oneri_zamani: k.tamamlanma_oneri_zamani,
+    tamamlanma_red_sebebi: k.tamamlanma_red_sebebi,
     yetkili_sayisi: k._count.yetkililer,
     etiket_sayisi: k._count.etiketler,
     yorum_sayisi: k._count.yorumlar,

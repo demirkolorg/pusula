@@ -27,6 +27,17 @@ import {
   KartBaglamMenusu,
   type KartBaglamYetkileri,
 } from "./kart-baglam-menusu";
+import { KartTamamlaToggle } from "./kart-tamamla-toggle";
+import {
+  projeDetayKey,
+  useKartGuncelle,
+  useKartTamamlamaOner,
+} from "../hooks/detay-sorgulari";
+import {
+  gecikmisMi,
+  oneriDurumuHesapla,
+  tamamlamaYasakHesapla,
+} from "../kart-tamamla-kontrol";
 
 type Props = {
   kart: ListeKartOzeti;
@@ -70,6 +81,67 @@ export function KartMini({
   });
   const { active } = useDndContext();
 
+  const anahtar = React.useMemo(() => projeDetayKey(projeId), [projeId]);
+  const kartGuncelle = useKartGuncelle(anahtar);
+  const tamamlamaOner = useKartTamamlamaOner(anahtar);
+  // ADR-0018 — yetki + kontrol listesi durumuna göre yasak hesabı.
+  // Helper saf fonksiyon (test edilebilir); aynı hesap server'da kontrol
+  // listesi DB sayımı ile tekrar uygulanır (sert blok savunma katmanı).
+  const tamamlamaYasak = React.useMemo(
+    () =>
+      tamamlamaYasakHesapla({
+        yetkiVar: baglamYetkileri.tamamla,
+        yeniDurum: !kart.tamamlandi_mi,
+        kontrol: {
+          toplam: kart.madde_toplam,
+          tamamlanan: kart.madde_tamamlanan,
+        },
+      }),
+    [
+      baglamYetkileri.tamamla,
+      kart.tamamlandi_mi,
+      kart.madde_toplam,
+      kart.madde_tamamlanan,
+    ],
+  );
+  // ADR-0019 — Toggle modunu öneri durumu + yetkiye göre hesapla.
+  const toggleModu = React.useMemo(
+    () =>
+      oneriDurumuHesapla({
+        yetkiVar: baglamYetkileri.tamamla,
+        tamamlandi: kart.tamamlandi_mi,
+        oneriDurumu: kart.tamamlanma_oneri_durumu,
+        oneren: kart.tamamlanma_oneren,
+        redSebebi: kart.tamamlanma_red_sebebi,
+      }),
+    [
+      baglamYetkileri.tamamla,
+      kart.tamamlandi_mi,
+      kart.tamamlanma_oneri_durumu,
+      kart.tamamlanma_oneren,
+      kart.tamamlanma_red_sebebi,
+    ],
+  );
+  const toggleAksiyon = React.useCallback<
+    React.ComponentProps<typeof KartTamamlaToggle>["onAksiyon"]
+  >(
+    (aksiyon) => {
+      if (aksiyon.tip === "tamamla") {
+        kartGuncelle.mutate({ id: kart.id, tamamlandi_mi: aksiyon.sonraki });
+      } else if (aksiyon.tip === "oneri-ver") {
+        tamamlamaOner.mutate({ id: kart.id });
+      }
+    },
+    [kartGuncelle, tamamlamaOner, kart.id],
+  );
+
+  // ADR-0018 — bitiş tarihi geçmiş + tamamlanmamış → kırmızı "Gecikti" rozeti.
+  // Tamamlanmış kart, bitiş tarihi geçmiş bile olsa rozet göstermez.
+  const gecikmis = gecikmisMi({
+    bitis: kart.bitis,
+    tamamlandi: kart.tamamlandi_mi,
+  });
+
   const stil: React.CSSProperties = {
     transform: CSS.Translate.toString(sortable.transform),
     // Drop sonrası "akma" engeli: aktif drag yokken transition disable.
@@ -105,9 +177,11 @@ export function KartMini({
         // Sürüklenirken: primary ince kesik çizgili placeholder
         ruyaModu &&
           "border-primary/60 bg-primary/5 rounded-md border border-dashed p-2",
-        // Normal kart
+        // Normal kart — `group/kart` named group: tamamlama toggle'ı bu kapsam
+        // içinde hover-only görünürlük kazanır (KartTamamlaToggle
+        // `group-hover/kart:opacity-100` ile dinler).
         !ruyaModu &&
-          "bg-card hover:border-foreground/30 group flex flex-col gap-1 rounded-md border p-2 text-sm shadow-sm",
+          "bg-card hover:border-foreground/30 group/kart flex flex-col gap-1 rounded-md border p-2 text-sm shadow-sm",
         !ruyaModu && surukleyebilir && !taslak && "cursor-grab active:cursor-grabbing",
       )}
       role={ruyaModu ? undefined : "button"}
@@ -148,9 +222,27 @@ export function KartMini({
           ) : kapakSinifi ? (
             <div className={cn("-mx-2 -mt-2 mb-1 h-6 rounded-t-md", kapakSinifi)} />
           ) : null}
-          <span className="line-clamp-3 font-medium leading-snug">
-            {kart.baslik}
-          </span>
+          <div className="flex items-start gap-1.5">
+            <KartTamamlaToggle
+              tamamlandi={kart.tamamlandi_mi}
+              modu={toggleModu}
+              onAksiyon={toggleAksiyon}
+              yasak={taslak ? { sebep: "yetki-yok", mesaj: "Hazırlanıyor…" } : tamamlamaYasak}
+              boyut="sm"
+              hoverdaGorunur
+            />
+            <span
+              className={cn(
+                "line-clamp-3 flex-1 font-medium leading-snug",
+                // Tamamlanmış kartlar üstü çizili + soluk — Trello pattern.
+                // Why: kullanıcı "tamamlandı" durumunu metinden de algılayabilsin
+                // (yalnızca renk yetersiz; renk-körü erişilebilirlik).
+                kart.tamamlandi_mi && "text-muted-foreground line-through",
+              )}
+            >
+              {kart.baslik}
+            </span>
+          </div>
           {(tarih ||
             kart.yetkili_sayisi > 0 ||
             kart.etiket_sayisi > 0 ||
@@ -159,9 +251,23 @@ export function KartMini({
             kart.madde_toplam > 0) && (
             <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px]">
               {tarih && (
-                <span className="inline-flex shrink-0 items-center gap-0.5">
+                <span
+                  className={cn(
+                    "inline-flex shrink-0 items-center gap-0.5",
+                    gecikmis &&
+                      "rounded-sm bg-red-100 px-1 py-px font-medium text-red-700 dark:bg-red-950/60 dark:text-red-300",
+                  )}
+                  aria-label={
+                    gecikmis ? `Bitiş tarihi geçti: ${tarih}` : `Bitiş: ${tarih}`
+                  }
+                >
                   <CalendarIcon className="size-2.5" />
                   {tarih}
+                  {gecikmis && (
+                    <span className="ml-0.5 text-[9px] uppercase tracking-wide">
+                      Gecikti
+                    </span>
+                  )}
                 </span>
               )}
               {kart.etiket_sayisi > 0 && (

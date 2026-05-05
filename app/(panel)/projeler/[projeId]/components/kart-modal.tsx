@@ -17,6 +17,9 @@ import {
   useKartGeriYukle,
   useKartGuncelle,
   useKartSil,
+  useKartTamamlamaOnayla,
+  useKartTamamlamaOner,
+  useKartTamamlamaReddet,
   useProjeDetay,
 } from "../hooks/detay-sorgulari";
 import { useKartRealtime } from "../hooks/use-kart-realtime";
@@ -33,7 +36,11 @@ import { KartModalMetaChips } from "./kart-modal-meta-chips";
 import { KartModalAciklama } from "./kart-modal-aciklama";
 import { KartModalKontrolBlogu } from "./kart-modal-kontrol-blogu";
 import { KartModalYanPanel } from "./kart-modal-yan-panel";
-import { tamamlamaYasakHesapla } from "../kart-tamamla-kontrol";
+import { KartTamamlamaOneriBanner } from "./kart-tamamlama-oneri-banner";
+import {
+  oneriDurumuHesapla,
+  tamamlamaYasakHesapla,
+} from "../kart-tamamla-kontrol";
 
 type Props = {
   kartId: string | null;
@@ -129,6 +136,9 @@ function KartModalIcerik({
   const sil = useKartSil(anahtar);
   const geriYukle = useKartGeriYukle(anahtar);
   const arsivToggleMut = useKartArsivToggle(anahtar);
+  const tamamlamaOner = useKartTamamlamaOner(anahtar);
+  const tamamlamaOnayla = useKartTamamlamaOnayla(anahtar);
+  const tamamlamaReddet = useKartTamamlamaReddet(anahtar);
 
   // Faz 5.3 — Kart susturma durumu + toggle. Hook'lar Rules of Hooks gereği
   // her renderda aynı sırada çağrılmalı; bulunan kart kontrolünden ÖNCE.
@@ -176,9 +186,24 @@ function KartModalIcerik({
     guncelle.mutate({ id: kart.id, bitis: yeni });
   };
 
-  const tamamlaToggle = (sonraki: boolean) => {
-    guncelle.mutate({ id: kart.id, tamamlandi_mi: sonraki });
+  const toggleAksiyon = (
+    aksiyon: { tip: "tamamla"; sonraki: boolean } | { tip: "oneri-ver" } | { tip: "iptal" },
+  ) => {
+    if (aksiyon.tip === "tamamla") {
+      guncelle.mutate({ id: kart.id, tamamlandi_mi: aksiyon.sonraki });
+    } else if (aksiyon.tip === "oneri-ver") {
+      tamamlamaOner.mutate({ id: kart.id });
+    }
   };
+
+  // ADR-0019 — toggle modu (aktif/önerilebilir/önerildi/reddedildi).
+  const toggleModu = oneriDurumuHesapla({
+    yetkiVar: kartTamamla,
+    tamamlandi: kart.tamamlandi_mi,
+    oneriDurumu: kart.tamamlanma_oneri_durumu,
+    oneren: kart.tamamlanma_oneren,
+    redSebebi: kart.tamamlanma_red_sebebi,
+  });
 
   // ADR-0018 — yetki + kontrol listesi durumuna göre yasak; KartModalBaslik
   // tooltip ve disabled durumu için kullanır. Aynı hesap server'da DB sayımı
@@ -294,9 +319,29 @@ function KartModalIcerik({
               setBaslik={setBaslik}
               kaydet={baslikKaydet}
               tamamlandi={kart.tamamlandi_mi}
-              onTamamla={tamamlaToggle}
+              toggleModu={toggleModu}
+              onToggleAksiyon={toggleAksiyon}
               tamamlamaYasak={tamamlamaYasak}
             />
+            {/* ADR-0019 — BEKLIYOR durumunda kart yetkisi olan kullanıcıya
+                Onayla/Reddet banner'ı; öneren kullanıcıya bilgi banner'ı.
+                İkisi de aynı component, `yetkili` prop'una göre dallanır. */}
+            {kart.tamamlanma_oneri_durumu === "BEKLIYOR" && (
+              <KartTamamlamaOneriBanner
+                yetkili={kartTamamla}
+                oneren={kart.tamamlanma_oneren}
+                oneriZamani={kart.tamamlanma_oneri_zamani}
+                onayDisabledSebebi={
+                  tamamlamaYasak?.sebep === "kontrol-yarim"
+                    ? tamamlamaYasak.mesaj
+                    : null
+                }
+                onOnayla={() => tamamlamaOnayla.mutate({ id: kart.id })}
+                onReddet={(sebep) =>
+                  tamamlamaReddet.mutate({ id: kart.id, sebep })
+                }
+              />
+            )}
           </div>
 
           <div className="flex flex-col gap-[22px] px-4 pb-4 sm:px-6 sm:pb-5">

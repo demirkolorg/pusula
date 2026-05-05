@@ -15,8 +15,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { KartTamamlaToggle } from "../../components/kart-tamamla-toggle";
 import { cn } from "@/lib/utils";
 import { tempIdMi } from "@/lib/temp-id";
 import { toast } from "@/lib/toast";
@@ -30,16 +30,29 @@ import {
   useMaddeGuncelle,
   useMaddeOlustur,
   useMaddeSil,
+  useMaddeTamamlamaOnayla,
+  useMaddeTamamlamaOner,
+  useMaddeTamamlamaReddet,
 } from "../hooks";
+import { oneriDurumuHesapla } from "../../kart-tamamla-kontrol";
+import { KartTamamlamaOneriBanner } from "../../components/kart-tamamlama-oneri-banner";
 import type { KontrolListesiOzeti, MaddeOzeti } from "../services";
 
 // Granüler yetki obje (Kural U.8/138). Şu an tek alan; ileride
 // bitis/etiket atama gibi başka madde aksiyonları gelirse genişler.
 export type MaddeYetkileri = {
   atanaDegistir: boolean;
+  // ADR-0018 — madde tamamlama yetkisi. Kart düzeyiyle aynı kural: sadece
+  // KART_TAMAMLA izinli kullanıcı (atanan olmak hak vermez).
+  tamamla: boolean;
 };
 
-const VARSAYILAN_YETKILER: MaddeYetkileri = { atanaDegistir: true };
+const VARSAYILAN_YETKILER: MaddeYetkileri = {
+  atanaDegistir: true,
+  // Defansif default — caller yetki bilgisini geçmediği üst sayfalarda toggle
+  // çalışmaz görünür (server taraflı kontrol zaten ek savunma).
+  tamamla: false,
+};
 
 type Props = {
   kartId: string;
@@ -165,7 +178,7 @@ function KontrolListesi({
   };
 
   return (
-    <section className="border-border/60 group/liste flex flex-col gap-3 rounded-lg border bg-card/30 p-3 sm:p-4">
+    <section className="border-border/60 group/liste flex flex-col gap-2 rounded-lg border bg-card/30 p-3 sm:p-4">
       {/* Üst: liste adı (inline edit) + sayım chip + hover edit/sil */}
       <header className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 flex-1 items-baseline gap-2.5">
@@ -257,7 +270,7 @@ function KontrolListesi({
 
       {/* Madde listesi — boşsa muted placeholder */}
       {toplam > 0 ? (
-        <ul className="flex flex-col gap-0.5">
+        <ul className="flex flex-col">
           {kl.maddeler.map((m) => (
             <li key={m.id}>
               <Madde madde={m} kartId={kartId} yetkiler={yetkiler} />
@@ -360,6 +373,9 @@ function Madde({
   const guncelle = useMaddeGuncelle(kartId);
   const sil = useMaddeSil(kartId);
   const olustur = useMaddeOlustur(kartId);
+  const tamamlamaOner = useMaddeTamamlamaOner(kartId);
+  const tamamlamaOnayla = useMaddeTamamlamaOnayla(kartId);
+  const tamamlamaReddet = useMaddeTamamlamaReddet(kartId);
   const istemci = useQueryClient();
   const taslak = tempIdMi(madde.id);
   const [duzenle, setDuzenle] = React.useState(false);
@@ -410,18 +426,41 @@ function Madde({
     });
   };
 
+  // ADR-0018 — Karar 9A: kart ve madde aynı görsel dil. Yasak burada sadece
+  // taslak/düzenle modu için (yetki ayrı modu hesabıyla yönetilir).
+  const maddeYasak = taslak
+    ? { sebep: "yetki-yok" as const, mesaj: "Hazırlanıyor…" }
+    : duzenle
+      ? { sebep: "yetki-yok" as const, mesaj: "Önce metni kaydet." }
+      : null;
+
+  // ADR-0019 — Madde toggle modunu öneri durumu + yetkiye göre hesapla.
+  const toggleModu = oneriDurumuHesapla({
+    yetkiVar: yetkiler.tamamla,
+    tamamlandi: madde.tamamlandi_mi,
+    oneriDurumu: madde.tamamlanma_oneri_durumu,
+    oneren: madde.tamamlanma_oneren,
+    redSebebi: madde.tamamlanma_red_sebebi,
+  });
+
+  const toggleAksiyon = (
+    aksiyon: { tip: "tamamla"; sonraki: boolean } | { tip: "oneri-ver" } | { tip: "iptal" },
+  ) => {
+    if (aksiyon.tip === "tamamla") {
+      guncelle.mutate({ id: madde.id, tamamlandi_mi: aksiyon.sonraki });
+    } else if (aksiyon.tip === "oneri-ver") {
+      tamamlamaOner.mutate({ id: madde.id });
+    }
+  };
+
   return (
-    <div className="hover:bg-accent/40 group/madde flex min-h-9 items-center gap-2.5 rounded-md px-1.5 py-1 transition-colors">
-      <Checkbox
-        checked={madde.tamamlandi_mi}
-        onCheckedChange={(v) =>
-          guncelle.mutate({
-            id: madde.id,
-            tamamlandi_mi: v === true,
-          })
-        }
-        disabled={taslak || duzenle}
-        aria-label={`${madde.metin} tamamlandı`}
+    <div className="hover:bg-accent/40 group/madde flex min-h-7 items-start gap-2.5 rounded-md px-1.5 py-0.5 transition-colors">
+      <KartTamamlaToggle
+        tamamlandi={madde.tamamlandi_mi}
+        modu={toggleModu}
+        onAksiyon={toggleAksiyon}
+        yasak={maddeYasak}
+        boyut="sm"
       />
       {duzenle ? (
         <Input
@@ -514,6 +553,23 @@ function Madde({
           >
             <Trash2Icon className="size-3.5" />
           </Button>
+        </div>
+      )}
+      {madde.tamamlanma_oneri_durumu === "BEKLIYOR" && (
+        // ADR-0019 — Madde için bekleyen öneri banner'ı, kart bannerıyla aynı
+        // component reuse. Madde için kontrol-yarim koşulu yok → onayDisabled
+        // her zaman null.
+        <div className="basis-full pl-9">
+          <KartTamamlamaOneriBanner
+            yetkili={yetkiler.tamamla}
+            oneren={madde.tamamlanma_oneren}
+            oneriZamani={madde.tamamlanma_oneri_zamani}
+            onayDisabledSebebi={null}
+            onOnayla={() => tamamlamaOnayla.mutate({ id: madde.id })}
+            onReddet={(sebep) =>
+              tamamlamaReddet.mutate({ id: madde.id, sebep })
+            }
+          />
         </div>
       )}
     </div>

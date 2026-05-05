@@ -16,6 +16,9 @@ import {
   tetikleKartDurumDegisti,
   tetikleKartSilindi,
   tetikleKartTamamlandi,
+  tetikleKartTamamlamaOnaylandi,
+  tetikleKartTamamlamaOnerildi,
+  tetikleKartTamamlamaReddedildi,
   tetikleListeSilindi,
 } from "@/app/(panel)/bildirimler/tetikleyiciler";
 import {
@@ -24,6 +27,9 @@ import {
   kartGuncelleSemasi,
   kartOlusturSemasi,
   kartSilSemasi,
+  kartTamamlamaOneriSemasi,
+  kartTamamlamaOnaySemasi,
+  kartTamamlamaReddetSemasi,
   kartTasiSemasi,
   listeGuncelleSemasi,
   listeOlusturSemasi,
@@ -38,6 +44,9 @@ import {
   kartiTasi,
   kartOlustur as kartOlusturSrv,
   kartSil,
+  kartTamamlamaOneri as kartTamamlamaOneriSrv,
+  kartTamamlamaOnay as kartTamamlamaOnaySrv,
+  kartTamamlamaReddet as kartTamamlamaReddetSrv,
   listeGuncelle,
   listeOlustur,
   listeSil,
@@ -171,6 +180,16 @@ export const kartGuncelleEylem = eylem({
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.id);
+    // ADR-0018 — tamamlama ayrı bir aksiyondur. Düzenleyebilen herkes
+    // kapatamaz; KART_TAMAMLA + kaynak yetkisi ZORUNLU.
+    if (girdi.tamamlandi_mi !== undefined) {
+      await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_TAMAMLA);
+      await yetkiZorunluKart(
+        ctx.oturum?.kullaniciId,
+        "kart:tamamla",
+        girdi.id,
+      );
+    }
     const degistirenId = ctx.oturum?.kullaniciId ?? null;
     await kartGuncelleSrv(kullaniciIdAl(ctx), girdi);
     // Sadece anlamlı alanlar değiştiğinde bildirim — tip-spesifik trigger.
@@ -185,6 +204,78 @@ export const kartGuncelleEylem = eylem({
       tetikleKartTamamlandi({
         kartId: girdi.id,
         tamamlayanId: degistirenId,
+      }).catch(() => {});
+    }
+    return { id: girdi.id };
+  },
+});
+
+// ADR-0019 — Kart tamamlama öneri/onay/red action'ları.
+// Öneri: KART_TAMAMLA gerekmez; sadece kart erişimi (`kart:read`).
+// Onay/Red: KART_TAMAMLA + `kart:tamamla` ZORUNLU (kartGuncelleEylem ile
+// aynı kural).
+
+export const kartTamamlamaOneriEylem = eylem({
+  ad: "kart:tamamlama-oneri",
+  girdi: kartTamamlamaOneriSemasi,
+  calistir: async (girdi, ctx) => {
+    await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:read", girdi.id);
+    const onerenId = kullaniciIdAl(ctx);
+    await kartTamamlamaOneriSrv(onerenId, girdi);
+    tetikleKartTamamlamaOnerildi({
+      kartId: girdi.id,
+      onerenId,
+    }).catch(() => {});
+    return { id: girdi.id };
+  },
+});
+
+export const kartTamamlamaOnayEylem = eylem({
+  ad: "kart:tamamlama-onay",
+  girdi: kartTamamlamaOnaySemasi,
+  calistir: async (girdi, ctx) => {
+    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_TAMAMLA);
+    await yetkiZorunluKart(
+      ctx.oturum?.kullaniciId,
+      "kart:tamamla",
+      girdi.id,
+    );
+    const onayliyenId = kullaniciIdAl(ctx);
+    const { onerenId } = await kartTamamlamaOnaySrv(onayliyenId, girdi);
+    if (onerenId) {
+      tetikleKartTamamlamaOnaylandi({
+        kartId: girdi.id,
+        onayliyenId,
+        onerenId,
+      }).catch(() => {});
+    }
+    // KART_TAMAMLANDI bildirimini de tetikle — kart üyelerine "kart kapandı".
+    tetikleKartTamamlandi({
+      kartId: girdi.id,
+      tamamlayanId: onayliyenId,
+    }).catch(() => {});
+    return { id: girdi.id };
+  },
+});
+
+export const kartTamamlamaReddetEylem = eylem({
+  ad: "kart:tamamlama-reddet",
+  girdi: kartTamamlamaReddetSemasi,
+  calistir: async (girdi, ctx) => {
+    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_TAMAMLA);
+    await yetkiZorunluKart(
+      ctx.oturum?.kullaniciId,
+      "kart:tamamla",
+      girdi.id,
+    );
+    const reddedenId = kullaniciIdAl(ctx);
+    const { onerenId } = await kartTamamlamaReddetSrv(reddedenId, girdi);
+    if (onerenId) {
+      tetikleKartTamamlamaReddedildi({
+        kartId: girdi.id,
+        reddedenId,
+        onerenId,
+        sebep: girdi.sebep ?? null,
       }).catch(() => {});
     }
     return { id: girdi.id };
