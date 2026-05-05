@@ -3,6 +3,7 @@ import { EylemHatasi } from "@/lib/action-wrapper";
 import { HATA_KODU } from "@/lib/sonuc";
 import { yayinla } from "@/lib/realtime";
 import { SOCKET, room } from "@/lib/socket-events";
+import { tercihAliciFiltresi } from "@/lib/bildirim-tercih";
 import type {
   BildirimleriListele,
   BildirimOkuduIsaretle,
@@ -144,7 +145,16 @@ export async function bildirimUret(
   );
   if (benzersiz.length === 0) return [];
 
-  const data = benzersiz.map((aliciId) => ({
+  // Faz 3.1 — Kullanıcı tercihi: in-app kapalıysa hem DB kaydı hem realtime
+  // broadcast atlanır. Email kanalı Faz 4'te ayrıca kontrol edilir.
+  const inAppAlicilari = await tercihAliciFiltresi(
+    benzersiz,
+    girdi.tip,
+    "in_app",
+  );
+  if (inAppAlicilari.length === 0) return [];
+
+  const data = inAppAlicilari.map((aliciId) => ({
     alici_id: aliciId,
     ureten_id: girdi.ureten_id,
     tip: girdi.tip,

@@ -295,6 +295,8 @@ model Kullanici {
   tamamladigi_kartlar Kart[]           @relation("KartTamamlayan")
   bildirimler         Bildirim[]       @relation("BildirimAlici")
   ureten_bildirimler  Bildirim[]       @relation("BildirimUreten")
+  bildirim_tercihleri BildirimTercih[]
+  proje_ziyaretleri   ProjeZiyareti[]
 
   // ADR-0017: global arama (tsvector + GIN) — trigger ile otomatik güncellenir.
   arama_vektoru Unsupported("tsvector")?
@@ -548,6 +550,7 @@ model Proje {
   listeler          Liste[]
   etiketler         Etiket[]
   bekleyen_davetler DavetProjeBaglami[]
+  ziyaretler        ProjeZiyareti[]
 
   // ADR-0017: global arama (tsvector + GIN) — trigger ile otomatik güncellenir.
   arama_vektoru Unsupported("tsvector")?
@@ -582,6 +585,21 @@ model ProjeBirimi {
 
   @@id([proje_id, birim_id])
   @@index([birim_id])
+}
+
+// Ana sayfa "Son ziyaret edilen projeler" widget'ı için kullanıcı bazlı
+// ziyaret kaydı. Proje detay sayfasına girişte upsert edilir.
+model ProjeZiyareti {
+  kullanici_id String   @db.Uuid
+  proje_id     String   @db.Uuid
+  son_ziyaret  DateTime @default(now())
+
+  kullanici Kullanici @relation(fields: [kullanici_id], references: [id], onDelete: Cascade)
+  proje     Proje     @relation(fields: [proje_id], references: [id], onDelete: Cascade)
+
+  @@id([kullanici_id, proje_id])
+  @@index([kullanici_id, son_ziyaret(sort: Desc)])
+  @@index([proje_id])
 }
 
 enum ListeTipi {
@@ -658,9 +676,9 @@ model Kart {
   // Trello tarzı — kart bütün olarak tamamlandı işareti. Kontrol listesi
   // maddelerinden bağımsız: kullanıcı manuel toggle eder. tamamlanma_zamani
   // raporlama/sıralama, tamamlayan_id audit için.
-  tamamlandi_mi      Boolean   @default(false)
-  tamamlanma_zamani  DateTime?
-  tamamlayan_id      String?   @db.Uuid
+  tamamlandi_mi         Boolean   @default(false)
+  tamamlanma_zamani     DateTime?
+  tamamlayan_id         String?   @db.Uuid
   arsiv_mi              Boolean   @default(false)
   // ADR-0009 — kart arşivlenmeden önceki listenin id'si; geri yükleme için.
   arsiv_oncesi_liste_id String?   @db.Uuid
@@ -861,7 +879,7 @@ enum BildirimTipi {
   // Yorum içinde @mention edildi
   YORUM_MENTION
   // Karta üye olarak atandı
-  KART_YETKILI_ATAMA @map("KART_UYE_ATAMA")
+  KART_YETKILI_ATAMA  @map("KART_UYE_ATAMA")
   // Kontrol maddesi atandı
   MADDE_ATAMA
   // Kart bitiş tarihi yaklaşıyor / geçti
@@ -916,4 +934,22 @@ model Bildirim {
   @@index([alici_id, okundu_mu, olusturma_zamani(sort: Desc)])
   @@index([alici_id, olusturma_zamani(sort: Desc)])
   @@index([kart_id])
+}
+
+// Faz 3 — Kullanıcı bildirim tercihleri (in-app + e-mail kanalları)
+// Kayıt yoksa default açık kabul edilir (lib/bildirim-tercih.ts).
+// Her tip için bir kayıt; UI matrix tablosu (tip × kanal) bu modeli üretir.
+model BildirimTercih {
+  id                BigInt       @id @default(autoincrement())
+  kullanici_id      String       @db.Uuid
+  tip               BildirimTipi
+  in_app_acik       Boolean      @default(true)
+  email_acik        Boolean      @default(true)
+  olusturma_zamani  DateTime     @default(now())
+  guncelleme_zamani DateTime     @updatedAt
+
+  kullanici Kullanici @relation(fields: [kullanici_id], references: [id], onDelete: Cascade)
+
+  @@unique([kullanici_id, tip])
+  @@index([kullanici_id])
 }
