@@ -42,6 +42,7 @@ import {
   useListeSirala,
   useProjeDetay,
 } from "../hooks/detay-sorgulari";
+import { useProjeDetayRealtime } from "../hooks/use-detay-realtime";
 import { KartModal } from "./kart-modal";
 import { useQueryClient } from "@tanstack/react-query";
 import { ListeTipi } from "@prisma/client";
@@ -118,6 +119,11 @@ export function KanbanPano({ projeId, ilkVeri, yetkiler }: Props) {
   const anahtar = React.useMemo(() => projeDetayKey(projeId), [projeId]);
   const sorgu = useProjeDetay(projeId, ilkVeri);
   const istemci = useQueryClient();
+
+  // Faz 1.1: Pano canlı senkron — proje room'una katıl + diğer kullanıcıların
+  // liste/kart değişikliklerini dinle, kendi mutation echo'su request_id ile
+  // filtrelendiği için optimistic update bozulmaz (Kural 114).
+  useProjeDetayRealtime(projeId);
 
   // Sunucudan henüz veri gelmediyse server-side initial veriyi kullan.
   const detay: ProjeDetayOzeti = sorgu.data ?? ilkVeri;

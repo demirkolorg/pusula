@@ -149,6 +149,49 @@ export function useSocketEvent<T = unknown>(
   }, [event, enabled, selfFilter, oturumId]);
 }
 
+/**
+ * Birden fazla event'i tek handler ile dinle. `events` referansı stable olmalı
+ * — modül seviyesi `as const` array veya `useMemo` ile sabit (Kural 134).
+ * Aksi halde her render'da listener yeniden kurulur.
+ *
+ * Echo filtresi (Kural 114) `useSocketEvent` ile aynı:
+ *  - request_id eşleşmesi → drop (kendi mutation'ı)
+ *  - selfFilter açıksa ureten_id == oturum.id → drop
+ */
+export function useSocketEvents<T = unknown>(
+  events: readonly string[],
+  handler: (event: string, zarf: EventZarfi<T>) => void,
+  opts: SocketEventOpts = {},
+): void {
+  const { selfFilter = true, enabled = true } = opts;
+  const oturumQ = useOturumKullanicisi();
+  const oturumId = oturumQ.data?.id ?? null;
+  const handlerRef = React.useRef(handler);
+
+  React.useEffect(() => {
+    handlerRef.current = handler;
+  }, [handler]);
+
+  React.useEffect(() => {
+    if (!enabled) return;
+    const s = socketAl();
+    const kayitlar = events.map((event) => {
+      const dinleyici = (zarf: EventZarfi<T>) => {
+        if (kendiMi(zarf.request_id)) return;
+        if (selfFilter && oturumId && zarf.ureten_id === oturumId) return;
+        handlerRef.current(event, zarf);
+      };
+      s.on(event, dinleyici);
+      return [event, dinleyici] as const;
+    });
+    return () => {
+      for (const [event, dinleyici] of kayitlar) {
+        s.off(event, dinleyici);
+      }
+    };
+  }, [events, enabled, selfFilter, oturumId]);
+}
+
 // =====================================================================
 // Room yönetimi yardımcıları
 // =====================================================================
@@ -162,6 +205,21 @@ export function useProjeRoom(projeId: string | null): void {
       socket.emit("proje:ayril", projeId);
     };
   }, [socket, projeId]);
+}
+
+/**
+ * Kart room'una katıl + ayrıl. Presence bilgisi olmadan sadece room üyeliği —
+ * presence isteyen yerler `useKartPresence` kullansın (zaten room'a katılır).
+ */
+export function useKartRoom(kartId: string | null): void {
+  const { socket } = useSocket();
+  React.useEffect(() => {
+    if (!socket || !kartId) return;
+    socket.emit("kart:katil", kartId);
+    return () => {
+      socket.emit("kart:ayril", kartId);
+    };
+  }, [socket, kartId]);
 }
 
 export function useKartPresence(kartId: string | null): {

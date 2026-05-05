@@ -83,7 +83,10 @@ export function useProjeDetay(projeId: string, ilkVeri?: ProjeDetayOzeti) {
       return detayiNormalle(r.veri);
     },
     initialData: ilkVeri ? () => detayiNormalle(ilkVeri) : undefined,
-    staleTime: Infinity, // realtime gelecek (S5'te); şimdilik manuel invalidate
+    // Realtime: socket invalidation tetikler (use-detay-realtime.ts). Manuel
+    // refetch yok — kendi mutation'ları optimistic, başkasınınki socket ile
+    // gelir. Kural 23.
+    staleTime: Infinity,
   });
 }
 
@@ -95,6 +98,7 @@ export function useProjeKartlari(projeId: string) {
       if (!r.basarili) throw new Error(r.hata);
       return r.veri as LisedeKart[];
     },
+    // Realtime: socket invalidation tetikler (use-detay-realtime.ts).
     staleTime: Infinity,
   });
 }

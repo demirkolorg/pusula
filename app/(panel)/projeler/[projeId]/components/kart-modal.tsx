@@ -19,6 +19,7 @@ import {
   useKartSil,
   useProjeDetay,
 } from "../hooks/detay-sorgulari";
+import { useKartRealtime } from "../hooks/use-kart-realtime";
 import type { ListeKartOzeti, ProjeDetayOzeti } from "../services";
 import { KartModalHeader } from "./kart-modal-header";
 import { KartModalAksiyonMenusu } from "./kart-modal-aksiyon-menusu";
@@ -90,6 +91,11 @@ function KartModalIcerik({
   const anahtar = React.useMemo(() => projeDetayKey(projeId), [projeId]);
   const sorgu = useProjeDetay(projeId);
   const bulunan = kartiBul(sorgu.data, kartId);
+
+  // Faz 1.2: Kart canlı senkron — kart room'una katıl + alt-kaynak event'lerini
+  // dinle (yorum/yetkili/etiket/eklenti/kontrol-listesi/kapak). request_id +
+  // selfFilter ile kendi mutation echo'su düşer (Kural 114).
+  useKartRealtime(kartId, projeId);
 
   const guncelle = useKartGuncelle(anahtar);
   const sil = useKartSil(anahtar);
@@ -196,6 +202,7 @@ function KartModalIcerik({
       <KartModalHeader
         projeAd={bulunan.proje_ad}
         listeAd={bulunan.liste_ad}
+        kapakRenk={kart.kapak_renk}
         baglantiKopyala={baglantiKopyala}
         aksiyonMenu={
           <KartModalAksiyonMenusu
