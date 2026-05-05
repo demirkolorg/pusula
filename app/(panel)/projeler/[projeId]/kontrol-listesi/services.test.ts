@@ -10,6 +10,7 @@ vi.mock("@/auth", () => ({
 
 import {
   kartKontrolListeleriniListele,
+  kartMaddeAdayKullanicilariniAra,
   kontrolListesiGuncelle,
   kontrolListesiOlustur,
   kontrolListesiSil,
@@ -38,7 +39,7 @@ let projeId: string;
 
 async function sahipliProjeOlustur(birimId: string, sahipId: string) {
   const p = await projeOlusturFiks(adminDb, { birimId, olusturanId: sahipId });
-  await adminDb.projeUyesi.create({
+  await adminDb.projeYetkilisi.create({
     data: { proje_id: p.id, kullanici_id: sahipId, seviye: "ADMIN" },
   });
   return { id: p.id };
@@ -83,7 +84,7 @@ describe("kontrolListesiOlustur + listele", () => {
     expect(liste[0]!.maddeler).toEqual([]);
   });
 
-  // Eski birim izolasyonu testi paylaşım modeliyle kapsam dışı kaldı.
+  // Eski birim izolasyonu testi yetkilendirme modeliyle kapsam dışı kaldı.
 });
 
 describe("kontrolListesiSil", () => {
@@ -152,7 +153,7 @@ describe("maddeOlustur + guncelle (tamamla)", () => {
     expect(liste2[0]!.maddeler[0]!.tamamlayan_id).toBeNull();
   });
 
-  it("proje üyesi olmayan kullanıcıya madde atanamaz", async () => {
+  it("karta erişimi olmayan kullanıcıya madde atanamaz", async () => {
     const kl = await kontrolListesiOlustur(ortam.birim.id, {
       kart_id: kart.id,
       ad: "X",
@@ -161,13 +162,13 @@ describe("maddeOlustur + guncelle (tamamla)", () => {
       maddeOlustur(ortam.birim.id, {
         kontrol_listesi_id: kl.id,
         metin: "Yap",
-        atanan_id: ortam.personel.id, // proje üyesi değil
+        atanan_id: ortam.digerKullanici.id,
       }),
     ).rejects.toMatchObject({ kod: "GECERSIZ_GIRDI" });
   });
 
-  it("proje üyesi olunca madde atanabilir + atanan ad/soyad döner", async () => {
-    await adminDb.projeUyesi.create({
+  it("karta erişimi olan yetkiliye madde atanabilir + atanan ad/soyad döner", async () => {
+    await adminDb.projeYetkilisi.create({
       data: { proje_id: projeId, kullanici_id: ortam.personel.id, seviye: "NORMAL" },
     });
     const kl = await kontrolListesiOlustur(ortam.birim.id, {
@@ -181,6 +182,123 @@ describe("maddeOlustur + guncelle (tamamla)", () => {
     });
     expect(m.atanan_id).toBe(ortam.personel.id);
     expect(m.atanan?.ad).toBeTruthy();
+  });
+});
+
+describe("maddeGuncelle ile sorumlu atama", () => {
+  it("karta erişimi olmayan kullanıcıya atama yapılamaz (V.2/146)", async () => {
+    const kl = await kontrolListesiOlustur(ortam.birim.id, {
+      kart_id: kart.id,
+      ad: "X",
+    });
+    const m = await maddeOlustur(ortam.birim.id, {
+      kontrol_listesi_id: kl.id,
+      metin: "Yap",
+    });
+    await expect(
+      maddeGuncelle(ortam.birim.id, ortam.superAdmin.id, {
+        id: m.id,
+        atanan_id: ortam.digerKullanici.id,
+      }),
+    ).rejects.toMatchObject({ kod: "GECERSIZ_GIRDI" });
+  });
+
+  it("erişimi olan kullanıcıya atama sonrası okumada görünür", async () => {
+    await adminDb.projeYetkilisi.create({
+      data: {
+        proje_id: projeId,
+        kullanici_id: ortam.personel.id,
+        seviye: "NORMAL",
+      },
+    });
+    const kl = await kontrolListesiOlustur(ortam.birim.id, {
+      kart_id: kart.id,
+      ad: "X",
+    });
+    const m = await maddeOlustur(ortam.birim.id, {
+      kontrol_listesi_id: kl.id,
+      metin: "Yap",
+    });
+    await maddeGuncelle(ortam.birim.id, ortam.superAdmin.id, {
+      id: m.id,
+      atanan_id: ortam.personel.id,
+    });
+    const liste = await kartKontrolListeleriniListele(ortam.birim.id, kart.id);
+    expect(liste[0]!.maddeler[0]!.atanan_id).toBe(ortam.personel.id);
+    expect(liste[0]!.maddeler[0]!.atanan?.ad).toBeTruthy();
+  });
+
+  it("atanan_id null geçince atama temizlenir", async () => {
+    await adminDb.projeYetkilisi.create({
+      data: {
+        proje_id: projeId,
+        kullanici_id: ortam.personel.id,
+        seviye: "NORMAL",
+      },
+    });
+    const kl = await kontrolListesiOlustur(ortam.birim.id, {
+      kart_id: kart.id,
+      ad: "X",
+    });
+    const m = await maddeOlustur(ortam.birim.id, {
+      kontrol_listesi_id: kl.id,
+      metin: "Yap",
+      atanan_id: ortam.personel.id,
+    });
+    await maddeGuncelle(ortam.birim.id, ortam.superAdmin.id, {
+      id: m.id,
+      atanan_id: null,
+    });
+    const liste = await kartKontrolListeleriniListele(ortam.birim.id, kart.id);
+    expect(liste[0]!.maddeler[0]!.atanan_id).toBeNull();
+    expect(liste[0]!.maddeler[0]!.atanan).toBeNull();
+  });
+});
+
+describe("kartMaddeAdayKullanicilariniAra", () => {
+  it("makam + proje birimi üyesi aday; farklı birimden erişimsiz kullanıcı dışta", async () => {
+    // Proje `ortam.birim`'e bağlı; superAdmin makam, personel aynı birim →
+    // ikisi de aday. digerKullanici farklı birimde + projeye yetkisiz → dışta.
+    const adaylar = await kartMaddeAdayKullanicilariniAra(ortam.birim.id, {
+      kart_id: kart.id,
+    });
+    const idler = adaylar.map((a) => a.id);
+    expect(idler).toContain(ortam.superAdmin.id);
+    expect(idler).toContain(ortam.personel.id);
+    expect(idler).not.toContain(ortam.digerKullanici.id);
+  });
+
+  it("projeye eklenen personel aday listede görünür", async () => {
+    await adminDb.projeYetkilisi.create({
+      data: {
+        proje_id: projeId,
+        kullanici_id: ortam.personel.id,
+        seviye: "NORMAL",
+      },
+    });
+    const adaylar = await kartMaddeAdayKullanicilariniAra(ortam.birim.id, {
+      kart_id: kart.id,
+    });
+    expect(adaylar.map((a) => a.id)).toContain(ortam.personel.id);
+  });
+
+  it("q ile ad/email araması filtreler", async () => {
+    await adminDb.projeYetkilisi.create({
+      data: {
+        proje_id: projeId,
+        kullanici_id: ortam.personel.id,
+        seviye: "NORMAL",
+      },
+    });
+    const personel = await adminDb.kullanici.findUnique({
+      where: { id: ortam.personel.id },
+      select: { ad: true },
+    });
+    const adaylar = await kartMaddeAdayKullanicilariniAra(ortam.birim.id, {
+      kart_id: kart.id,
+      q: personel!.ad.slice(0, 3),
+    });
+    expect(adaylar.map((a) => a.id)).toContain(ortam.personel.id);
   });
 });
 

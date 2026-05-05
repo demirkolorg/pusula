@@ -2,10 +2,8 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { useProjeUyeleri } from "../uye/hooks";
-import { UyeAvatar } from "../uye/components/uye-avatar";
-
-type Uye = { kullanici_id: string; ad: string; soyad: string; email: string };
+import { useProjeYetkilileri } from "../yetkili/hooks";
+import { KisiAvatar } from "../yetkili/components/kisi-avatar";
 
 type Props = {
   projeId: string;
@@ -15,7 +13,7 @@ type Props = {
   onIptal: () => void;
 };
 
-// @mention dropdown — proje üyelerini filtreler ve seçim yapar.
+// @mention dropdown — proje yetkililerini filtreler ve seçim yapar.
 // Klavye kısayolları: ↑/↓/Enter/Escape. Hover ile fare seçimi.
 export function MentionDropdown({
   projeId,
@@ -24,7 +22,7 @@ export function MentionDropdown({
   onSec,
   onIptal,
 }: Props) {
-  const sorgu = useProjeUyeleri(projeId);
+  const sorgu = useProjeYetkilileri(projeId);
   const [aktifIdx, setAktifIdx] = React.useState(0);
 
   const filtreli = React.useMemo(() => {
@@ -40,10 +38,8 @@ export function MentionDropdown({
       .slice(0, 8);
   }, [sorgu.data, query]);
 
-  // Liste değişince aktif index sıfırla
-  React.useEffect(() => {
-    setAktifIdx(0);
-  }, [query, filtreli.length]);
+  const aktifIdxGuncel =
+    filtreli.length === 0 ? 0 : Math.min(aktifIdx, filtreli.length - 1);
 
   // Global klavye dinle — popover focus alma sorun olmadan textarea'da kalır
   React.useEffect(() => {
@@ -58,7 +54,7 @@ export function MentionDropdown({
         setAktifIdx((i) => (i - 1 + filtreli.length) % filtreli.length);
       } else if (e.key === "Enter" || e.key === "Tab") {
         e.preventDefault();
-        const u = filtreli[aktifIdx];
+        const u = filtreli[aktifIdxGuncel];
         if (u) onSec(u.kullanici_id, `${u.ad} ${u.soyad}`.trim());
       } else if (e.key === "Escape") {
         e.preventDefault();
@@ -67,7 +63,7 @@ export function MentionDropdown({
     };
     window.addEventListener("keydown", dinleyici, { capture: true });
     return () => window.removeEventListener("keydown", dinleyici, { capture: true });
-  }, [acik, filtreli, aktifIdx, onSec, onIptal]);
+  }, [acik, filtreli, aktifIdxGuncel, onSec, onIptal]);
 
   if (!acik) return null;
 
@@ -75,7 +71,7 @@ export function MentionDropdown({
     return (
       <div className="bg-popover absolute left-0 top-full z-50 mt-1 w-64 rounded-md border p-2 shadow-md">
         <p className="text-muted-foreground px-2 py-1 text-xs">
-          {query ? `"${query}" eşleşen üye yok` : "Proje üyesi yok"}
+          {query ? `"${query}" eşleşen yetkili yok` : "Proje yetkilisi yok"}
         </p>
       </div>
     );
@@ -85,7 +81,7 @@ export function MentionDropdown({
     <div
       className="bg-popover absolute left-0 top-full z-50 mt-1 w-72 overflow-hidden rounded-md border shadow-md"
       role="listbox"
-      aria-label="Üye seç"
+      aria-label="Yetkili seç"
     >
       <ul className="max-h-60 overflow-y-auto p-1">
         {filtreli.map((u, i) => (
@@ -93,15 +89,15 @@ export function MentionDropdown({
             <button
               type="button"
               role="option"
-              aria-selected={i === aktifIdx}
+              aria-selected={i === aktifIdxGuncel}
               onMouseEnter={() => setAktifIdx(i)}
               onClick={() => onSec(u.kullanici_id, `${u.ad} ${u.soyad}`.trim())}
               className={cn(
                 "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12.5px]",
-                i === aktifIdx ? "bg-accent" : "hover:bg-accent/50",
+                i === aktifIdxGuncel ? "bg-accent" : "hover:bg-accent/50",
               )}
             >
-              <UyeAvatar ad={u.ad} soyad={u.soyad} />
+              <KisiAvatar ad={u.ad} soyad={u.soyad} />
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium">
                   {u.ad} {u.soyad}

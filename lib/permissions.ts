@@ -3,12 +3,13 @@ import { auth } from "@/auth";
 import { db } from "./db";
 import { EylemHatasi } from "./action-wrapper";
 import { HATA_KODU } from "./sonuc";
+import { makamRoluMu } from "./roller";
 
 export const IZIN_KODLARI = {
   PROJE_OLUSTUR: "proje:create",
   PROJE_DUZENLE: "proje:edit",
   PROJE_SIL: "proje:delete",
-  PROJE_UYE_YONET: "proje:member",
+  PROJE_YETKILI_YONET: "proje:authorize",
   LISTE_OLUSTUR: "liste:create",
   LISTE_DUZENLE: "liste:edit",
   LISTE_SIL: "liste:delete",
@@ -47,7 +48,7 @@ export const kullaniciIzinleriniAl = cache(
     for (const satir of satirlar) {
       // Makam rolleri (SUPER_ADMIN, KAYMAKAM) — tüm birimlerin verisine erişir.
       // ADR-0001: Kural 50a güncel metni — birim filtresi atlanır.
-      if (satir.rol.kod === "SUPER_ADMIN" || satir.rol.kod === "KAYMAKAM") {
+      if (makamRoluMu(satir.rol.kod)) {
         izinler.add("*");
       }
       for (const ri of satir.rol.izinler) {

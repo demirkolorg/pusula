@@ -8,7 +8,12 @@ vi.mock("@/auth", () => ({
   handlers: {},
 }));
 
-import { kapagiAyarla, kapagiKaldir } from "./services";
+import {
+  kapagiAyarla,
+  kapagiKaldir,
+  kapakRenginiAyarla,
+  kapakRenginiKaldir,
+} from "./services";
 import {
   ortamKur,
   projeOlusturFiks,
@@ -29,7 +34,7 @@ let kart: { id: string };
 
 async function sahipliProjeOlustur(birimId: string, sahipId: string) {
   const p = await projeOlusturFiks(adminDb, { birimId, olusturanId: sahipId });
-  await adminDb.projeUyesi.create({
+  await adminDb.projeYetkilisi.create({
     data: { proje_id: p.id, kullanici_id: sahipId, seviye: "ADMIN" },
   });
   return { id: p.id };
@@ -138,7 +143,7 @@ describe("kapagiAyarla", () => {
     ).rejects.toMatchObject({ kod: "BULUNAMADI" });
   });
 
-  // Eski birim izolasyonu testi paylaşım modeliyle kapsam dışı kaldı.
+  // Eski birim izolasyonu testi yetkilendirme modeliyle kapsam dışı kaldı.
 });
 
 describe("kapagiKaldir", () => {
@@ -161,5 +166,80 @@ describe("kapagiKaldir", () => {
     });
     expect(k?.kapak_dosya_id).toBeNull();
     expect(k?.kapak_renk).toBe("primary");
+  });
+});
+
+describe("kapakRenginiAyarla", () => {
+  it("geçerli token kart_renk olarak yazılır", async () => {
+    await kapakRenginiAyarla(ortam.birim.id, kart.id, "mavi");
+    const k = await adminDb.kart.findUnique({
+      where: { id: kart.id },
+      select: { kapak_renk: true, kapak_dosya_id: true },
+    });
+    expect(k?.kapak_renk).toBe("mavi");
+    expect(k?.kapak_dosya_id).toBeNull();
+  });
+
+  it("renk konunca varolan görsel kapak null'lanır", async () => {
+    const e = await eklentiOlustur({
+      kartId: kart.id,
+      yukleyenId: ortam.superAdmin.id,
+      mime: "image/png",
+    });
+    await kapagiAyarla(ortam.birim.id, kart.id, e.id);
+    await kapakRenginiAyarla(ortam.birim.id, kart.id, "tertiary");
+    const k = await adminDb.kart.findUnique({
+      where: { id: kart.id },
+      select: { kapak_renk: true, kapak_dosya_id: true },
+    });
+    expect(k?.kapak_renk).toBe("tertiary");
+    expect(k?.kapak_dosya_id).toBeNull();
+  });
+
+  it("geçersiz token reddedilir", async () => {
+    await expect(
+      // @ts-expect-error -- intentional: schema'yı bypass eden direkt çağrı
+      kapakRenginiAyarla(ortam.birim.id, kart.id, "siyah"),
+    ).rejects.toMatchObject({ kod: "GECERSIZ_GIRDI" });
+  });
+
+  it("bulunamayan kart için hata fırlatır", async () => {
+    await expect(
+      kapakRenginiAyarla(
+        ortam.birim.id,
+        "00000000-0000-0000-0000-000000000000",
+        "kirmizi",
+      ),
+    ).rejects.toMatchObject({ kod: "BULUNAMADI" });
+  });
+});
+
+describe("kapakRenginiKaldir", () => {
+  it("kapak_renk null'lanır, görsel kapak dokunulmaz", async () => {
+    const e = await eklentiOlustur({
+      kartId: kart.id,
+      yukleyenId: ortam.superAdmin.id,
+      mime: "image/png",
+    });
+    // Önce renk koy, sonra görsel — görsel rengi null'lar.
+    await kapakRenginiAyarla(ortam.birim.id, kart.id, "yesil");
+    await kapagiAyarla(ortam.birim.id, kart.id, e.id);
+    // Renk kaldır komutu varolmayan rengi kaldırırken görseli korur.
+    await kapakRenginiKaldir(ortam.birim.id, kart.id);
+    const k = await adminDb.kart.findUnique({
+      where: { id: kart.id },
+      select: { kapak_renk: true, kapak_dosya_id: true },
+    });
+    expect(k?.kapak_renk).toBeNull();
+    expect(k?.kapak_dosya_id).toBe(e.id);
+  });
+
+  it("zaten null olan kapak_renk için no-op çalışır", async () => {
+    await kapakRenginiKaldir(ortam.birim.id, kart.id);
+    const k = await adminDb.kart.findUnique({
+      where: { id: kart.id },
+      select: { kapak_renk: true },
+    });
+    expect(k?.kapak_renk).toBeNull();
   });
 });

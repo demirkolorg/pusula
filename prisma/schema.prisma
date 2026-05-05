@@ -278,9 +278,9 @@ model Kullanici {
 
   birim               Birim?           @relation(fields: [birim_id], references: [id])
   roller              KullaniciRol[]
-  proje_uyelik        ProjeUyesi[]
-  liste_uyelik        ListeUyesi[]
-  kart_uyelik         KartUyesi[]
+  proje_yetkileri     ProjeYetkilisi[]
+  liste_yetkileri     ListeYetkilisi[]
+  kart_yetkileri      KartYetkilisi[]
   olusturduklari      Proje[]          @relation("ProjeOlusturan")
   yorumlar            Yorum[]          @relation("YorumYazan")
   eklentiler          Eklenti[]        @relation("EklentiYukleyen")
@@ -446,16 +446,12 @@ model SifirlamaTokeni {
 // Plan: docs/plan.md Bölüm 2 (domain) + Bölüm 7 (S3)
 // ============================================================
 
-enum ProjeUyeSeviye {
+enum ProjeYetkiSeviyesi {
   ADMIN
   NORMAL
   IZLEYICI
-}
 
-enum KartIliskiTipi {
-  BLOCKS
-  RELATES
-  DUPLICATES
+  @@map("ProjeUyeSeviye")
 }
 
 model Proje {
@@ -474,27 +470,28 @@ model Proje {
   olusturma_zamani  DateTime  @default(now())
   guncelleme_zamani DateTime  @updatedAt
 
-  olusturan Kullanici?    @relation("ProjeOlusturan", fields: [olusturan_id], references: [id])
-  uyeler    ProjeUyesi[]
-  birimler  ProjeBirimi[]
-  listeler  Liste[]
-  etiketler Etiket[]
+  olusturan  Kullanici?       @relation("ProjeOlusturan", fields: [olusturan_id], references: [id])
+  yetkililer ProjeYetkilisi[]
+  birimler   ProjeBirimi[]
+  listeler   Liste[]
+  etiketler  Etiket[]
 
   @@index([silindi_mi, arsiv_mi])
   @@index([sira])
 }
 
-model ProjeUyesi {
-  proje_id       String         @db.Uuid
-  kullanici_id   String         @db.Uuid
-  seviye         ProjeUyeSeviye @default(NORMAL)
-  eklenme_zamani DateTime       @default(now())
+model ProjeYetkilisi {
+  proje_id       String             @db.Uuid
+  kullanici_id   String             @db.Uuid
+  seviye         ProjeYetkiSeviyesi @default(NORMAL)
+  eklenme_zamani DateTime           @default(now())
 
   proje     Proje     @relation(fields: [proje_id], references: [id], onDelete: Cascade)
   kullanici Kullanici @relation(fields: [kullanici_id], references: [id], onDelete: Cascade)
 
   @@id([proje_id, kullanici_id])
   @@index([kullanici_id])
+  @@map("ProjeUyesi")
 }
 
 model ProjeBirimi {
@@ -519,16 +516,16 @@ model Liste {
   olusturma_zamani  DateTime @default(now())
   guncelleme_zamani DateTime @updatedAt
 
-  proje    Proje         @relation(fields: [proje_id], references: [id], onDelete: Cascade)
-  kartlar  Kart[]
-  uyeler   ListeUyesi[]
-  birimler ListeBirimi[]
+  proje      Proje            @relation(fields: [proje_id], references: [id], onDelete: Cascade)
+  kartlar    Kart[]
+  yetkililer ListeYetkilisi[]
+  birimler   ListeBirimi[]
 
   @@index([proje_id, sira])
   @@index([proje_id, arsiv_mi])
 }
 
-model ListeUyesi {
+model ListeYetkilisi {
   liste_id       String   @db.Uuid
   kullanici_id   String   @db.Uuid
   eklenme_zamani DateTime @default(now())
@@ -538,6 +535,7 @@ model ListeUyesi {
 
   @@id([liste_id, kullanici_id])
   @@index([kullanici_id])
+  @@map("ListeUyesi")
 }
 
 model ListeBirimi {
@@ -570,10 +568,8 @@ model Kart {
   guncelleme_zamani DateTime  @updatedAt
 
   liste             Liste            @relation(fields: [liste_id], references: [id], onDelete: Cascade)
-  uyeler            KartUyesi[]
+  yetkililer        KartYetkilisi[]
   etiketler         KartEtiket[]
-  iliski_a          KartIliskisi[]   @relation("KartA")
-  iliski_b          KartIliskisi[]   @relation("KartB")
   birimler          KartBirimi[]
   yorumlar          Yorum[]
   eklentiler        Eklenti[]
@@ -621,7 +617,7 @@ model KartEtiket {
   @@index([etiket_id])
 }
 
-model KartUyesi {
+model KartYetkilisi {
   kart_id        String   @db.Uuid
   kullanici_id   String   @db.Uuid
   eklenme_zamani DateTime @default(now())
@@ -631,21 +627,7 @@ model KartUyesi {
 
   @@id([kart_id, kullanici_id])
   @@index([kullanici_id])
-}
-
-model KartIliskisi {
-  id               String         @id @default(uuid()) @db.Uuid
-  kart_a_id        String         @db.Uuid
-  kart_b_id        String         @db.Uuid
-  tip              KartIliskiTipi
-  olusturma_zamani DateTime       @default(now())
-  olusturan_id     String?        @db.Uuid
-
-  kart_a Kart @relation("KartA", fields: [kart_a_id], references: [id], onDelete: Cascade)
-  kart_b Kart @relation("KartB", fields: [kart_b_id], references: [id], onDelete: Cascade)
-
-  @@unique([kart_a_id, kart_b_id, tip])
-  @@index([kart_b_id, tip])
+  @@map("KartUyesi")
 }
 
 // ============================================================
@@ -742,7 +724,7 @@ enum BildirimTipi {
   // Yorum içinde @mention edildi
   YORUM_MENTION
   // Karta üye olarak atandı
-  KART_UYE_ATAMA
+  KART_YETKILI_ATAMA @map("KART_UYE_ATAMA")
   // Kontrol maddesi atandı
   MADDE_ATAMA
   // Kart bitiş tarihi yaklaşıyor / geçti

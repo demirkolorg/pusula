@@ -17,9 +17,28 @@ export async function GET() {
 
   const k = await db.kullanici.findUnique({
     where: { id },
-    select: { id: true, ad: true, soyad: true, email: true, birim_id: true },
+    select: {
+      id: true,
+      ad: true,
+      soyad: true,
+      email: true,
+      birim_id: true,
+      aktif: true,
+      silindi_mi: true,
+      onay_durumu: true,
+    },
   });
-  if (!k) return NextResponse.json({ kullanici: null }, { status: 200 });
+  if (!k || !k.aktif || k.silindi_mi || k.onay_durumu !== "ONAYLANDI") {
+    return NextResponse.json({ kullanici: null }, { status: 200 });
+  }
 
-  return NextResponse.json({ kullanici: k });
+  return NextResponse.json({
+    kullanici: {
+      id: k.id,
+      ad: k.ad,
+      soyad: k.soyad,
+      email: k.email,
+      birim_id: k.birim_id,
+    },
+  });
 }

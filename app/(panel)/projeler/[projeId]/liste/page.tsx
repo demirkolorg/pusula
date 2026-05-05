@@ -22,17 +22,17 @@ export default async function ProjeListeGorunumu({ params }: SayfaProps) {
     notFound();
   }
 
-  const [detay, projeUyeYonetIzni, projeUyeYonetKaynak] = await Promise.all([
+  const [detay, projeYetkiliYonetIzni, projeYetkiliYonetKaynak] = await Promise.all([
     projeDetayiniGetir(kullanici.id, projeId),
-    izinVarMi(kullanici.id, IZIN_KODLARI.PROJE_UYE_YONET),
-    canProje(kullanici.id, "proje:uye-yonet", projeId),
+    izinVarMi(kullanici.id, IZIN_KODLARI.PROJE_YETKILI_YONET),
+    canProje(kullanici.id, "proje:authorize", projeId),
   ]);
 
   return (
     <div className="flex flex-1 flex-col gap-4">
       <ProjeBaslik
         proje={detay}
-        paylasimYonet={projeUyeYonetIzni && projeUyeYonetKaynak}
+        yetkiliYonet={projeYetkiliYonetIzni && projeYetkiliYonetKaynak}
       />
       <KartListeIstemci projeId={projeId} />
     </div>

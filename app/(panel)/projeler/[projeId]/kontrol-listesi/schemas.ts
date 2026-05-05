@@ -47,6 +47,12 @@ export const maddeSilSemasi = z.object({
   id: z.string().uuid(),
 });
 
+// Madde sorumlu picker'ı için aday kullanıcı arama
+export const maddeAdayKullanicilarSemasi = z.object({
+  kart_id: z.string().uuid(),
+  q: z.string().trim().max(100).optional(),
+});
+
 export type KontrolListesiOlustur = z.infer<typeof kontrolListesiOlusturSemasi>;
 export type KontrolListesiGuncelle = z.infer<typeof kontrolListesiGuncelleSemasi>;
 export type KontrolListesiSil = z.infer<typeof kontrolListesiSilSemasi>;
@@ -54,3 +60,4 @@ export type KontrolListeleriListele = z.infer<typeof kontrolListeleriListeleSema
 export type MaddeOlustur = z.infer<typeof maddeOlusturSemasi>;
 export type MaddeGuncelle = z.infer<typeof maddeGuncelleSemasi>;
 export type MaddeSil = z.infer<typeof maddeSilSemasi>;
+export type MaddeAdayKullanicilar = z.infer<typeof maddeAdayKullanicilarSemasi>;

@@ -5,7 +5,7 @@
 // - Bu server port 2501'de (aynı seri — proje bağlamı)
 // - Frontend her ikisine bağlanır
 // - Auth: NextAuth session cookie → /api/oturum endpoint forward
-// - Room yetki: kullanıcı sadece üye olduğu projelerin room'una katılır
+// - Room yetki: kullanıcı sadece yetkili olduğu kaynakların room'una katılır
 // - Internal broadcast: Server Action'lar HTTP POST /yayinla ile çağırır
 //   (lib/realtime.ts üzerinden)
 //
@@ -17,8 +17,8 @@
 
 import { createServer } from "node:http";
 import { Server, type Socket } from "socket.io";
-import { db } from "@/lib/db";
 import { SOCKET, room } from "@/lib/socket-events";
+import { canKart, canProje } from "@/lib/yetki";
 
 const PORT = Number(process.env.SOCKET_PORT ?? 2501);
 const APP_URL = process.env.APP_URL ?? "http://localhost:2500";
@@ -29,7 +29,7 @@ type OturumKullanicisi = {
   ad: string;
   soyad: string;
   email: string;
-  birim_id: string;
+  birim_id: string | null;
 };
 
 // =====================================================================
@@ -117,7 +117,7 @@ io.use(async (socket: Socket, next) => {
     if (!data.kullanici) return next(new Error("oturum-yok"));
     socket.data.kullanici = data.kullanici;
     next();
-  } catch (e) {
+  } catch {
     next(new Error("oturum-hata"));
   }
 });
@@ -132,20 +132,15 @@ io.on("connection", (socket: Socket) => {
   // Otomatik: kullanıcının kendi room'una katıl (bildirim için)
   socket.join(room.kullanici(kullanici.id));
 
-  // Proje room'una katılma isteği — DB'de üyelik kontrol et (Kural 55)
+  // Proje room'una katılma isteği — kaynak yetkisi kontrol et (Kural 55)
   socket.on(SOCKET.PROJE_KATIL, async (projeId: string) => {
     if (typeof projeId !== "string") return;
-    const uye = await db.projeUyesi.findUnique({
-      where: {
-        proje_id_kullanici_id: {
-          proje_id: projeId,
-          kullanici_id: kullanici.id,
-        },
-      },
-      select: { kullanici_id: true },
-    });
-    if (!uye) {
-      socket.emit("hata", { kod: "yetkisiz", mesaj: "Proje üyesi değilsiniz." });
+    const yetkiliMi = await canProje(kullanici.id, "proje:read", projeId);
+    if (!yetkiliMi) {
+      socket.emit("hata", {
+        kod: "yetkisiz",
+        mesaj: "Projeye erişim yetkiniz yok.",
+      });
       return;
     }
     socket.join(room.proje(projeId));
@@ -158,27 +153,8 @@ io.on("connection", (socket: Socket) => {
   // Kart presence — kullanıcının kart erişimi var mı?
   socket.on(SOCKET.KART_KATIL, async (kartId: string) => {
     if (typeof kartId !== "string") return;
-    const k = await db.kart.findUnique({
-      where: { id: kartId },
-      select: {
-        liste: {
-          select: {
-            proje_id: true,
-            proje: {
-              select: {
-                uyeler: {
-                  where: { kullanici_id: kullanici.id },
-                  select: { kullanici_id: true },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
-    if (!k) return;
-    // Tek-birim (ADR-0007) — birim izolasyonu düştü; erişim ProjeUyesi seviyesinde.
-    if (k.liste.proje.uyeler.length === 0) return;
+    const yetkiliMi = await canKart(kullanici.id, "kart:read", kartId);
+    if (!yetkiliMi) return;
     socket.join(room.kart(kartId));
     yayinlaPresence(kartId);
   });

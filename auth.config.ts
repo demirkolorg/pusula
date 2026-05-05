@@ -59,11 +59,12 @@ export const authConfig = {
       const oturumAcik = !!auth?.user;
       const yol = nextUrl.pathname;
       const apiAuthYolu = yol.startsWith("/api/auth");
+      const oturumTemizlemeYolu = yol.startsWith("/api/oturum/gecersiz");
       const acikYollar = ["/giris", "/parola-sifirla", "/davet", "/kayit"];
       const acikYol = acikYollar.some((y) => yol.startsWith(y));
       const girisYolu = yol.startsWith("/giris");
 
-      if (apiAuthYolu) return true;
+      if (apiAuthYolu || oturumTemizlemeYolu) return true;
       if (acikYol) {
         if (oturumAcik && girisYolu) {
           return Response.redirect(new URL("/", nextUrl));

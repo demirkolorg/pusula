@@ -126,7 +126,10 @@ export function useSocketEvent<T = unknown>(
   const oturumQ = useOturumKullanicisi();
   const oturumId = oturumQ.data?.id ?? null;
   const handlerRef = React.useRef(handler);
-  handlerRef.current = handler;
+
+  React.useEffect(() => {
+    handlerRef.current = handler;
+  }, [handler]);
 
   React.useEffect(() => {
     if (!enabled) return;
@@ -165,21 +168,21 @@ export function useKartPresence(kartId: string | null): {
   kullanicilar: Array<{ id: string; ad: string; soyad: string }>;
 } {
   const { socket } = useSocket();
-  const [kullanicilar, setKullanicilar] = React.useState<
-    Array<{ id: string; ad: string; soyad: string }>
-  >([]);
+  const [presence, setPresence] = React.useState<{
+    kartId: string | null;
+    kullanicilar: Array<{ id: string; ad: string; soyad: string }>;
+  }>({ kartId: null, kullanicilar: [] });
 
   React.useEffect(() => {
-    if (!socket || !kartId) {
-      setKullanicilar([]);
-      return;
-    }
+    if (!socket || !kartId) return;
     socket.emit("kart:katil", kartId);
     const onPresence = (p: {
       kart_id: string;
       kullanicilar: Array<{ id: string; ad: string; soyad: string }>;
     }) => {
-      if (p.kart_id === kartId) setKullanicilar(p.kullanicilar);
+      if (p.kart_id === kartId) {
+        setPresence({ kartId, kullanicilar: p.kullanicilar });
+      }
     };
     socket.on("kart:presence", onPresence);
     return () => {
@@ -188,5 +191,7 @@ export function useKartPresence(kartId: string | null): {
     };
   }, [socket, kartId]);
 
-  return { kullanicilar };
+  return {
+    kullanicilar: presence.kartId === kartId ? presence.kullanicilar : [],
+  };
 }

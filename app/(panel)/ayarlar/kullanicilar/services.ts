@@ -2,11 +2,20 @@ import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { mailGonder } from "@/lib/mail";
 import { aramaUuidIdleri } from "@/lib/arama";
+import { EylemHatasi } from "@/lib/action-wrapper";
+import { HATA_KODU } from "@/lib/sonuc";
+import {
+  kullaniciKaymakamRoluneSahipMi,
+  rolAtamaPolitikasiniDogrula,
+} from "@/lib/kullanici-rol-politikasi";
+import { ROL_KODLARI } from "@/lib/roller";
 import type {
   DavetGonder,
   KullaniciGuncelle,
   KullaniciListe,
 } from "./schemas";
+
+type RolDb = Pick<typeof db, "rol">;
 
 export type KullaniciSatiri = {
   id: string;
@@ -39,7 +48,7 @@ export async function kullanicilariListele(
       where.id = { in: idler };
     }
   }
-  // Tek-birim (ADR-0007) — birim filtresi kaldırıldı.
+  // Tek-birim (ADR-0007) - birim filtresi kaldırıldı.
   if (girdi.aktif !== undefined) where.aktif = girdi.aktif;
   if (girdi.rolId) {
     where.roller = { some: { rol_id: girdi.rolId } };
@@ -101,6 +110,12 @@ export async function kullaniciyiGuncelle(
   atayanId: string,
 ): Promise<void> {
   await db.$transaction(async (tx) => {
+    await rolAtamaPolitikasiniDogrula(tx, {
+      rolIdleri: girdi.rol_idleri,
+      birimId: girdi.birim_id,
+      haricKullaniciId: girdi.id,
+    });
+
     await tx.kullanici.update({
       where: { id: girdi.id },
       data: {
@@ -134,10 +149,50 @@ export async function kullaniciyiSil(id: string): Promise<void> {
   });
 }
 
+async function kaymakamRolIdAl(tx: RolDb): Promise<string> {
+  const rol = await tx.rol.findUnique({
+    where: { kod: ROL_KODLARI.KAYMAKAM },
+    select: { id: true },
+  });
+  if (!rol) {
+    throw new EylemHatasi("Kaymakam rolü bulunamadı.", HATA_KODU.BULUNAMADI);
+  }
+  return rol.id;
+}
+
 export async function kullaniciyiGeriYukle(id: string): Promise<void> {
-  await db.kullanici.update({
-    where: { id },
-    data: { silindi_mi: false, silinme_zamani: null, aktif: true },
+  await db.$transaction(async (tx) => {
+    const kullanici = await tx.kullanici.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        birim_id: true,
+        roller: { select: { rol_id: true } },
+      },
+    });
+    if (!kullanici) {
+      throw new EylemHatasi("Kullanıcı bulunamadı.", HATA_KODU.BULUNAMADI);
+    }
+
+    const kaymakamMi = await kullaniciKaymakamRoluneSahipMi(tx, id);
+    const rolIdleri = kaymakamMi
+      ? [await kaymakamRolIdAl(tx)]
+      : kullanici.roller.map((rol) => rol.rol_id);
+    await rolAtamaPolitikasiniDogrula(tx, {
+      rolIdleri,
+      birimId: kaymakamMi ? null : kullanici.birim_id,
+      haricKullaniciId: id,
+    });
+
+    await tx.kullanici.update({
+      where: { id },
+      data: {
+        silindi_mi: false,
+        silinme_zamani: null,
+        aktif: true,
+        ...(kaymakamMi ? { birim_id: null } : {}),
+      },
+    });
   });
 }
 
@@ -159,16 +214,10 @@ export async function davetOlustur(
 
   const mevcut = await db.kullanici.findUnique({ where: { email } });
   if (mevcut) {
-    throw new Error("Bu e-posta ile zaten bir kullanıcı var.");
-  }
-
-  // Davet edilen birim mevcut mu?
-  const birim = await db.birim.findUnique({
-    where: { id: girdi.birim_id },
-    select: { id: true, silindi_mi: true, aktif: true },
-  });
-  if (!birim || birim.silindi_mi || !birim.aktif) {
-    throw new Error("Seçilen birim geçerli değil.");
+    throw new EylemHatasi(
+      "Bu e-posta ile zaten bir kullanıcı var.",
+      HATA_KODU.CAKISMA,
+    );
   }
 
   const token = tokenUret();
@@ -176,31 +225,50 @@ export async function davetOlustur(
     Date.now() + DAVET_OMUR_GUN * 24 * 60 * 60 * 1000,
   );
 
-  const kayit = await db.davetTokeni.create({
-    data: {
-      token,
-      email,
-      rol_id: girdi.rol_id || null,
-      birim_id: girdi.birim_id,
-      davet_eden_id: davetEdenId,
-      son_kullanma: sonKullanma,
-    },
-    select: { id: true, token: true },
+  const kayit = await db.$transaction(async (tx) => {
+    await rolAtamaPolitikasiniDogrula(tx, {
+      rolIdleri: girdi.rol_id ? [girdi.rol_id] : [],
+      birimId: girdi.birim_id,
+      davetKontrol: true,
+    });
+
+    if (girdi.birim_id) {
+      const birim = await tx.birim.findUnique({
+        where: { id: girdi.birim_id },
+        select: { id: true, silindi_mi: true, aktif: true },
+      });
+      if (!birim || birim.silindi_mi || !birim.aktif) {
+        throw new EylemHatasi(
+          "Seçilen birim geçerli değil.",
+          HATA_KODU.GECERSIZ_GIRDI,
+          { birim_id: "Seçilen birim geçerli değil." },
+        );
+      }
+    }
+
+    return tx.davetTokeni.create({
+      data: {
+        token,
+        email,
+        rol_id: girdi.rol_id || null,
+        birim_id: girdi.birim_id,
+        davet_eden_id: davetEdenId,
+        son_kullanma: sonKullanma,
+      },
+      select: { id: true, token: true },
+    });
   });
 
   const url = `${process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:2500"}/davet/${kayit.token}`;
   await mailGonder({
     alici: email,
-    konu: "Pusula — Davetiniz",
+    konu: "Pusula - Davetiniz",
     govde: `Pusula sistemine davet edildiniz. Hesabınızı oluşturmak için aşağıdaki bağlantıya tıklayın. Bağlantı ${DAVET_OMUR_GUN} gün geçerlidir.\n\n${url}`,
   });
 
   return kayit;
 }
 
-/**
- * Onay bekleyen kullanıcıları listeler (kayıt akışından gelen self-register'lar).
- */
 export async function bekleyenKullanicilariListele() {
   return db.kullanici.findMany({
     where: { onay_durumu: "BEKLIYOR", silindi_mi: false },

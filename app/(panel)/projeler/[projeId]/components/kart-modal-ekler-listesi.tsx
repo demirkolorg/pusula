@@ -30,13 +30,14 @@ import {
   useKartEklentileri,
 } from "../eklenti/hooks";
 import type { EklentiOzeti } from "../eklenti/services";
-import { UyeAvatar } from "../uye/components/uye-avatar";
+import { KisiAvatar } from "../yetkili/components/kisi-avatar";
 
 const TARIH_BICIM = new Intl.DateTimeFormat("tr-TR", {
   day: "2-digit",
   month: "short",
   hour: "2-digit",
   minute: "2-digit",
+  timeZone: "Europe/Istanbul",
 });
 
 type Props = { kartId: string };
@@ -201,7 +202,7 @@ function EkSatiri({
           {ek.ad}
         </p>
         <div className="text-muted-foreground/80 mt-0.5 flex items-center gap-1.5 text-[10.5px]">
-          <UyeAvatar
+          <KisiAvatar
             ad={ek.yukleyen.ad}
             soyad={ek.yukleyen.soyad}
             className="size-3.5 text-[7px]"

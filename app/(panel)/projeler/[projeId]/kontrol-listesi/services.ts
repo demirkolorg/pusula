@@ -4,9 +4,12 @@ import { HATA_KODU } from "@/lib/sonuc";
 import { siraSonuna } from "@/lib/sira";
 import { yayinla } from "@/lib/realtime";
 import { SOCKET, room } from "@/lib/socket-events";
+import { canKart } from "@/lib/yetki";
+import { MAKAM_ROL_KODLARI } from "@/lib/roller";
 import type {
   KontrolListesiGuncelle,
   KontrolListesiOlustur,
+  MaddeAdayKullanicilar,
   MaddeGuncelle,
   MaddeOlustur,
 } from "./schemas";
@@ -110,6 +113,143 @@ async function maddeBul(
     kart_id: m.kontrol_listesi.kart_id,
     proje_id: m.kontrol_listesi.kart.liste.proje_id,
   };
+}
+
+async function maddeAtanacakKullaniciDogrula(
+  kartId: string,
+  kullaniciId: string,
+): Promise<void> {
+  const kullanici = await db.kullanici.findUnique({
+    where: { id: kullaniciId },
+    select: { aktif: true, silindi_mi: true, onay_durumu: true },
+  });
+  if (
+    !kullanici ||
+    kullanici.silindi_mi ||
+    !kullanici.aktif ||
+    kullanici.onay_durumu !== "ONAYLANDI"
+  ) {
+    throw new EylemHatasi("Kullanıcı bulunamadı.", HATA_KODU.BULUNAMADI);
+  }
+  // Kural V.2 (146) — atanacak kişi karta erişebilmeli; aksi halde
+  // gizli kanıtlanabilir personel kart içeriğine bildirim üzerinden
+  // ulaşmış olur (KVKK riski). canKart makam (Kural 50a) için true döner.
+  if (!(await canKart(kullaniciId, "kart:read", kartId))) {
+    throw new EylemHatasi(
+      "Bu kullanıcı seçili karta erişemediği için sorumlu atanamaz.",
+      HATA_KODU.GECERSIZ_GIRDI,
+      { atanan_id: "Kullanıcının karta erişimi yok." },
+    );
+  }
+}
+
+// =====================================================================
+// Aday kullanıcı arama (madde sorumlu picker'ı)
+// =====================================================================
+
+export type MaddeAdayKullanici = {
+  id: string;
+  ad: string;
+  soyad: string;
+  email: string;
+  birim_ad: string | null;
+};
+
+export async function kartMaddeAdayKullanicilariniAra(
+  _birimId: string,
+  girdi: MaddeAdayKullanicilar,
+): Promise<MaddeAdayKullanici[]> {
+  // Karta erişebilen herkes: doğrudan kart yetkilisi, kart birimi,
+  // liste yetkilisi, liste birimi, proje yetkilisi, proje birimi
+  // veya sistem makamı (SUPER_ADMIN/KAYMAKAM — Kural 50a).
+  const kart = await db.kart.findUnique({
+    where: { id: girdi.kart_id },
+    select: {
+      yetkililer: { select: { kullanici_id: true } },
+      birimler: { select: { birim_id: true } },
+      liste: {
+        select: {
+          yetkililer: { select: { kullanici_id: true } },
+          birimler: { select: { birim_id: true } },
+          proje: {
+            select: {
+              yetkililer: { select: { kullanici_id: true } },
+              birimler: { select: { birim_id: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!kart) {
+    throw new EylemHatasi("Kart bulunamadı.", HATA_KODU.BULUNAMADI);
+  }
+
+  const dogrudanIdler = Array.from(
+    new Set([
+      ...kart.yetkililer.map((y) => y.kullanici_id),
+      ...kart.liste.yetkililer.map((y) => y.kullanici_id),
+      ...kart.liste.proje.yetkililer.map((y) => y.kullanici_id),
+    ]),
+  );
+  const birimIdler = Array.from(
+    new Set([
+      ...kart.birimler.map((b) => b.birim_id),
+      ...kart.liste.birimler.map((b) => b.birim_id),
+      ...kart.liste.proje.birimler.map((b) => b.birim_id),
+    ]),
+  );
+
+  const erisimYollari = [];
+  if (dogrudanIdler.length > 0) erisimYollari.push({ id: { in: dogrudanIdler } });
+  if (birimIdler.length > 0) erisimYollari.push({ birim_id: { in: birimIdler } });
+  // Makam (SUPER_ADMIN/KAYMAKAM) her zaman aday — proje üyesi olmasalar bile.
+  erisimYollari.push({
+    roller: { some: { rol: { kod: { in: MAKAM_ROL_KODLARI } } } },
+  });
+
+  const aramaQ = girdi.q?.trim() ?? "";
+  const sonuc = await db.kullanici.findMany({
+    where: {
+      AND: [
+        { silindi_mi: false, aktif: true, onay_durumu: "ONAYLANDI" },
+        { OR: erisimYollari },
+        ...(aramaQ
+          ? [
+              {
+                OR: [
+                  { ad: { contains: aramaQ, mode: "insensitive" as const } },
+                  { soyad: { contains: aramaQ, mode: "insensitive" as const } },
+                  { email: { contains: aramaQ, mode: "insensitive" as const } },
+                  {
+                    birim: {
+                      ad: { contains: aramaQ, mode: "insensitive" as const },
+                    },
+                  },
+                ],
+              },
+            ]
+          : []),
+      ],
+    },
+    orderBy: [{ ad: "asc" }, { soyad: "asc" }],
+    take: 20,
+    select: {
+      id: true,
+      ad: true,
+      soyad: true,
+      email: true,
+      birim: { select: { ad: true, kisa_ad: true } },
+    },
+  });
+
+  return sonuc.map((k) => ({
+    id: k.id,
+    ad: k.ad,
+    soyad: k.soyad,
+    email: k.email,
+    birim_ad: k.birim?.kisa_ad ?? k.birim?.ad ?? null,
+  }));
 }
 
 // =====================================================================
@@ -224,24 +364,12 @@ export async function maddeOlustur(
   birimId: string,
   girdi: MaddeOlustur,
 ): Promise<MaddeOzeti> {
-  const { proje_id } = await kontrolListesiBulVeKart(
+  const { kart_id } = await kontrolListesiBulVeKart(
     birimId,
     girdi.kontrol_listesi_id,
   );
-  // atanan proje üyesi mi?
   if (girdi.atanan_id) {
-    const uye = await db.projeUyesi.findUnique({
-      where: {
-        proje_id_kullanici_id: { proje_id, kullanici_id: girdi.atanan_id },
-      },
-      select: { kullanici_id: true },
-    });
-    if (!uye) {
-      throw new EylemHatasi(
-        "Madde sadece proje üyesine atanabilir.",
-        HATA_KODU.GECERSIZ_GIRDI,
-      );
-    }
+    await maddeAtanacakKullaniciDogrula(kart_id, girdi.atanan_id);
   }
   const son = await db.kontrolMaddesi.findFirst({
     where: { kontrol_listesi_id: girdi.kontrol_listesi_id },
@@ -289,20 +417,9 @@ export async function maddeGuncelle(
   yapanId: string,
   girdi: MaddeGuncelle,
 ): Promise<void> {
-  const { proje_id, kart_id } = await maddeBul(birimId, girdi.id);
+  const { kart_id } = await maddeBul(birimId, girdi.id);
   if (girdi.atanan_id) {
-    const uye = await db.projeUyesi.findUnique({
-      where: {
-        proje_id_kullanici_id: { proje_id, kullanici_id: girdi.atanan_id },
-      },
-      select: { kullanici_id: true },
-    });
-    if (!uye) {
-      throw new EylemHatasi(
-        "Madde sadece proje üyesine atanabilir.",
-        HATA_KODU.GECERSIZ_GIRDI,
-      );
-    }
+    await maddeAtanacakKullaniciDogrula(kart_id, girdi.atanan_id);
   }
 
   const veri: Record<string, unknown> = {};

@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { EylemHatasi } from "@/lib/action-wrapper";
 import { HATA_KODU } from "@/lib/sonuc";
+import { kapakEtiketi } from "@/lib/kapak-renk";
 import type { KartAktiviteleriListele } from "./schemas";
 
 // =====================================================================
@@ -24,12 +25,11 @@ export type AktiviteOzeti = {
   kategori:
     | "kart"
     | "etiket"
-    | "uye"
+    | "yetkili"
     | "kontrol-listesi"
     | "kontrol-maddesi"
     | "yorum"
     | "eklenti"
-    | "iliski"
     | "hedef-birim"
     | "diger";
   islem: "CREATE" | "UPDATE" | "DELETE";
@@ -38,7 +38,7 @@ export type AktiviteOzeti = {
   // Opsiyonel ikincil bilgi (ad, eski/yeni değer kısa özeti)
   detay: string | null;
   // Kaynak modelin id'si — composite PK olan tablolarda null
-  // (KartEtiket, KartUyesi, KartBirimi). Tümü sekmesinde inline yorum/ek
+  // (KartEtiket, KartYetkilisi, KartBirimi). Tümü sekmesinde inline yorum/ek
   // eşleştirmesi için kullanılır.
   kaynak_id: string | null;
   // UPDATE event'lerinde alan-bazlı diff (eski → yeni). UI 2. satırda gösterir.
@@ -82,7 +82,7 @@ const KART_ID_ICEREN_TIPLER = [
   "Eklenti",
   "KontrolListesi",
   "KartBirimi",
-  "KartUyesi",
+  "KartYetkilisi",
   "KartEtiket",
 ] as const;
 
@@ -117,16 +117,6 @@ export async function kartAktiviteleriniListele(
             OR: [
               { yeni_veri: { path: ["kart_id"], equals: girdi.kart_id } },
               { eski_veri: { path: ["kart_id"], equals: girdi.kart_id } },
-            ],
-          },
-          // KartIliskisi — iki yön
-          {
-            kaynak_tip: "KartIliskisi",
-            OR: [
-              { yeni_veri: { path: ["kart_a_id"], equals: girdi.kart_id } },
-              { yeni_veri: { path: ["kart_b_id"], equals: girdi.kart_id } },
-              { eski_veri: { path: ["kart_a_id"], equals: girdi.kart_id } },
-              { eski_veri: { path: ["kart_b_id"], equals: girdi.kart_id } },
             ],
           },
           // KontrolMaddesi — kart'ın kontrol listesi id'leriyle eşleş
@@ -202,7 +192,7 @@ export async function kartAktiviteleriniListele(
       if (ePost) etiketIdler.add(ePost);
       if (ePre) etiketIdler.add(ePre);
     }
-    if (a.kaynak_tip === "KartUyesi") {
+    if (a.kaynak_tip === "KartYetkilisi") {
       const uPost = (a.yeni_veri as { kullanici_id?: string } | null)
         ?.kullanici_id;
       const uPre = (a.eski_veri as { kullanici_id?: string } | null)
@@ -380,10 +370,8 @@ function aktiviteOzetle(
       return { ...ortak, ...kontrolMaddesiMesaji(a, islem) };
     case "KartEtiket":
       return { ...ortak, ...kartEtiketMesaji(a, islem, etiketMap) };
-    case "KartUyesi":
-      return { ...ortak, ...kartUyesiMesaji(a, islem, atananMap) };
-    case "KartIliskisi":
-      return { ...ortak, ...kartIliskisiMesaji(a, islem) };
+    case "KartYetkilisi":
+      return { ...ortak, ...kartYetkilisiMesaji(a, islem, atananMap) };
     case "KartBirimi":
       return { ...ortak, ...hedefBirimMesaji(a, islem, birimMap) };
     default:
@@ -589,7 +577,7 @@ function kontrolMaddesiMesaji(
   return { kategori: "kontrol-maddesi", mesaj: "kontrol maddesini güncelledi", detay: metin };
 }
 
-// Why: Composite-PK ilişki tablolarında (KartUyesi/KartEtiket/KartBirimi)
+// Why: Composite-PK ilişki tablolarında (KartYetkilisi/KartEtiket/KartBirimi)
 // idempotent ekleme için `upsert` kullanılıyor. Audit middleware geçmişte
 // upsert'i UPDATE olarak loglardı; bu yüzden yeni ekleme bile "kaldırıldı"
 // görünüyordu. Bu fonksiyonlar artık islem yerine veri varlığına bakar:
@@ -612,7 +600,7 @@ function kartEtiketMesaji(
   return { kategori: "etiket", mesaj: "etiketi kaldırdı", detay: ad };
 }
 
-function kartUyesiMesaji(
+function kartYetkilisiMesaji(
   a: HamAktivite,
   islem: AktiviteOzeti["islem"],
   atananMap: Map<string, { id: string; ad: string; soyad: string }>,
@@ -624,31 +612,9 @@ function kartUyesiMesaji(
   const ad = u ? `${u.ad} ${u.soyad}` : null;
   const eklendi = yeniId ? true : islem === "CREATE";
   if (eklendi) {
-    return { kategori: "uye", mesaj: "üye atadı", detay: ad };
+    return { kategori: "yetkili", mesaj: "yetki verdi", detay: ad };
   }
-  return { kategori: "uye", mesaj: "üyeyi kaldırdı", detay: ad };
-}
-
-function kartIliskisiMesaji(
-  a: HamAktivite,
-  islem: AktiviteOzeti["islem"],
-): Pick<AktiviteOzeti, "kategori" | "mesaj" | "detay"> {
-  const yeniTip = jsonAlan<string>(a.yeni_veri, "tip");
-  const eskiTip = jsonAlan<string>(a.eski_veri, "tip");
-  const tip = yeniTip ?? eskiTip ?? null;
-  const tipAd =
-    tip === "BLOCKS"
-      ? "engelliyor"
-      : tip === "RELATES"
-        ? "ilişkili"
-        : tip === "DUPLICATES"
-          ? "tekrarı"
-          : null;
-  const eklendi = yeniTip ? true : islem === "CREATE";
-  if (eklendi) {
-    return { kategori: "iliski", mesaj: "kart ilişkisi kurdu", detay: tipAd };
-  }
-  return { kategori: "iliski", mesaj: "kart ilişkisini kaldırdı", detay: tipAd };
+  return { kategori: "yetkili", mesaj: "yetkiyi kaldırdı", detay: ad };
 }
 
 function hedefBirimMesaji(
@@ -726,7 +692,7 @@ const ALAN_ETIKETI: Record<string, Record<string, string>> = {
     ad: "Ad",
     renk: "Renk",
   },
-  ProjeUyesi: {
+  ProjeYetkilisi: {
     seviye: "Yetki seviyesi",
   },
 };
@@ -774,6 +740,9 @@ function degerFormatla(
   }
   if (alan === "kapak_dosya_id" && typeof v === "string") {
     return idMaplar.eklenti.get(v) ?? "(görsel)";
+  }
+  if (alan === "kapak_renk" && typeof v === "string") {
+    return kapakEtiketi(v) ?? v;
   }
   if (alan === "birim_id" && typeof v === "string") {
     return idMaplar.birim.get(v) ?? "(birim)";

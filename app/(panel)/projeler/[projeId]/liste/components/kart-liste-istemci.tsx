@@ -17,6 +17,7 @@ function tarihFormat(d: Date | null): string {
     day: "2-digit",
     month: "short",
     year: "numeric",
+    timeZone: "Europe/Istanbul",
   }).format(d instanceof Date ? d : new Date(d));
 }
 
@@ -78,11 +79,11 @@ export function KartListeIstemci({ projeId }: Props) {
         ),
       },
       {
-        accessorKey: "uye_sayisi",
-        header: "Üyeler",
+        accessorKey: "yetkili_sayisi",
+        header: "Yetkililer",
         cell: ({ row }) => (
           <span className="inline-flex items-center gap-1 text-sm">
-            <UsersIcon className="size-3" /> {row.original.uye_sayisi}
+            <UsersIcon className="size-3" /> {row.original.yetkili_sayisi}
           </span>
         ),
       },
@@ -133,9 +134,9 @@ export function KartListeIstemci({ projeId }: Props) {
               <span className="inline-flex items-center gap-1">
                 <CalendarIcon className="size-3" /> {tarihFormat(s.bitis)}
               </span>
-              {s.uye_sayisi > 0 && (
+              {s.yetkili_sayisi > 0 && (
                 <span className="inline-flex items-center gap-1">
-                  <UsersIcon className="size-3" /> {s.uye_sayisi}
+                  <UsersIcon className="size-3" /> {s.yetkili_sayisi}
                 </span>
               )}
               {s.etiket_sayisi > 0 && (

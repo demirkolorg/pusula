@@ -4,6 +4,8 @@ import argon2 from "argon2";
 import { db } from "@/lib/db";
 import { eylem, EylemHatasi } from "@/lib/action-wrapper";
 import { HATA_KODU } from "@/lib/sonuc";
+import { rolAtamaPolitikasiniDogrula } from "@/lib/kullanici-rol-politikasi";
+import { makamRoluMu } from "@/lib/roller";
 import { davetiKabulSemasi } from "./schemas";
 
 export const daveriKabul = eylem({
@@ -28,10 +30,7 @@ export const daveriKabul = eylem({
       );
     }
     if (davet.son_kullanma < new Date()) {
-      throw new EylemHatasi(
-        "Davetin süresi dolmuş.",
-        HATA_KODU.BULUNAMADI,
-      );
+      throw new EylemHatasi("Davetin süresi dolmuş.", HATA_KODU.BULUNAMADI);
     }
 
     const mevcut = await db.kullanici.findUnique({
@@ -44,10 +43,18 @@ export const daveriKabul = eylem({
       );
     }
 
-    // Davet edilen birim: davet kaydında belirtilen `birim_id` (yoksa daveti
-    // gönderen kullanıcının birimu — geriye dönük güvenli varsayılan).
+    const davetRolu = davet.rol_id
+      ? await db.rol.findUnique({
+          where: { id: davet.rol_id },
+          select: { kod: true },
+        })
+      : null;
+    if (davet.rol_id && !davetRolu) {
+      throw new EylemHatasi("Davet rolü bulunamadı.", HATA_KODU.BULUNAMADI);
+    }
+
     let birimId: string | null = davet.birim_id;
-    if (!birimId) {
+    if (!birimId && (!davetRolu || !makamRoluMu(davetRolu.kod))) {
       const davetEden = await db.kullanici.findUnique({
         where: { id: davet.davet_eden_id },
         select: { birim_id: true },
@@ -64,16 +71,19 @@ export const daveriKabul = eylem({
     const parolaHash = await argon2.hash(girdi.parola, { type: argon2.argon2id });
 
     const yeni = await db.$transaction(async (tx) => {
+      await rolAtamaPolitikasiniDogrula(tx, {
+        rolIdleri: davet.rol_id ? [davet.rol_id] : [],
+        birimId,
+      });
+
       const kullanici = await tx.kullanici.create({
         data: {
-          birim_id: birimId!,
+          birim_id: birimId,
           email: davet.email.toLowerCase(),
           parola_hash: parolaHash,
           ad: girdi.ad.trim(),
           soyad: girdi.soyad.trim(),
           aktif: true,
-          // Davetli kullanıcı doğrudan onaylı sayılır (davet zaten yetkili
-          // tarafından gönderildi).
           onay_durumu: "ONAYLANDI",
           onay_zamani: new Date(),
           onaylayan_id: davet.davet_eden_id,

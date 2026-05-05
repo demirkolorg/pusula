@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { AppSidebar } from "@/components/app-sidebar";
 import { HeaderUserMenu } from "@/components/header-user-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -9,7 +8,6 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
-import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
   SidebarInset,
@@ -17,7 +15,15 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { auth } from "@/auth";
+import { db } from "@/lib/db";
 import { BildirimDropdown } from "@/app/(panel)/bildirimler/components/bildirim-dropdown";
+
+function oturumKullaniciIdAl(
+  kullanici: { id?: unknown } | undefined,
+): string | null {
+  if (typeof kullanici?.id !== "string" || kullanici.id.length === 0) return null;
+  return kullanici.id;
+}
 
 export default async function PanelLayout({
   children,
@@ -29,8 +35,39 @@ export default async function PanelLayout({
     redirect("/giris");
   }
 
-  const adSoyad =
-    (oturum.user as { adSoyad?: string }).adSoyad ?? oturum.user.email ?? "Kullanıcı";
+  const kullaniciId = oturumKullaniciIdAl(oturum.user);
+  if (!kullaniciId) {
+    redirect("/api/oturum/gecersiz");
+  }
+
+  const kullanici = await db.kullanici.findUnique({
+    where: { id: kullaniciId },
+    select: {
+      ad: true,
+      soyad: true,
+      email: true,
+      aktif: true,
+      silindi_mi: true,
+      onay_durumu: true,
+      roller: {
+        select: {
+          rol: { select: { ad: true } },
+        },
+      },
+    },
+  });
+
+  if (
+    !kullanici ||
+    !kullanici.aktif ||
+    kullanici.silindi_mi ||
+    kullanici.onay_durumu !== "ONAYLANDI"
+  ) {
+    redirect("/api/oturum/gecersiz");
+  }
+
+  const adSoyad = `${kullanici.ad} ${kullanici.soyad}`;
+  const rolAdlari = kullanici.roller.map((r) => r.rol.ad);
 
   return (
     <SidebarProvider>
@@ -57,7 +94,8 @@ export default async function PanelLayout({
             <HeaderUserMenu
               user={{
                 name: adSoyad,
-                email: oturum.user.email ?? "",
+                email: kullanici.email,
+                roller: rolAdlari,
               }}
             />
           </div>

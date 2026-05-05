@@ -5,7 +5,7 @@ import { BoldIcon, ItalicIcon, PaperclipIcon, SendIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useOturumKullanicisi } from "@/hooks/use-oturum";
 import { useMentionInput } from "@/hooks/use-mention-input";
-import { UyeAvatar } from "../uye/components/uye-avatar";
+import { KisiAvatar } from "../yetkili/components/kisi-avatar";
 import { tempId, useYorumOlustur } from "../yorum/hooks";
 import { MentionDropdown } from "./mention-dropdown";
 
@@ -21,7 +21,15 @@ export function KartModalYorumComposer({ kartId, projeId }: Props) {
   const oturum = oturumQ.data;
   const olustur = useYorumOlustur(kartId);
   const [taslak, setTaslak] = React.useState("");
-  const mention = useMentionInput(taslak, setTaslak);
+  const {
+    durum: mentionDurum,
+    textareaRef,
+    onMetinDegisti,
+    onKlavye,
+    secimYap,
+    iptal,
+    cozumle,
+  } = useMentionInput(taslak, setTaslak);
 
   if (!oturum) return null;
 
@@ -30,8 +38,8 @@ export function KartModalYorumComposer({ kartId, projeId }: Props) {
     const t = taslak.trim();
     if (!t) return;
     // Mention'ları depolama formatına çevir: `@AdSoyad` → `@<uuid>`. Render
-    // tarafı (MentionliMetin) yine ad göstermek için uyeMap'i kullanır.
-    const icerik = mention.cozumle(t);
+    // tarafı (MentionliMetin) yine ad göstermek için kisiMap'i kullanır.
+    const icerik = cozumle(t);
     olustur.mutate({
       id_taslak: tempId(),
       kart_id: kartId,
@@ -48,25 +56,25 @@ export function KartModalYorumComposer({ kartId, projeId }: Props) {
       className="flex items-start gap-2"
       aria-label="Yorum yaz"
     >
-      <UyeAvatar ad={oturum.ad} soyad={oturum.soyad} />
+      <KisiAvatar ad={oturum.ad} soyad={oturum.soyad} />
       <div className="border-input bg-background relative flex-1 overflow-visible rounded-md border">
         {projeId && (
           <MentionDropdown
             projeId={projeId}
-            query={mention.durum.query}
-            acik={mention.durum.acik}
-            onSec={mention.secimYap}
-            onIptal={mention.iptal}
+            query={mentionDurum.query}
+            acik={mentionDurum.acik}
+            onSec={secimYap}
+            onIptal={iptal}
           />
         )}
         <textarea
-          ref={mention.textareaRef}
+          ref={textareaRef}
           value={taslak}
-          onChange={mention.onMetinDegisti}
+          onChange={onMetinDegisti}
           onKeyDown={(e) => {
-            mention.onKlavye(e);
+            onKlavye(e);
             // Mention popover Enter'ı yakaladığı için gönderim çakışmasın
-            if (mention.durum.acik) return;
+            if (mentionDurum.acik) return;
             if ((e.metaKey || e.ctrlKey) && e.key === "Enter") gonder(e);
           }}
           rows={2}
@@ -82,7 +90,7 @@ export function KartModalYorumComposer({ kartId, projeId }: Props) {
               className="size-6"
               aria-label="Kalın"
               title="Kalın (yakında)"
-              onClick={() => mention.textareaRef.current?.focus()}
+              onClick={() => textareaRef.current?.focus()}
             >
               <BoldIcon className="size-3" />
             </Button>
@@ -93,7 +101,7 @@ export function KartModalYorumComposer({ kartId, projeId }: Props) {
               className="size-6"
               aria-label="İtalik"
               title="İtalik (yakında)"
-              onClick={() => mention.textareaRef.current?.focus()}
+              onClick={() => textareaRef.current?.focus()}
             >
               <ItalicIcon className="size-3" />
             </Button>
@@ -104,7 +112,7 @@ export function KartModalYorumComposer({ kartId, projeId }: Props) {
               className="size-6"
               aria-label="Ek iliştir"
               title="Ek iliştir (yakında)"
-              onClick={() => mention.textareaRef.current?.focus()}
+              onClick={() => textareaRef.current?.focus()}
             >
               <PaperclipIcon className="size-3" />
             </Button>

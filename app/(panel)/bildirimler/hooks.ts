@@ -86,7 +86,7 @@ export function useBildirimOkuduIsaretle() {
 }
 
 export function useTumunuOkuduIsaretle() {
-  return useOptimisticMutation<{}, { sayi: number }>({
+  return useOptimisticMutation<Record<string, never>, { sayi: number }>({
     queryKey: [
       bildirimListeKey("hepsi"),
       bildirimListeKey("okunmamis"),

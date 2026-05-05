@@ -4,7 +4,7 @@ import * as React from "react";
 // adlarıyla zenginleştirir.
 //
 // Kullanım:
-//   const parcalar = mentionParcala("Selam @<uuid>", uyeMap);
+//   const parcalar = mentionParcala("Selam @<uuid>", kisiMap);
 //   parcalar.map((p, i) => p.tip === "metin" ? p.deger : <Rozet>{p.ad}</Rozet>)
 
 const MENTION_REGEX =
@@ -14,9 +14,9 @@ export type MentionParca =
   | { tip: "metin"; deger: string }
   | { tip: "mention"; uuid: string; ad: string | null };
 
-export type UyeMap = Map<string, { ad: string; soyad: string }>;
+export type KisiMap = Map<string, { ad: string; soyad: string }>;
 
-export function mentionParcala(metin: string, uyeMap: UyeMap): MentionParca[] {
+export function mentionParcala(metin: string, kisiMap: KisiMap): MentionParca[] {
   const sonuc: MentionParca[] = [];
   let sonIdx = 0;
   MENTION_REGEX.lastIndex = 0;
@@ -26,7 +26,7 @@ export function mentionParcala(metin: string, uyeMap: UyeMap): MentionParca[] {
       sonuc.push({ tip: "metin", deger: metin.slice(sonIdx, m.index) });
     }
     const uuid = m[1]!.toLowerCase();
-    const u = uyeMap.get(uuid);
+    const u = kisiMap.get(uuid);
     sonuc.push({
       tip: "mention",
       uuid,
@@ -41,17 +41,17 @@ export function mentionParcala(metin: string, uyeMap: UyeMap): MentionParca[] {
 }
 
 // React component — yorum içeriğini parse edip mention'ları rozet olarak basar.
-// Bilinmeyen UUID (proje üyesi değil veya silinmiş) için placeholder gösterir.
+// Bilinmeyen UUID (proje yetkilisi değil veya silinmiş) için placeholder gösterir.
 export function MentionliMetin({
   metin,
-  uyeMap,
+  kisiMap,
 }: {
   metin: string;
-  uyeMap: UyeMap;
+  kisiMap: KisiMap;
 }) {
   const parcalar = React.useMemo(
-    () => mentionParcala(metin, uyeMap),
-    [metin, uyeMap],
+    () => mentionParcala(metin, kisiMap),
+    [metin, kisiMap],
   );
   return (
     <>

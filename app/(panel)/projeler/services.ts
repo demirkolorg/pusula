@@ -22,7 +22,7 @@ export type ProjeKart = {
   arsiv_mi: boolean;
   silindi_mi: boolean;
   sira: string;
-  uye_sayisi: number;
+  yetkili_sayisi: number;
   liste_sayisi: number;
   olusturma_zamani: Date;
 };
@@ -62,11 +62,11 @@ async function projeListeWhere(
     ? { birim_id: erisim.birimId }
     : { birim_id: { in: [] } };
   const erisimKosullari: Prisma.ProjeWhereInput[] = [
-    { uyeler: { some: { kullanici_id: kullaniciId } } },
+    { yetkililer: { some: { kullanici_id: kullaniciId } } },
     { birimler: { some: birimKosulu } },
     {
       listeler: {
-        some: { uyeler: { some: { kullanici_id: kullaniciId } } },
+        some: { yetkililer: { some: { kullanici_id: kullaniciId } } },
       },
     },
     {
@@ -78,7 +78,7 @@ async function projeListeWhere(
       listeler: {
         some: {
           kartlar: {
-            some: { uyeler: { some: { kullanici_id: kullaniciId } } },
+            some: { yetkililer: { some: { kullanici_id: kullaniciId } } },
           },
         },
       },
@@ -123,7 +123,7 @@ export async function projeleriListele(
       silindi_mi: true,
       sira: true,
       olusturma_zamani: true,
-      _count: { select: { uyeler: true, listeler: true } },
+      _count: { select: { yetkililer: true, listeler: true } },
     },
     take: 200,
   });
@@ -137,7 +137,7 @@ export async function projeleriListele(
     arsiv_mi: p.arsiv_mi,
     silindi_mi: p.silindi_mi,
     sira: p.sira,
-    uye_sayisi: p._count.uyeler,
+    yetkili_sayisi: p._count.yetkililer,
     liste_sayisi: p._count.listeler,
     olusturma_zamani: p.olusturma_zamani,
   }));
@@ -167,7 +167,7 @@ export async function projeOlustur(
       kapak_renk: girdi.kapak_renk || null,
       sira,
       olusturan_id: olusturanId,
-      uyeler: {
+      yetkililer: {
         create: { kullanici_id: olusturanId, seviye: "ADMIN" },
       },
       birimler: olusturan?.birim_id
@@ -189,7 +189,7 @@ export async function projeOlustur(
 
   return {
     ...yeni,
-    uye_sayisi: 1,
+    yetkili_sayisi: 1,
     liste_sayisi: 0,
   };
 }

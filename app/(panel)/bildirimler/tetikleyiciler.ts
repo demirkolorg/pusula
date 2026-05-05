@@ -29,6 +29,115 @@ function kisalt(s: string, n: number): string {
   return s.length <= n ? s : s.slice(0, n - 1) + "…";
 }
 
+type KartYetkiBaglami = {
+  id: string;
+  baslik: string;
+  bitis?: Date | null;
+  liste: {
+    proje_id: string;
+    yetkililer: { kullanici_id: string }[];
+    birimler: { birim_id: string }[];
+    proje: {
+      yetkililer: { kullanici_id: string }[];
+      birimler: { birim_id: string }[];
+    };
+  };
+  yetkililer: { kullanici_id: string }[];
+  birimler: { birim_id: string }[];
+};
+
+function kartKisiIdleri(kart: KartYetkiBaglami): Set<string> {
+  const idler = new Set<string>();
+  for (const yetkili of kart.liste.proje.yetkililer) {
+    idler.add(yetkili.kullanici_id);
+  }
+  for (const yetkili of kart.liste.yetkililer) {
+    idler.add(yetkili.kullanici_id);
+  }
+  for (const yetkili of kart.yetkililer) {
+    idler.add(yetkili.kullanici_id);
+  }
+  return idler;
+}
+
+function kartBirimIdleri(kart: KartYetkiBaglami): Set<string> {
+  const idler = new Set<string>();
+  for (const birim of kart.liste.proje.birimler) idler.add(birim.birim_id);
+  for (const birim of kart.liste.birimler) idler.add(birim.birim_id);
+  for (const birim of kart.birimler) idler.add(birim.birim_id);
+  return idler;
+}
+
+async function kartYetkiliAliciMap(
+  kartlar: KartYetkiBaglami[],
+  haricIdler: readonly string[] = [],
+): Promise<Map<string, string[]>> {
+  const tumBirimIdleri = new Set<string>();
+  for (const kart of kartlar) {
+    for (const birimId of kartBirimIdleri(kart)) tumBirimIdleri.add(birimId);
+  }
+
+  const birimKullanicilari =
+    tumBirimIdleri.size === 0
+      ? []
+      : await db.kullanici.findMany({
+          where: {
+            birim_id: { in: Array.from(tumBirimIdleri) },
+            aktif: true,
+            silindi_mi: false,
+            onay_durumu: "ONAYLANDI",
+          },
+          select: { id: true, birim_id: true },
+        });
+
+  const birimMap = new Map<string, string[]>();
+  for (const kullanici of birimKullanicilari) {
+    if (!kullanici.birim_id) continue;
+    const liste = birimMap.get(kullanici.birim_id) ?? [];
+    liste.push(kullanici.id);
+    birimMap.set(kullanici.birim_id, liste);
+  }
+
+  const haric = new Set(haricIdler);
+  const sonuc = new Map<string, string[]>();
+  for (const kart of kartlar) {
+    const idler = kartKisiIdleri(kart);
+    for (const birimId of kartBirimIdleri(kart)) {
+      for (const kullaniciId of birimMap.get(birimId) ?? []) {
+        idler.add(kullaniciId);
+      }
+    }
+    for (const id of haric) idler.delete(id);
+    sonuc.set(kart.id, Array.from(idler));
+  }
+  return sonuc;
+}
+
+async function kartYetkiBaglami(kartId: string): Promise<KartYetkiBaglami | null> {
+  return db.kart.findUnique({
+    where: { id: kartId },
+    select: {
+      id: true,
+      baslik: true,
+      liste: {
+        select: {
+          proje_id: true,
+          yetkililer: { select: { kullanici_id: true } },
+          birimler: { select: { birim_id: true } },
+          proje: {
+            select: {
+              yetkililer: { select: { kullanici_id: true } },
+              birimler: { select: { birim_id: true } },
+            },
+          },
+        },
+      },
+      yetkililer: { select: { kullanici_id: true } },
+      birimler: { select: { birim_id: true } },
+    },
+  });
+}
+
 // =====================================================================
 // 1. Yorum @mention — yorum içeriğindeki UUID'leri parse et
 // =====================================================================
@@ -57,18 +166,13 @@ export async function tetikleYorumMention(opt: {
   const mentionIdler = mentionParse(opt.icerik);
   if (mentionIdler.length === 0) return;
 
-  // Sadece kart erişimi olan proje üyelerine bildirim — başkalarını mention
+  // Sadece karta erişimi olan yetkililere bildirim gider; başkalarını mention
   // etmek bilgi sızıntısı olur.
-  const kart = await kartBaglami(opt.kartId);
+  const kart = await kartYetkiBaglami(opt.kartId);
   if (!kart) return;
-  const izinli = await db.projeUyesi.findMany({
-    where: {
-      proje_id: kart.proje_id,
-      kullanici_id: { in: mentionIdler },
-    },
-    select: { kullanici_id: true },
-  });
-  const aliciIdler = izinli.map((i) => i.kullanici_id);
+  const yetkiliMap = await kartYetkiliAliciMap([kart]);
+  const yetkiliIdler = new Set(yetkiliMap.get(kart.id) ?? []);
+  const aliciIdler = mentionIdler.filter((id) => yetkiliIdler.has(id));
   if (aliciIdler.length === 0) return;
 
   const yazanAdi = await adSoyad(opt.yazanId);
@@ -80,17 +184,17 @@ export async function tetikleYorumMention(opt: {
     baslik: `${yazanAdi} sizden bahsetti`,
     ozet: `${kart.baslik}: ${kisalt(opt.icerik, 80)}`,
     kart_id: opt.kartId,
-    proje_id: kart.proje_id,
+    proje_id: kart.liste.proje_id,
     kaynak_tip: "Yorum",
     kaynak_id: opt.yorumId,
   });
 }
 
 // =====================================================================
-// 2. Karta üye atama — atanan kullanıcıya bildirim
+// 2. Karta yetki atama — atanan kullanıcıya bildirim
 // =====================================================================
 
-export async function tetikleKartUyeAtama(opt: {
+export async function tetikleKartYetkiliAtama(opt: {
   kartId: string;
   atananId: string;
   atayanId: string;
@@ -102,8 +206,8 @@ export async function tetikleKartUyeAtama(opt: {
   await bildirimUret({
     alici_idler: [opt.atananId],
     ureten_id: opt.atayanId,
-    tip: "KART_UYE_ATAMA",
-    baslik: `${atayanAdi} sizi bir karta ekledi`,
+    tip: "KART_YETKILI_ATAMA",
+    baslik: `${atayanAdi} sizi bir kartta yetkilendirdi`,
     ozet: kart.baslik,
     kart_id: opt.kartId,
     proje_id: kart.proje_id,
@@ -150,7 +254,7 @@ export async function tetikleMaddeAtama(opt: {
 }
 
 // =====================================================================
-// 4. Karta yorum eklendi — kart üyelerine bildirim (yazan hariç)
+// 4. Karta yorum eklendi — kart yetkililerine bildirim (yazan hariç)
 // =====================================================================
 
 export async function tetikleYorumEklendi(opt: {
@@ -159,14 +263,10 @@ export async function tetikleYorumEklendi(opt: {
   yazanId: string;
   icerik: string;
 }): Promise<void> {
-  const kart = await kartBaglami(opt.kartId);
+  const kart = await kartYetkiBaglami(opt.kartId);
   if (!kart) return;
-  // Kart üyeleri (yazan hariç)
-  const uyeler = await db.kartUyesi.findMany({
-    where: { kart_id: opt.kartId, kullanici_id: { not: opt.yazanId } },
-    select: { kullanici_id: true },
-  });
-  const aliciIdler = uyeler.map((u) => u.kullanici_id);
+  const yetkiliMap = await kartYetkiliAliciMap([kart], [opt.yazanId]);
+  const aliciIdler = yetkiliMap.get(kart.id) ?? [];
   // Mention edilmiş kullanıcılar zaten YORUM_MENTION alacak — onları çıkar
   // ki çift bildirim olmasın.
   const mentionIdler = new Set(mentionParse(opt.icerik));
@@ -181,14 +281,14 @@ export async function tetikleYorumEklendi(opt: {
     baslik: `${yazanAdi} bir karta yorum yazdı`,
     ozet: `${kart.baslik}: ${kisalt(opt.icerik, 80)}`,
     kart_id: opt.kartId,
-    proje_id: kart.proje_id,
+    proje_id: kart.liste.proje_id,
     kaynak_tip: "Yorum",
     kaynak_id: opt.yorumId,
   });
 }
 
 // =====================================================================
-// 5. Karta eklenti yüklendi — kart üyelerine bildirim (yükleyen hariç)
+// 5. Karta eklenti yüklendi — kart yetkililerine bildirim (yükleyen hariç)
 // =====================================================================
 
 export async function tetikleEklentiYuklendi(opt: {
@@ -197,23 +297,21 @@ export async function tetikleEklentiYuklendi(opt: {
   yukleyenId: string;
   ad: string;
 }): Promise<void> {
-  const kart = await kartBaglami(opt.kartId);
+  const kart = await kartYetkiBaglami(opt.kartId);
   if (!kart) return;
-  const uyeler = await db.kartUyesi.findMany({
-    where: { kart_id: opt.kartId, kullanici_id: { not: opt.yukleyenId } },
-    select: { kullanici_id: true },
-  });
-  if (uyeler.length === 0) return;
+  const yetkiliMap = await kartYetkiliAliciMap([kart], [opt.yukleyenId]);
+  const aliciIdler = yetkiliMap.get(kart.id) ?? [];
+  if (aliciIdler.length === 0) return;
 
   const yukleyenAdi = await adSoyad(opt.yukleyenId);
   await bildirimUret({
-    alici_idler: uyeler.map((u) => u.kullanici_id),
+    alici_idler: aliciIdler,
     ureten_id: opt.yukleyenId,
     tip: "EKLENTI_YUKLENDI",
     baslik: `${yukleyenAdi} bir karta dosya yükledi`,
     ozet: `${kart.baslik}: ${opt.ad}`,
     kart_id: opt.kartId,
-    proje_id: kart.proje_id,
+    proje_id: kart.liste.proje_id,
     kaynak_tip: "Eklenti",
     kaynak_id: opt.eklentiId,
   });
@@ -238,16 +336,31 @@ export async function tetikleBitisYaklasiyor(saatOnce = 24): Promise<number> {
       id: true,
       baslik: true,
       bitis: true,
-      liste: { select: { proje_id: true } },
-      uyeler: { select: { kullanici_id: true } },
+      liste: {
+        select: {
+          proje_id: true,
+          yetkililer: { select: { kullanici_id: true } },
+          birimler: { select: { birim_id: true } },
+          proje: {
+            select: {
+              yetkililer: { select: { kullanici_id: true } },
+              birimler: { select: { birim_id: true } },
+            },
+          },
+        },
+      },
+      yetkililer: { select: { kullanici_id: true } },
+      birimler: { select: { birim_id: true } },
     },
     take: 500,
   });
+  const yetkiliMap = await kartYetkiliAliciMap(kartlar);
   let toplam = 0;
   for (const k of kartlar) {
-    if (k.uyeler.length === 0) continue;
+    const aliciIdler = yetkiliMap.get(k.id) ?? [];
+    if (aliciIdler.length === 0) continue;
     const r = await bildirimUret({
-      alici_idler: k.uyeler.map((u) => u.kullanici_id),
+      alici_idler: aliciIdler,
       ureten_id: null,
       tip: "BITIS_YAKLASIYOR",
       baslik: "Kart bitiş tarihi yaklaşıyor",
@@ -276,16 +389,31 @@ export async function tetikleBitisGecti(): Promise<number> {
     select: {
       id: true,
       baslik: true,
-      liste: { select: { proje_id: true } },
-      uyeler: { select: { kullanici_id: true } },
+      liste: {
+        select: {
+          proje_id: true,
+          yetkililer: { select: { kullanici_id: true } },
+          birimler: { select: { birim_id: true } },
+          proje: {
+            select: {
+              yetkililer: { select: { kullanici_id: true } },
+              birimler: { select: { birim_id: true } },
+            },
+          },
+        },
+      },
+      yetkililer: { select: { kullanici_id: true } },
+      birimler: { select: { birim_id: true } },
     },
     take: 500,
   });
+  const yetkiliMap = await kartYetkiliAliciMap(kartlar);
   let toplam = 0;
   for (const k of kartlar) {
-    if (k.uyeler.length === 0) continue;
+    const aliciIdler = yetkiliMap.get(k.id) ?? [];
+    if (aliciIdler.length === 0) continue;
     const r = await bildirimUret({
-      alici_idler: k.uyeler.map((u) => u.kullanici_id),
+      alici_idler: aliciIdler,
       ureten_id: null,
       tip: "BITIS_GECTI",
       baslik: "Kart bitiş tarihi geçti",

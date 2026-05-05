@@ -1,17 +1,17 @@
 import { describe, it, expect } from "vitest";
-import { mentionParcala, type UyeMap } from "./mention";
+import { mentionParcala, type KisiMap } from "./mention";
 
 const UUID_A = "00000000-0000-0000-0000-000000000001";
 const UUID_B = "00000000-0000-0000-0000-000000000002";
 
-const uyeMap: UyeMap = new Map([
+const kisiMap: KisiMap = new Map([
   [UUID_A, { ad: "Ahmet", soyad: "Yılmaz" }],
   [UUID_B, { ad: "Zeynep", soyad: "Kaya" }],
 ]);
 
 describe("mentionParcala", () => {
   it("metin içindeki UUID mention'ları parça parça döner", () => {
-    const r = mentionParcala(`Selam @${UUID_A}, sana @${UUID_B} sordum.`, uyeMap);
+    const r = mentionParcala(`Selam @${UUID_A}, sana @${UUID_B} sordum.`, kisiMap);
     expect(r).toHaveLength(5);
     expect(r[0]).toEqual({ tip: "metin", deger: "Selam " });
     expect(r[1]).toEqual({ tip: "mention", uuid: UUID_A, ad: "Ahmet Yılmaz" });
@@ -23,7 +23,7 @@ describe("mentionParcala", () => {
   it("bilinmeyen UUID için ad null", () => {
     const r = mentionParcala(
       "Hey @99999999-9999-9999-9999-999999999999",
-      uyeMap,
+      kisiMap,
     );
     expect(r[1]).toMatchObject({
       tip: "mention",
@@ -32,17 +32,17 @@ describe("mentionParcala", () => {
   });
 
   it("hiç mention yoksa tek metin parçası", () => {
-    const r = mentionParcala("Düz metin", uyeMap);
+    const r = mentionParcala("Düz metin", kisiMap);
     expect(r).toEqual([{ tip: "metin", deger: "Düz metin" }]);
   });
 
   it("UUID dışı @ ler atlanır", () => {
-    const r = mentionParcala("Ahmet @beyefendi merhaba", uyeMap);
+    const r = mentionParcala("Ahmet @beyefendi merhaba", kisiMap);
     expect(r).toEqual([{ tip: "metin", deger: "Ahmet @beyefendi merhaba" }]);
   });
 
   it("aynı UUID birden fazla geçerse her biri ayrı parça olur", () => {
-    const r = mentionParcala(`@${UUID_A} ve @${UUID_A}`, uyeMap);
+    const r = mentionParcala(`@${UUID_A} ve @${UUID_A}`, kisiMap);
     const mentionlar = r.filter((p) => p.tip === "mention");
     expect(mentionlar).toHaveLength(2);
   });

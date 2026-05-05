@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { PencilIcon, PlusIcon, Trash2Icon, UserPlusIcon } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { MaddeAtananPopover } from "./madde-atanan-popover";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,13 +33,27 @@ import {
 } from "../hooks";
 import type { KontrolListesiOzeti, MaddeOzeti } from "../services";
 
+// Granüler yetki obje (Kural U.8/138). Şu an tek alan; ileride
+// bitis/etiket atama gibi başka madde aksiyonları gelirse genişler.
+export type MaddeYetkileri = {
+  atanaDegistir: boolean;
+};
+
+const VARSAYILAN_YETKILER: MaddeYetkileri = { atanaDegistir: true };
+
 type Props = {
   kartId: string;
   yeniAcik: boolean;
   setYeniAcik: (v: boolean) => void;
+  yetkiler?: MaddeYetkileri;
 };
 
-export function KontrolListesiPaneli({ kartId, yeniAcik, setYeniAcik }: Props) {
+export function KontrolListesiPaneli({
+  kartId,
+  yeniAcik,
+  setYeniAcik,
+  yetkiler = VARSAYILAN_YETKILER,
+}: Props) {
   const sorgu = useKartKontrolListeleri(kartId);
   const olustur = useKontrolListesiOlustur(kartId);
   const [yeniListe, setYeniListe] = React.useState("");
@@ -55,7 +70,7 @@ export function KontrolListesiPaneli({ kartId, yeniAcik, setYeniAcik }: Props) {
   return (
     <div className="flex flex-col gap-3">
       {sorgu.data?.map((kl) => (
-        <KontrolListesi key={kl.id} kl={kl} kartId={kartId} />
+        <KontrolListesi key={kl.id} kl={kl} kartId={kartId} yetkiler={yetkiler} />
       ))}
 
       {yeniAcik && (
@@ -100,9 +115,11 @@ export function KontrolListesiPaneli({ kartId, yeniAcik, setYeniAcik }: Props) {
 function KontrolListesi({
   kl,
   kartId,
+  yetkiler,
 }: {
   kl: KontrolListesiOzeti;
   kartId: string;
+  yetkiler: MaddeYetkileri;
 }) {
   const sil = useKontrolListesiSil(kartId);
   const guncelle = useKontrolListesiGuncelle(kartId);
@@ -243,7 +260,7 @@ function KontrolListesi({
         <ul className="flex flex-col gap-0.5">
           {kl.maddeler.map((m) => (
             <li key={m.id}>
-              <Madde madde={m} kartId={kartId} />
+              <Madde madde={m} kartId={kartId} yetkiler={yetkiler} />
             </li>
           ))}
         </ul>
@@ -331,7 +348,15 @@ function KontrolListesi({
 // Tek madde — inline metin düzenleme + undo'lu silme
 // =====================================================================
 
-function Madde({ madde, kartId }: { madde: MaddeOzeti; kartId: string }) {
+function Madde({
+  madde,
+  kartId,
+  yetkiler,
+}: {
+  madde: MaddeOzeti;
+  kartId: string;
+  yetkiler: MaddeYetkileri;
+}) {
   const guncelle = useMaddeGuncelle(kartId);
   const sil = useMaddeSil(kartId);
   const olustur = useMaddeOlustur(kartId);
@@ -433,10 +458,39 @@ function Madde({ madde, kartId }: { madde: MaddeOzeti; kartId: string }) {
           {madde.metin}
         </button>
       )}
-      {madde.atanan && !duzenle && (
-        <span className="text-muted-foreground bg-muted/60 shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-medium">
-          {madde.atanan.ad} {madde.atanan.soyad[0]}.
-        </span>
+      {!duzenle && !taslak && (
+        <MaddeAtananPopover
+          kartId={kartId}
+          maddeId={madde.id}
+          mevcutAtanan={madde.atanan}
+          duzenleyebilir={yetkiler.atanaDegistir}
+          trigger={
+            madde.atanan ? (
+              <button
+                type="button"
+                aria-label={`Sorumlu: ${madde.atanan.ad} ${madde.atanan.soyad}`}
+                className={cn(
+                  "text-muted-foreground bg-muted/60 shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-medium transition",
+                  yetkiler.atanaDegistir &&
+                    "hover:bg-muted hover:text-foreground cursor-pointer",
+                )}
+              >
+                {madde.atanan.ad} {madde.atanan.soyad[0]}.
+              </button>
+            ) : yetkiler.atanaDegistir ? (
+              <button
+                type="button"
+                aria-label="Sorumlu ata"
+                title="Sorumlu ata"
+                className="text-muted-foreground/60 hover:text-foreground hover:bg-accent/40 shrink-0 rounded-full p-1 opacity-0 transition group-hover/madde:opacity-100 focus-visible:opacity-100"
+              >
+                <UserPlusIcon className="size-3.5" />
+              </button>
+            ) : (
+              <span className="hidden" aria-hidden />
+            )
+          }
+        />
       )}
       {!duzenle && (
         <div className="flex items-center gap-0.5 opacity-0 transition group-hover/madde:opacity-100 focus-within:opacity-100">

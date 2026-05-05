@@ -4,12 +4,13 @@ import { HATA_KODU } from "@/lib/sonuc";
 import { yayinla } from "@/lib/realtime";
 import { SOCKET, room } from "@/lib/socket-events";
 import type {
+  KartAdayKullanicilar,
   ProjeAdayKullanicilar,
-  ProjeyeUyeEkle,
-  ProjeUyesiSeviyeGuncelle,
+  ProjeyeYetkiliEkle,
+  ProjeYetkilisiSeviyeGuncelle,
 } from "./schemas";
 
-export type ProjeUyeOzeti = {
+export type ProjeYetkiliOzeti = {
   kullanici_id: string;
   ad: string;
   soyad: string;
@@ -63,16 +64,35 @@ async function kartiBulVeProjeAl(
   return { proje_id: k.liste.proje_id };
 }
 
+export async function kartProjeIdGetir(kartId: string): Promise<string> {
+  return (await kartiBulVeProjeAl("", kartId)).proje_id;
+}
+
+async function aktifKullaniciDogrula(kullaniciId: string): Promise<void> {
+  const kullanici = await db.kullanici.findUnique({
+    where: { id: kullaniciId },
+    select: { aktif: true, silindi_mi: true, onay_durumu: true },
+  });
+  if (
+    !kullanici ||
+    kullanici.silindi_mi ||
+    !kullanici.aktif ||
+    kullanici.onay_durumu !== "ONAYLANDI"
+  ) {
+    throw new EylemHatasi("Kullanıcı bulunamadı.", HATA_KODU.BULUNAMADI);
+  }
+}
+
 // =====================================================================
-// Proje üye yönetimi
+// Proje yetkili yönetimi
 // =====================================================================
 
-export async function projeUyeleriniListele(
+export async function projeYetkilileriniListele(
   birimId: string,
   projeId: string,
-): Promise<ProjeUyeOzeti[]> {
+): Promise<ProjeYetkiliOzeti[]> {
   await projeyeErisimDogrula(birimId, projeId);
-  const uyeler = await db.projeUyesi.findMany({
+  const yetkililer = await db.projeYetkilisi.findMany({
     where: { proje_id: projeId },
     orderBy: { eklenme_zamani: "asc" },
     select: {
@@ -82,7 +102,7 @@ export async function projeUyeleriniListele(
       kullanici: { select: { ad: true, soyad: true, email: true } },
     },
   });
-  return uyeler.map((u) => ({
+  return yetkililer.map((u) => ({
     kullanici_id: u.kullanici_id,
     ad: u.kullanici.ad,
     soyad: u.kullanici.soyad,
@@ -105,8 +125,8 @@ export async function projeAdayKullanicilariniAra(
       silindi_mi: false,
       aktif: true,
       onay_durumu: "ONAYLANDI",
-      // Proje üyesi olmayanlar
-      proje_uyelik: { none: { proje_id: girdi.proje_id } },
+      // Proje yetkilisi olmayanlar
+      proje_yetkileri: { none: { proje_id: girdi.proje_id } },
       ...(aramaQ
         ? {
             OR: [
@@ -142,10 +162,10 @@ export async function projeAdayKullanicilariniAra(
   }));
 }
 
-export async function projeyeUyeEkle(
+export async function projeyeYetkiliEkle(
   birimId: string,
-  girdi: ProjeyeUyeEkle,
-): Promise<ProjeUyeOzeti> {
+  girdi: ProjeyeYetkiliEkle,
+): Promise<ProjeYetkiliOzeti> {
   await projeyeErisimDogrula(birimId, girdi.proje_id);
   // Kullanıcı sistem genelinden eklenebilir (birim izolasyonu kaldırıldı —
   // aday listesi de tüm birimlerden kullanıcı dönüyor). Sadece silinmiş /
@@ -162,7 +182,7 @@ export async function projeyeUyeEkle(
     );
   }
   try {
-    const yeni = await db.projeUyesi.create({
+    const yeni = await db.projeYetkilisi.create({
       data: {
         proje_id: girdi.proje_id,
         kullanici_id: girdi.kullanici_id,
@@ -186,7 +206,7 @@ export async function projeyeUyeEkle(
       (err as { code: string }).code === "P2002"
     ) {
       throw new EylemHatasi(
-        "Bu kullanıcı zaten projenin üyesi.",
+        "Bu kullanıcı zaten projenin yetkilisi.",
         HATA_KODU.GECERSIZ_GIRDI,
       );
     }
@@ -194,61 +214,51 @@ export async function projeyeUyeEkle(
   }
 }
 
-export async function projeyeUyeKaldir(
+export async function projeyeYetkiliKaldir(
   birimId: string,
   projeId: string,
   kullaniciId: string,
 ): Promise<void> {
   await projeyeErisimDogrula(birimId, projeId);
   // Son ADMIN'i çıkarmaya izin verme — proje sahipsiz kalmasın.
-  const uye = await db.projeUyesi.findUnique({
+  const yetkili = await db.projeYetkilisi.findUnique({
     where: { proje_id_kullanici_id: { proje_id: projeId, kullanici_id: kullaniciId } },
     select: { seviye: true },
   });
-  if (!uye) return; // Yoksa idempotent
-  if (uye.seviye === "ADMIN") {
-    const adminSayisi = await db.projeUyesi.count({
+  if (!yetkili) return; // Yoksa idempotent
+  if (yetkili.seviye === "ADMIN") {
+    const adminSayisi = await db.projeYetkilisi.count({
       where: { proje_id: projeId, seviye: "ADMIN" },
     });
     if (adminSayisi <= 1) {
       throw new EylemHatasi(
-        "Projedeki son ADMIN üye çıkarılamaz.",
+        "Projedeki son ADMIN yetkili çıkarılamaz.",
         HATA_KODU.GECERSIZ_GIRDI,
       );
     }
   }
-  // Kullanıcının kart üyelikleri de cascade ile gitmeli — manuel temizle
-  // (KartUyesi'nin proje_id alanı yok, doğrudan FK ile bağlı değil).
-  await db.$transaction([
-    db.kartUyesi.deleteMany({
-      where: {
-        kullanici_id: kullaniciId,
-        kart: { liste: { proje_id: projeId } },
-      },
-    }),
-    db.projeUyesi.delete({
-      where: { proje_id_kullanici_id: { proje_id: projeId, kullanici_id: kullaniciId } },
-    }),
-  ]);
+  await db.projeYetkilisi.delete({
+    where: { proje_id_kullanici_id: { proje_id: projeId, kullanici_id: kullaniciId } },
+  });
 }
 
-export async function projeUyesiSeviyeGuncelle(
+export async function projeYetkilisiSeviyeGuncelle(
   birimId: string,
-  girdi: ProjeUyesiSeviyeGuncelle,
+  girdi: ProjeYetkilisiSeviyeGuncelle,
 ): Promise<void> {
   await projeyeErisimDogrula(birimId, girdi.proje_id);
-  const uye = await db.projeUyesi.findUnique({
+  const yetkili = await db.projeYetkilisi.findUnique({
     where: {
       proje_id_kullanici_id: { proje_id: girdi.proje_id, kullanici_id: girdi.kullanici_id },
     },
     select: { seviye: true },
   });
-  if (!uye) {
-    throw new EylemHatasi("Üye bulunamadı.", HATA_KODU.BULUNAMADI);
+  if (!yetkili) {
+    throw new EylemHatasi("Yetkili bulunamadı.", HATA_KODU.BULUNAMADI);
   }
   // ADMIN'i NORMAL'e düşürürken son ADMIN olmasın
-  if (uye.seviye === "ADMIN" && girdi.seviye !== "ADMIN") {
-    const adminSayisi = await db.projeUyesi.count({
+  if (yetkili.seviye === "ADMIN" && girdi.seviye !== "ADMIN") {
+    const adminSayisi = await db.projeYetkilisi.count({
       where: { proje_id: girdi.proje_id, seviye: "ADMIN" },
     });
     if (adminSayisi <= 1) {
@@ -258,7 +268,7 @@ export async function projeUyesiSeviyeGuncelle(
       );
     }
   }
-  await db.projeUyesi.update({
+  await db.projeYetkilisi.update({
     where: {
       proje_id_kullanici_id: { proje_id: girdi.proje_id, kullanici_id: girdi.kullanici_id },
     },
@@ -267,22 +277,67 @@ export async function projeUyesiSeviyeGuncelle(
 }
 
 // =====================================================================
-// Kart üye atama
+// Kart yetkili atama
 // =====================================================================
 
-export type KartUyeOzeti = {
+export type KartYetkiliOzeti = {
   kullanici_id: string;
   ad: string;
   soyad: string;
   email: string;
 };
 
-export async function kartinUyeleri(
+export async function kartAdayKullanicilariniAra(
+  birimId: string,
+  girdi: KartAdayKullanicilar,
+): Promise<AdayKullanici[]> {
+  await kartiBulVeProjeAl(birimId, girdi.kart_id);
+  const aramaQ = girdi.q?.trim() ?? "";
+  const sonuc = await db.kullanici.findMany({
+    where: {
+      silindi_mi: false,
+      aktif: true,
+      onay_durumu: "ONAYLANDI",
+      kart_yetkileri: { none: { kart_id: girdi.kart_id } },
+      ...(aramaQ
+        ? {
+            OR: [
+              { ad: { contains: aramaQ, mode: "insensitive" } },
+              { soyad: { contains: aramaQ, mode: "insensitive" } },
+              { email: { contains: aramaQ, mode: "insensitive" } },
+              { birim: { ad: { contains: aramaQ, mode: "insensitive" } } },
+              {
+                birim: { kisa_ad: { contains: aramaQ, mode: "insensitive" } },
+              },
+            ],
+          }
+        : {}),
+    },
+    orderBy: [{ ad: "asc" }, { soyad: "asc" }],
+    take: 20,
+    select: {
+      id: true,
+      ad: true,
+      soyad: true,
+      email: true,
+      birim: { select: { ad: true, kisa_ad: true } },
+    },
+  });
+  return sonuc.map((k) => ({
+    id: k.id,
+    ad: k.ad,
+    soyad: k.soyad,
+    email: k.email,
+    birim_ad: k.birim?.kisa_ad ?? k.birim?.ad ?? null,
+  }));
+}
+
+export async function kartinYetkilileri(
   birimId: string,
   kartId: string,
-): Promise<KartUyeOzeti[]> {
+): Promise<KartYetkiliOzeti[]> {
   await kartiBulVeProjeAl(birimId, kartId);
-  const uyeler = await db.kartUyesi.findMany({
+  const yetkililer = await db.kartYetkilisi.findMany({
     where: { kart_id: kartId },
     orderBy: { eklenme_zamani: "asc" },
     select: {
@@ -290,7 +345,7 @@ export async function kartinUyeleri(
       kullanici: { select: { ad: true, soyad: true, email: true } },
     },
   });
-  return uyeler.map((u) => ({
+  return yetkililer.map((u) => ({
     kullanici_id: u.kullanici_id,
     ad: u.kullanici.ad,
     soyad: u.kullanici.soyad,
@@ -298,43 +353,31 @@ export async function kartinUyeleri(
   }));
 }
 
-export async function kartaUyeEkle(
-  birimId: string,
-  kartId: string,
-  kullaniciId: string,
-): Promise<void> {
-  const { proje_id } = await kartiBulVeProjeAl(birimId, kartId);
-  // Kullanıcı projenin üyesi olmalı
-  const uye = await db.projeUyesi.findUnique({
-    where: {
-      proje_id_kullanici_id: { proje_id, kullanici_id: kullaniciId },
-    },
-    select: { kullanici_id: true },
-  });
-  if (!uye) {
-    throw new EylemHatasi(
-      "Karta atanacak kullanıcı önce proje üyesi olmalı.",
-      HATA_KODU.GECERSIZ_GIRDI,
-    );
-  }
-  await db.kartUyesi.upsert({
-    where: { kart_id_kullanici_id: { kart_id: kartId, kullanici_id: kullaniciId } },
-    create: { kart_id: kartId, kullanici_id: kullaniciId },
-    update: {},
-  });
-  yayinla(SOCKET.UYE_KART_EKLE, room.kart(kartId), {
-    kart_id: kartId,
-    kullanici_id: kullaniciId,
-  }).catch(() => {});
-}
-
-export async function kartaUyeKaldir(
+export async function kartaYetkiliEkle(
   birimId: string,
   kartId: string,
   kullaniciId: string,
 ): Promise<void> {
   await kartiBulVeProjeAl(birimId, kartId);
-  await db.kartUyesi
+  await aktifKullaniciDogrula(kullaniciId);
+  await db.kartYetkilisi.upsert({
+    where: { kart_id_kullanici_id: { kart_id: kartId, kullanici_id: kullaniciId } },
+    create: { kart_id: kartId, kullanici_id: kullaniciId },
+    update: {},
+  });
+  yayinla(SOCKET.YETKILI_KART_EKLE, room.kart(kartId), {
+    kart_id: kartId,
+    kullanici_id: kullaniciId,
+  }).catch(() => {});
+}
+
+export async function kartaYetkiliKaldir(
+  birimId: string,
+  kartId: string,
+  kullaniciId: string,
+): Promise<void> {
+  await kartiBulVeProjeAl(birimId, kartId);
+  await db.kartYetkilisi
     .delete({
       where: {
         kart_id_kullanici_id: { kart_id: kartId, kullanici_id: kullaniciId },
@@ -343,7 +386,7 @@ export async function kartaUyeKaldir(
     .catch(() => {
       // Idempotent
     });
-  yayinla(SOCKET.UYE_KART_KALDIR, room.kart(kartId), {
+  yayinla(SOCKET.YETKILI_KART_KALDIR, room.kart(kartId), {
     kart_id: kartId,
     kullanici_id: kullaniciId,
   }).catch(() => {});

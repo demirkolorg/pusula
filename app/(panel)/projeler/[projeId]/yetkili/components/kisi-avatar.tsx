@@ -13,7 +13,7 @@ type Props = {
 
 // Sade avatar — initials + deterministic renk (ad+soyad'dan hash).
 // Trello tarzı; foto destek MVP dışı.
-export function UyeAvatar({ ad, soyad, boyut = "sm", className, title }: Props) {
+export function KisiAvatar({ ad, soyad, boyut = "sm", className, title }: Props) {
   const initials = `${(ad?.[0] ?? "?").toUpperCase()}${(soyad?.[0] ?? "").toUpperCase()}`;
   const renk = renkSec(`${ad} ${soyad}`);
   return (

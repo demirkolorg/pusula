@@ -12,7 +12,7 @@ export function ThemeToggle() {
     <Button
       variant="ghost"
       size="icon"
-      aria-label={koyu ? "Açık temaya geç" : "Koyu temaya geç"}
+      aria-label="Temayı değiştir"
       onClick={() => setTheme(koyu ? "light" : "dark")}
       className="relative"
     >

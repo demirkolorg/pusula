@@ -59,7 +59,23 @@ export type KanbanYetkileri = {
   listeSil: boolean;
   kartOlustur: boolean;
   kartTasi: boolean;
+  // Kart bağlam menüsünde meta düzenleme (kapak/tarih/açıklama vb).
+  kartDuzenle: boolean;
+  // Kart silme — destructive aksiyon ayrı kontrol (Kural 138).
+  kartSil: boolean;
+  yetkiliYonet: boolean;
 };
+
+// Drag overlay'de KartMini'ye verilir — sürüklenen "hayalet" kartta sağ tık
+// menüsü açılmaz; granüler yetkilerin hepsi false. Modül seviyesi sabit
+// (Kural 134).
+const DEVRE_DISI_BAGLAM = {
+  duzenle: false,
+  yetkiliYonet: false,
+  tasi: false,
+  arsivle: false,
+  sil: false,
+} as const;
 
 type Props = {
   projeId: string;
@@ -507,6 +523,7 @@ export function KanbanPano({ projeId, ilkVeri, yetkiler }: Props) {
                 liste={l}
                 projeId={projeId}
                 yetkiler={yetkiler}
+                tumListeler={detay.listeler}
                 kartPlaceholder={
                   kartPlaceholder?.liste_id === l.id ? kartPlaceholder : null
                 }
@@ -569,7 +586,10 @@ export function KanbanPano({ projeId, ilkVeri, yetkiler }: Props) {
               <KartMini
                 kart={aktifDrag.kart}
                 listeId={aktifDrag.liste_id}
-                yetkili={false}
+                surukleyebilir={false}
+                baglamYetkileri={DEVRE_DISI_BAGLAM}
+                listeler={[]}
+                projeId={projeId}
                 onAc={() => undefined}
               />
             </div>
@@ -594,6 +614,7 @@ export function KanbanPano({ projeId, ilkVeri, yetkiler }: Props) {
         kartId={acikKartId}
         kapat={() => setAcikKartId(null)}
         projeId={projeId}
+        yetkiliYonet={yetkiler.yetkiliYonet}
       />
     </>
   );

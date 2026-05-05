@@ -15,12 +15,12 @@ import {
   UsersIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { MentionliMetin, type UyeMap } from "@/lib/mention";
+import { MentionliMetin, type KisiMap } from "@/lib/mention";
 import { useKartYorumlari } from "../yorum/hooks";
 import { useKartEklentileri } from "../eklenti/hooks";
 import { useKartAktiviteleri } from "../aktivite/hooks";
-import { useProjeUyeleri } from "../uye/hooks";
-import { UyeAvatar } from "../uye/components/uye-avatar";
+import { useProjeYetkilileri } from "../yetkili/hooks";
+import { KisiAvatar } from "../yetkili/components/kisi-avatar";
 import type { YorumOzeti } from "../yorum/services";
 import type { EklentiOzeti } from "../eklenti/services";
 import type { AktiviteOzeti } from "../aktivite/services";
@@ -54,19 +54,19 @@ export function KartModalTumuListesi({ kartId, projeId }: Props) {
   const aktiviteQ = useKartAktiviteleri(kartId);
   const yorumQ = useKartYorumlari(kartId);
   const eklerQ = useKartEklentileri(kartId);
-  const uyelerQ = useProjeUyeleri(projeId ?? "");
+  const yetkililerQ = useProjeYetkilileri(projeId ?? "");
 
   const yukleniyor =
     aktiviteQ.isLoading || yorumQ.isLoading || eklerQ.isLoading;
 
-  const uyeMap: UyeMap = React.useMemo(() => {
-    const m: UyeMap = new Map();
+  const kisiMap: KisiMap = React.useMemo(() => {
+    const m: KisiMap = new Map();
     if (!projeId) return m;
-    for (const u of uyelerQ.data ?? []) {
+    for (const u of yetkililerQ.data ?? []) {
       m.set(u.kullanici_id, { ad: u.ad, soyad: u.soyad });
     }
     return m;
-  }, [projeId, uyelerQ.data]);
+  }, [projeId, yetkililerQ.data]);
 
   const yorumMap = React.useMemo(
     () => new Map((yorumQ.data ?? []).map((y) => [y.id, y])),
@@ -107,7 +107,7 @@ export function KartModalTumuListesi({ kartId, projeId }: Props) {
               aktivite={a}
               yorumMap={yorumMap}
               ekMap={ekMap}
-              uyeMap={uyeMap}
+              kisiMap={kisiMap}
             />
           </li>
         ))}
@@ -124,12 +124,12 @@ function Olay({
   aktivite,
   yorumMap,
   ekMap,
-  uyeMap,
+  kisiMap,
 }: {
   aktivite: AktiviteOzeti;
   yorumMap: Map<string, YorumOzeti>;
   ekMap: Map<string, EklentiOzeti>;
-  uyeMap: UyeMap;
+  kisiMap: KisiMap;
 }) {
   // Yorum CREATE → yorum içeriğini inline kart olarak göster (silinmemiş)
   if (
@@ -138,7 +138,7 @@ function Olay({
     aktivite.kaynak_id
   ) {
     const tamYorum = yorumMap.get(aktivite.kaynak_id);
-    if (tamYorum) return <YorumOlay y={tamYorum} uyeMap={uyeMap} />;
+    if (tamYorum) return <YorumOlay y={tamYorum} kisiMap={kisiMap} />;
   }
 
   // Eklenti CREATE → dosya rozeti (silinmemiş)
@@ -152,18 +152,18 @@ function Olay({
   }
 
   // Diğer her şey → kuru aktivite satırı
-  return <AktiviteSatiri aktivite={aktivite} uyeMap={uyeMap} />;
+  return <AktiviteSatiri aktivite={aktivite} kisiMap={kisiMap} />;
 }
 
 // =====================================================================
 // Inline yorum kartı (zenginleştirilmiş gösterim)
 // =====================================================================
 
-function YorumOlay({ y, uyeMap }: { y: YorumOzeti; uyeMap: UyeMap }) {
+function YorumOlay({ y, kisiMap }: { y: YorumOzeti; kisiMap: KisiMap }) {
   return (
     <div className="flex items-start gap-2">
       <span className="ring-background relative z-[1] ring-2">
-        <UyeAvatar
+        <KisiAvatar
           ad={y.yazan.ad}
           soyad={y.yazan.soyad}
           className="size-5 text-[8px]"
@@ -188,7 +188,7 @@ function YorumOlay({ y, uyeMap }: { y: YorumOzeti; uyeMap: UyeMap }) {
             )}
           </div>
           <p className="text-foreground mt-0.5 whitespace-pre-wrap text-[12.5px] leading-[1.5]">
-            <MentionliMetin metin={y.icerik} uyeMap={uyeMap} />
+            <MentionliMetin metin={y.icerik} kisiMap={kisiMap} />
           </p>
         </div>
       </div>
@@ -236,22 +236,21 @@ const KATEGORI_IKON: Record<
 > = {
   kart: ActivityIcon,
   etiket: TagIcon,
-  uye: UsersIcon,
+  yetkili: UsersIcon,
   "kontrol-listesi": ListChecksIcon,
   "kontrol-maddesi": CheckSquareIcon,
   yorum: MessageSquareIcon,
   eklenti: PaperclipIcon,
-  iliski: LinkIcon,
   "hedef-birim": Building2Icon,
   diger: FilePlus2Icon,
 };
 
 function AktiviteSatiri({
   aktivite,
-  uyeMap,
+  kisiMap,
 }: {
   aktivite: AktiviteOzeti;
-  uyeMap: UyeMap;
+  kisiMap: KisiMap;
 }) {
   const Ikon = KATEGORI_IKON[aktivite.kategori];
   const adSoyad = aktivite.kullanici
@@ -263,7 +262,7 @@ function AktiviteSatiri({
     <div className="flex items-start gap-2">
       {aktivite.kullanici ? (
         <span className="ring-background relative z-[1] ring-2">
-          <UyeAvatar
+          <KisiAvatar
             ad={aktivite.kullanici.ad}
             soyad={aktivite.kullanici.soyad}
             className="size-[22px] text-[8px]"
@@ -294,7 +293,7 @@ function AktiviteSatiri({
             {": "}
             <span className="bg-muted text-foreground ml-0.5 rounded px-1.5 py-0.5 text-[11px] font-medium">
               {detayMentionlu ? (
-                <MentionliMetin metin={aktivite.detay} uyeMap={uyeMap} />
+                <MentionliMetin metin={aktivite.detay} kisiMap={kisiMap} />
               ) : (
                 aktivite.detay
               )}
@@ -353,15 +352,13 @@ function kategoriArkaplan(kategori: AktiviteOzeti["kategori"]): string {
       return "bg-blue-100 text-blue-700";
     case "etiket":
       return "bg-amber-100 text-amber-700";
-    case "uye":
+    case "yetkili":
       return "bg-purple-100 text-purple-700";
     case "kontrol-listesi":
     case "kontrol-maddesi":
       return "bg-emerald-100 text-emerald-700";
     case "eklenti":
       return "bg-slate-100 text-slate-700";
-    case "iliski":
-      return "bg-rose-100 text-rose-700";
     case "hedef-birim":
       return "bg-cyan-100 text-cyan-700";
     case "kart":
@@ -377,13 +374,11 @@ function kategoriYazi(kategori: AktiviteOzeti["kategori"]): string {
       return "text-blue-600";
     case "etiket":
       return "text-amber-600";
-    case "uye":
+    case "yetkili":
       return "text-purple-600";
     case "kontrol-listesi":
     case "kontrol-maddesi":
       return "text-emerald-600";
-    case "iliski":
-      return "text-rose-600";
     case "hedef-birim":
       return "text-cyan-600";
     default:

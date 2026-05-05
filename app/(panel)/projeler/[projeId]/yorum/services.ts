@@ -199,13 +199,13 @@ export async function yorumSil(
   const y = await yorumuBul(birimId, yorumId);
   if (y.yazan_id !== silenId) {
     // Silen ADMIN mi kontrol et
-    const uye = await db.projeUyesi.findUnique({
+    const yetkili = await db.projeYetkilisi.findUnique({
       where: {
         proje_id_kullanici_id: { proje_id: y.proje_id, kullanici_id: silenId },
       },
       select: { seviye: true },
     });
-    if (uye?.seviye !== "ADMIN") {
+    if (yetkili?.seviye !== "ADMIN") {
       throw new EylemHatasi(
         "Bu yorumu sadece yazan veya proje admin silebilir.",
         HATA_KODU.YETKISIZ,

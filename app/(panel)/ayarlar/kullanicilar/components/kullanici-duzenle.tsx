@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
@@ -27,12 +27,15 @@ import {
 } from "@/components/ui/select";
 import { toast } from "@/lib/toast";
 import { BIRIM_TIP_LABEL, birimGorunenAd } from "@/lib/constants/birim";
+import { makamRoluMu } from "@/lib/roller";
 import { birimSecenekleriniGetir } from "../../birimler/actions";
 import { kullaniciGuncelleEylem, rolListele } from "../actions";
 import {
   kullaniciGuncelleSemasi,
   type KullaniciGuncelle,
 } from "../schemas";
+
+const BIRIMSIZ_MAKAM = "__birimsiz_makam__";
 
 type Rol = { id: string; kod: string; ad: string };
 type Kayit = {
@@ -63,7 +66,7 @@ export function KullaniciDuzenleSheet({ kayit, kapat, basaridaTetikle }: Props) 
       soyad: "",
       unvan: "",
       telefon: "",
-      birim_id: "",
+      birim_id: null,
       aktif: true,
       rol_idleri: [],
     },
@@ -77,7 +80,7 @@ export function KullaniciDuzenleSheet({ kayit, kapat, basaridaTetikle }: Props) 
         soyad: kayit.soyad,
         unvan: kayit.unvan ?? "",
         telefon: kayit.telefon ?? "",
-        birim_id: kayit.birim_id ?? "",
+        birim_id: kayit.birim_id,
         aktif: kayit.aktif,
         rol_idleri: kayit.roller.map((r) => r.id),
       });
@@ -131,12 +134,24 @@ export function KullaniciDuzenleSheet({ kayit, kapat, basaridaTetikle }: Props) 
     }
   });
 
-  const birimDeger = form.watch("birim_id");
-  const aktifDeger = form.watch("aktif");
-  const rolDeger = form.watch("rol_idleri");
+  const birimDeger = useWatch({ control: form.control, name: "birim_id" });
+  const aktifDeger = useWatch({ control: form.control, name: "aktif" });
+  const rolDeger = useWatch({ control: form.control, name: "rol_idleri" });
+  const roller = rolSorgu.data ?? [];
+  const makamRolIdleri = new Set(
+    roller.filter((rol) => makamRoluMu(rol.kod)).map((rol) => rol.id),
+  );
+  const makamRolSecili = rolDeger.some((id) => makamRolIdleri.has(id));
 
   const rolSec = (id: string, deger: boolean) => {
-    const mevcut = new Set(rolDeger);
+    const rol = roller.find((r) => r.id === id);
+    if (deger && rol && makamRoluMu(rol.kod)) {
+      form.setValue("rol_idleri", [id]);
+      form.setValue("birim_id", null);
+      return;
+    }
+
+    const mevcut = new Set(rolDeger.filter((rid) => !makamRolIdleri.has(rid)));
     if (deger) mevcut.add(id);
     else mevcut.delete(id);
     form.setValue("rol_idleri", Array.from(mevcut));
@@ -191,13 +206,19 @@ export function KullaniciDuzenleSheet({ kayit, kapat, basaridaTetikle }: Props) 
           <div className="flex flex-col gap-2">
             <Label htmlFor="birim_secici">Birim</Label>
             <Select
-              value={birimDeger}
-              onValueChange={(v) => form.setValue("birim_id", v ?? "")}
+              value={birimDeger ?? BIRIMSIZ_MAKAM}
+              onValueChange={(v) =>
+                form.setValue("birim_id", v === BIRIMSIZ_MAKAM ? null : v)
+              }
+              disabled={makamRolSecili}
             >
               <SelectTrigger id="birim_secici">
                 <SelectValue>
                   {(v) => {
                     if (!v) return "Birim seçin";
+                    if (!v || v === BIRIMSIZ_MAKAM) {
+                      return makamRolSecili ? "Birimsiz makam" : "Birim seçin";
+                    }
                     const k = (birimSorgu.data ?? []).find((x) => x.id === v);
                     return k
                       ? birimGorunenAd({ ad: k.ad, tip: k.tip })
@@ -206,6 +227,9 @@ export function KullaniciDuzenleSheet({ kayit, kapat, basaridaTetikle }: Props) 
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value={BIRIMSIZ_MAKAM} disabled={!makamRolSecili}>
+                  Birimsiz makam
+                </SelectItem>
                 {(birimSorgu.data ?? []).map((k) => (
                   <SelectItem key={k.id} value={k.id}>
                     {birimGorunenAd({ ad: k.ad, tip: k.tip })}

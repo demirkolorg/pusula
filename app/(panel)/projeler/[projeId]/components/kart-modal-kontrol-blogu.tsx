@@ -5,16 +5,19 @@ import { CheckIcon, PlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useKartKontrolListeleri } from "../kontrol-listesi/hooks";
-import { KontrolListesiPaneli } from "../kontrol-listesi/components/kontrol-listesi-paneli";
+import {
+  KontrolListesiPaneli,
+  type MaddeYetkileri,
+} from "../kontrol-listesi/components/kontrol-listesi-paneli";
 import { KartModalSectionBaslik } from "./kart-modal-section-baslik";
 
-type Props = { kartId: string };
+type Props = { kartId: string; yetkiler?: MaddeYetkileri };
 
 // Sancak'taki "Kontrol Listesi" bloğu — section header'da sağda 80px progress
 // bar + tamamlanan/toplam sayısı (accent-text). Bizdeki KontrolListesiPaneli
 // kendi içinde liste başına progress gösteriyor; bu blok onların toplamını
 // section header'da tek satırda özetler. "Liste ekle" butonu da aynı satırda.
-export function KartModalKontrolBlogu({ kartId }: Props) {
+export function KartModalKontrolBlogu({ kartId, yetkiler }: Props) {
   const sorgu = useKartKontrolListeleri(kartId);
   const [yeniAcik, setYeniAcik] = React.useState(false);
   const ozet = React.useMemo(() => {
@@ -73,6 +76,7 @@ export function KartModalKontrolBlogu({ kartId }: Props) {
         kartId={kartId}
         yeniAcik={yeniAcik}
         setYeniAcik={setYeniAcik}
+        yetkiler={yetkiler}
       />
     </div>
   );

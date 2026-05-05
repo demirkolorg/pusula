@@ -18,7 +18,7 @@ function kart(id: string): ListeKartOzeti {
     bitis: null,
     arsiv_mi: false,
     silindi_mi: false,
-    uye_sayisi: 0,
+    yetkili_sayisi: 0,
     etiket_sayisi: 0,
   };
 }

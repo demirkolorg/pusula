@@ -206,7 +206,7 @@ export async function eklentiSil(
       select: { liste: { select: { proje_id: true } } },
     });
     if (proje) {
-      const uye = await db.projeUyesi.findUnique({
+      const yetkili = await db.projeYetkilisi.findUnique({
         where: {
           proje_id_kullanici_id: {
             proje_id: proje.liste.proje_id,
@@ -215,7 +215,7 @@ export async function eklentiSil(
         },
         select: { seviye: true },
       });
-      if (uye?.seviye !== "ADMIN") {
+      if (yetkili?.seviye !== "ADMIN") {
         throw new EylemHatasi(
           "Bu eklentiyi sadece yükleyen veya proje admin silebilir.",
           HATA_KODU.YETKISIZ,

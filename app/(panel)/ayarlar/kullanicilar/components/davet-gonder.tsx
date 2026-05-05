@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Loader2, Mail } from "lucide-react";
@@ -25,11 +25,13 @@ import {
 } from "@/components/ui/select";
 import { toast } from "@/lib/toast";
 import { BIRIM_TIP_LABEL, birimGorunenAd } from "@/lib/constants/birim";
+import { makamRoluMu } from "@/lib/roller";
 import { birimSecenekleriniGetir } from "../../birimler/actions";
 import { davetGonderEylem, rolListele } from "../actions";
 import { davetGonderSemasi, type DavetGonder } from "../schemas";
 
 const HIC = "__yok__";
+const BIRIMSIZ_MAKAM = "__birimsiz_makam__";
 
 type Props = {
   acik: boolean;
@@ -40,11 +42,11 @@ type Props = {
 export function DavetGonderSheet({ acik, kapat, basaridaTetikle }: Props) {
   const form = useForm<DavetGonder>({
     resolver: zodResolver(davetGonderSemasi),
-    defaultValues: { email: "", rol_id: null, birim_id: "" },
+    defaultValues: { email: "", rol_id: null, birim_id: null },
   });
 
   React.useEffect(() => {
-    if (acik) form.reset({ email: "", rol_id: null, birim_id: "" });
+    if (acik) form.reset({ email: "", rol_id: null, birim_id: null });
   }, [acik, form]);
 
   const rolSorgu = useQuery({
@@ -94,8 +96,10 @@ export function DavetGonderSheet({ acik, kapat, basaridaTetikle }: Props) {
     }
   });
 
-  const rolDeger = form.watch("rol_id");
-  const birimDeger = form.watch("birim_id");
+  const rolDeger = useWatch({ control: form.control, name: "rol_id" });
+  const birimDeger = useWatch({ control: form.control, name: "birim_id" });
+  const seciliRol = (rolSorgu.data ?? []).find((rol) => rol.id === rolDeger);
+  const makamRolSecili = seciliRol ? makamRoluMu(seciliRol.kod) : false;
 
   return (
     <ResponsiveDialog open={acik} onOpenChange={(o) => (o ? null : kapat())}>
@@ -136,13 +140,19 @@ export function DavetGonderSheet({ acik, kapat, basaridaTetikle }: Props) {
           <div className="flex flex-col gap-2">
             <Label htmlFor="davet_birim">Atanacak Birim</Label>
             <Select
-              value={birimDeger || ""}
-              onValueChange={(v) => form.setValue("birim_id", v ?? "")}
+              value={birimDeger ?? BIRIMSIZ_MAKAM}
+              onValueChange={(v) =>
+                form.setValue("birim_id", v === BIRIMSIZ_MAKAM ? null : v)
+              }
+              disabled={makamRolSecili}
             >
               <SelectTrigger id="davet_birim">
                 <SelectValue>
                   {(v) => {
                     if (!v) return "Birim seçin";
+                    if (!v || v === BIRIMSIZ_MAKAM) {
+                      return makamRolSecili ? "Birimsiz makam" : "Birim seçin";
+                    }
                     const k = (birimSorgu.data ?? []).find((x) => x.id === v);
                     return k
                       ? birimGorunenAd({ ad: k.ad, tip: k.tip })
@@ -151,6 +161,9 @@ export function DavetGonderSheet({ acik, kapat, basaridaTetikle }: Props) {
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value={BIRIMSIZ_MAKAM} disabled={!makamRolSecili}>
+                  Birimsiz makam
+                </SelectItem>
                 {(birimSorgu.data ?? []).map((k) => (
                   <SelectItem key={k.id} value={k.id}>
                     {birimGorunenAd({ ad: k.ad, tip: k.tip })}
@@ -174,9 +187,16 @@ export function DavetGonderSheet({ acik, kapat, basaridaTetikle }: Props) {
             <Label>Atanacak Rol (opsiyonel)</Label>
             <Select
               value={rolDeger ?? HIC}
-              onValueChange={(v) =>
-                form.setValue("rol_id", v === HIC ? null : v)
-              }
+              onValueChange={(v) => {
+                const yeniRolId = v === HIC ? null : v;
+                form.setValue("rol_id", yeniRolId);
+                const yeniRol = (rolSorgu.data ?? []).find(
+                  (rol) => rol.id === yeniRolId,
+                );
+                if (yeniRol && makamRoluMu(yeniRol.kod)) {
+                  form.setValue("birim_id", null);
+                }
+              }}
             >
               <SelectTrigger>
                 <SelectValue>

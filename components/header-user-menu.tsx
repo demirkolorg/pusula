@@ -7,6 +7,7 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -29,6 +30,7 @@ type HeaderUserMenuProps = {
   user: {
     name: string;
     email: string;
+    roller: string[];
     avatar?: string;
   };
 };
@@ -62,11 +64,16 @@ export function HeaderUserMenu({ user }: HeaderUserMenuProps) {
           <AvatarImage src={user.avatar ?? ""} alt={user.name} />
           <AvatarFallback>{bashar || "PU"}</AvatarFallback>
         </Avatar>
-        <div className="hidden min-w-0 flex-col items-start text-left leading-tight sm:flex">
+        <div className="hidden min-w-0 flex-col items-start gap-0.5 text-left leading-tight sm:flex">
           <span className="truncate text-sm font-medium">{user.name}</span>
           <span className="text-muted-foreground truncate text-xs">
             {user.email}
           </span>
+          {user.roller.length > 0 && (
+            <span className="text-muted-foreground truncate text-[10px]">
+              {user.roller.join(", ")}
+            </span>
+          )}
         </div>
       </DropdownMenuTrigger>
       <DropdownMenuContent
@@ -82,9 +89,28 @@ export function HeaderUserMenu({ user }: HeaderUserMenuProps) {
                 <AvatarImage src={user.avatar ?? ""} alt={user.name} />
                 <AvatarFallback>{bashar || "PU"}</AvatarFallback>
               </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight">
+              <div className="grid flex-1 gap-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{user.name}</span>
-                <span className="truncate text-xs">{user.email}</span>
+                <span className="text-muted-foreground truncate text-xs">
+                  {user.email}
+                </span>
+                <div className="flex flex-wrap gap-1">
+                  {user.roller.length === 0 ? (
+                    <Badge variant="outline" className="text-[10px]">
+                      Rolsüz
+                    </Badge>
+                  ) : (
+                    user.roller.map((rolAdi) => (
+                      <Badge
+                        key={rolAdi}
+                        variant="secondary"
+                        className="text-[10px]"
+                      >
+                        {rolAdi}
+                      </Badge>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
           </DropdownMenuLabel>

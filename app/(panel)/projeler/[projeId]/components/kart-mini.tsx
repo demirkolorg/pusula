@@ -11,12 +11,26 @@ import { CalendarIcon, TagIcon, UsersIcon } from "lucide-react";
 import { tempIdMi } from "@/lib/temp-id";
 import { cn } from "@/lib/utils";
 import { kapakArkaplanSinifi } from "@/lib/kapak-renk";
-import type { ListeKartOzeti } from "../services";
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import type { ListeKartOzeti, ListeOzeti } from "../services";
+import {
+  KartBaglamMenusu,
+  type KartBaglamYetkileri,
+} from "./kart-baglam-menusu";
 
 type Props = {
   kart: ListeKartOzeti;
   listeId: string;
-  yetkili: boolean;
+  // Drag yetkisi — sortable disabled için. Granüler kart yetkileri ayrı.
+  surukleyebilir: boolean;
+  // Sağ tık menüsü için granüler yetkiler (Kural 138).
+  baglamYetkileri: KartBaglamYetkileri;
+  // Liste taşı submenu'sü için proje listeleri.
+  listeler: ReadonlyArray<ListeOzeti>;
+  projeId: string;
   onAc: () => void;
 };
 
@@ -25,10 +39,19 @@ function tarihEtiketi(d: Date | null): string | null {
   return new Intl.DateTimeFormat("tr-TR", {
     day: "2-digit",
     month: "short",
+    timeZone: "Europe/Istanbul",
   }).format(d instanceof Date ? d : new Date(d));
 }
 
-export function KartMini({ kart, listeId, yetkili, onAc }: Props) {
+export function KartMini({
+  kart,
+  listeId,
+  surukleyebilir,
+  baglamYetkileri,
+  listeler,
+  projeId,
+  onAc,
+}: Props) {
   const taslak = tempIdMi(kart.id);
   // KRİTİK: data objesi her render'da yeni referans olursa dnd-kit diff
   // tetikleyip state güncelliyor → re-render → infinite loop. useMemo ile sabitle.
@@ -39,7 +62,7 @@ export function KartMini({ kart, listeId, yetkili, onAc }: Props) {
   const sortable = useSortable({
     id: kart.id,
     data: sortableData,
-    disabled: taslak || !yetkili,
+    disabled: taslak || !surukleyebilir,
   });
   const { active } = useDndContext();
 
@@ -56,7 +79,11 @@ export function KartMini({ kart, listeId, yetkili, onAc }: Props) {
 
   // TEK root + conditional içerik. İki farklı return ile setNodeRef'i farklı
   // DOM düğümlerine bağlamak dnd-kit'i sonsuz state değişikliği döngüsüne sokar.
-  return (
+  // ContextMenuTrigger (Base UI): sağ tık + mobile long-press'i yakalar; iç div
+  // dnd-kit ref'ini taşır. Taslak (henüz server'dan dönmemiş) kartlarda menü
+  // disable.
+  const baglamAcik = !ruyaModu && !taslak;
+  const kart_render = (
     <div
       ref={sortable.setNodeRef}
       style={stil}
@@ -77,7 +104,7 @@ export function KartMini({ kart, listeId, yetkili, onAc }: Props) {
         // Normal kart
         !ruyaModu &&
           "bg-card hover:border-foreground/30 group flex flex-col gap-1 rounded-md border p-2 text-sm shadow-sm",
-        !ruyaModu && yetkili && !taslak && "cursor-grab active:cursor-grabbing",
+        !ruyaModu && surukleyebilir && !taslak && "cursor-grab active:cursor-grabbing",
       )}
       role={ruyaModu ? undefined : "button"}
       tabIndex={ruyaModu ? -1 : 0}
@@ -120,7 +147,7 @@ export function KartMini({ kart, listeId, yetkili, onAc }: Props) {
           <span className="line-clamp-3 font-medium leading-snug">
             {kart.baslik}
           </span>
-          {(tarih || kart.uye_sayisi > 0 || kart.etiket_sayisi > 0) && (
+          {(tarih || kart.yetkili_sayisi > 0 || kart.etiket_sayisi > 0) && (
             <div className="text-muted-foreground mt-1 flex items-center gap-2 text-xs">
               {tarih && (
                 <span className="inline-flex items-center gap-1">
@@ -134,10 +161,10 @@ export function KartMini({ kart, listeId, yetkili, onAc }: Props) {
                   {kart.etiket_sayisi}
                 </span>
               )}
-              {kart.uye_sayisi > 0 && (
+              {kart.yetkili_sayisi > 0 && (
                 <span className="inline-flex items-center gap-1">
                   <UsersIcon className="size-3" />
-                  {kart.uye_sayisi}
+                  {kart.yetkili_sayisi}
                 </span>
               )}
             </div>
@@ -148,5 +175,27 @@ export function KartMini({ kart, listeId, yetkili, onAc }: Props) {
         </>
       )}
     </div>
+  );
+
+  if (!baglamAcik) {
+    return kart_render;
+  }
+
+  // Trigger ekstra bir <div> wrapper render eder; sortable ref/listener'lar
+  // iç div'de kalır, çakışma yok. Wrapper layout'u contents ile şeffaf yap —
+  // grid/flex bağlamında kart ölçüsü değişmesin.
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger className="contents">
+        {kart_render}
+      </ContextMenuTrigger>
+      <KartBaglamMenusu
+        kart={kart}
+        listeId={listeId}
+        projeId={projeId}
+        listeler={listeler}
+        yetkiler={baglamYetkileri}
+      />
+    </ContextMenu>
   );
 }

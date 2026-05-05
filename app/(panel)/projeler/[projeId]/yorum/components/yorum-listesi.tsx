@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { tempIdMi } from "@/lib/temp-id";
 import { useOturumKullanicisi } from "@/hooks/use-oturum";
-import { UyeAvatar } from "../../uye/components/uye-avatar";
+import { KisiAvatar } from "../../yetkili/components/kisi-avatar";
 import {
   tempId,
   useKartYorumlari,
@@ -49,7 +49,7 @@ export function YorumListesi({ kartId }: Props) {
       {/* Composer */}
       {oturum ? (
         <form onSubmit={gonder} className="flex gap-2">
-          <UyeAvatar ad={oturum.ad} soyad={oturum.soyad} />
+          <KisiAvatar ad={oturum.ad} soyad={oturum.soyad} />
           <div className="flex flex-1 flex-col gap-2">
             <Textarea
               rows={2}
@@ -133,7 +133,7 @@ function YorumSatiri({
 
   return (
     <div className="flex gap-2">
-      <UyeAvatar ad={yorum.yazan.ad} soyad={yorum.yazan.soyad} />
+      <KisiAvatar ad={yorum.yazan.ad} soyad={yorum.yazan.soyad} />
       <div className="flex-1">
         <div className="flex items-baseline gap-2">
           <span className="text-sm font-medium">
@@ -209,6 +209,7 @@ const TARIH_BICIM = new Intl.DateTimeFormat("tr-TR", {
   month: "short",
   hour: "2-digit",
   minute: "2-digit",
+  timeZone: "Europe/Istanbul",
 });
 
 function tarihEtiketi(d: Date | string): string {

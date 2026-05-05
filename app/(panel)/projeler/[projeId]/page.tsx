@@ -30,23 +30,27 @@ export default async function ProjeDetaySayfasi({ params }: SayfaProps) {
     listeSil,
     kartOlustur,
     kartTasi,
-    projeUyeYonetIzni,
-    projeUyeYonetKaynak,
+    kartDuzenle,
+    kartSil,
+    projeYetkiliYonetIzni,
+    projeYetkiliYonetKaynak,
   ] = await Promise.all([
     izinVarMi(kullanici.id, IZIN_KODLARI.LISTE_OLUSTUR),
     izinVarMi(kullanici.id, IZIN_KODLARI.LISTE_DUZENLE),
     izinVarMi(kullanici.id, IZIN_KODLARI.LISTE_SIL),
     izinVarMi(kullanici.id, IZIN_KODLARI.KART_OLUSTUR),
     izinVarMi(kullanici.id, IZIN_KODLARI.KART_TASI),
-    izinVarMi(kullanici.id, IZIN_KODLARI.PROJE_UYE_YONET),
-    canProje(kullanici.id, "proje:uye-yonet", projeId),
+    izinVarMi(kullanici.id, IZIN_KODLARI.KART_DUZENLE),
+    izinVarMi(kullanici.id, IZIN_KODLARI.KART_SIL),
+    izinVarMi(kullanici.id, IZIN_KODLARI.PROJE_YETKILI_YONET),
+    canProje(kullanici.id, "proje:authorize", projeId),
   ]);
 
   return (
     <div className="flex h-full flex-col gap-4">
       <ProjeBaslik
         proje={detay}
-        paylasimYonet={projeUyeYonetIzni && projeUyeYonetKaynak}
+        yetkiliYonet={projeYetkiliYonetIzni && projeYetkiliYonetKaynak}
       />
       <div className="flex-1 overflow-hidden">
         <KanbanPano
@@ -58,6 +62,9 @@ export default async function ProjeDetaySayfasi({ params }: SayfaProps) {
             listeSil,
             kartOlustur,
             kartTasi,
+            kartDuzenle,
+            kartSil,
+            yetkiliYonet: projeYetkiliYonetIzni && projeYetkiliYonetKaynak,
           }}
         />
       </div>

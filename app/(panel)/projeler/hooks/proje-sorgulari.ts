@@ -55,7 +55,7 @@ export function useProjeOlustur(anahtar: ListeAnahtari) {
         arsiv_mi: false,
         silindi_mi: false,
         sira: "zzz",
-        uye_sayisi: 1,
+        yetkili_sayisi: 1,
         liste_sayisi: 0,
         olusturma_zamani: new Date(),
       };

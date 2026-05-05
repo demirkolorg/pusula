@@ -74,7 +74,7 @@ describe("etiketleriListele", () => {
     expect(liste[1]!.renk).toBe("#3b82f6");
   });
 
-  // Eski birim izolasyonu testi paylaşım modeliyle kapsam dışı kaldı.
+  // Eski birim izolasyonu testi yetkilendirme modeliyle kapsam dışı kaldı.
 });
 
 describe("etiketOlustur", () => {
@@ -129,7 +129,7 @@ describe("etiketGuncelle", () => {
     expect(liste[0]).toMatchObject({ ad: "Y", renk: "#ef4444" });
   });
 
-  // Eski birim izolasyonu testi paylaşım modeliyle kapsam dışı kaldı.
+  // Eski birim izolasyonu testi yetkilendirme modeliyle kapsam dışı kaldı.
 });
 
 describe("etiketSil", () => {

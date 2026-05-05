@@ -1,7 +1,8 @@
 // Resource-level RBAC.
 //
-// Kaynak gorunurlugu birim paylasimi ve dogrudan uye atamasi uzerinden
-// kurulur. Makam rolleri tum kaynaklari gorur.
+// Sistem rolleri genel izinleri verir; kaynak yetkilileri ise hangi proje,
+// liste ve karta erisilecegini belirler. Yetki asagi miras kalir, yukari
+// sadece navigasyon kabugu acilir.
 
 import { db } from "./db";
 import { EylemHatasi } from "./action-wrapper";
@@ -12,7 +13,7 @@ export type ProjeAksiyon =
   | "proje:read"
   | "proje:edit"
   | "proje:delete"
-  | "proje:uye-yonet";
+  | "proje:authorize";
 
 export type ListeAksiyon = "liste:read" | "liste:create" | "liste:edit" | "liste:delete";
 
@@ -23,7 +24,7 @@ const SEVIYE_IZINLERI: Record<
   Set<ProjeAksiyon | ListeAksiyon | KartAksiyon>
 > = {
   ADMIN: new Set([
-    "proje:read", "proje:edit", "proje:delete", "proje:uye-yonet",
+    "proje:read", "proje:edit", "proje:delete", "proje:authorize",
     "liste:read", "liste:create", "liste:edit", "liste:delete",
     "kart:read", "kart:create", "kart:edit", "kart:delete", "kart:tasi",
   ]),
@@ -70,7 +71,7 @@ export async function canProje(
     where: { id: projeId },
     select: {
       silindi_mi: true,
-      uyeler: {
+      yetkililer: {
         where: { kullanici_id: kullaniciId },
         select: { seviye: true },
       },
@@ -82,11 +83,11 @@ export async function canProje(
       listeler: {
         where: {
           OR: [
-            { uyeler: { some: { kullanici_id: kullaniciId } } },
+            { yetkililer: { some: { kullanici_id: kullaniciId } } },
             { birimler: { some: birimWhere } },
             {
               kartlar: {
-                some: { uyeler: { some: { kullanici_id: kullaniciId } } },
+                some: { yetkililer: { some: { kullanici_id: kullaniciId } } },
               },
             },
             {
@@ -106,8 +107,8 @@ export async function canProje(
   if (proje.silindi_mi && aksiyon !== "proje:read") return false;
   if (erisim.makam) return true;
 
-  const uye = proje.uyeler[0];
-  if (uye && SEVIYE_IZINLERI[uye.seviye].has(aksiyon)) return true;
+  const yetkili = proje.yetkililer[0];
+  if (yetkili && SEVIYE_IZINLERI[yetkili.seviye].has(aksiyon)) return true;
 
   return (
     aksiyon === "proje:read" &&
@@ -128,7 +129,21 @@ export async function canListe(
     where: { id: listeId },
     select: {
       proje_id: true,
-      uyeler: {
+      proje: {
+        select: {
+          yetkililer: {
+            where: { kullanici_id: kullaniciId },
+            select: { seviye: true },
+            take: 1,
+          },
+          birimler: {
+            where: birimWhere,
+            select: { birim_id: true },
+            take: 1,
+          },
+        },
+      },
+      yetkililer: {
         where: { kullanici_id: kullaniciId },
         select: { kullanici_id: true },
         take: 1,
@@ -141,7 +156,7 @@ export async function canListe(
       kartlar: {
         where: {
           OR: [
-            { uyeler: { some: { kullanici_id: kullaniciId } } },
+            { yetkililer: { some: { kullanici_id: kullaniciId } } },
             { birimler: { some: birimWhere } },
           ],
         },
@@ -154,14 +169,27 @@ export async function canListe(
   if (!liste) return false;
   if (erisim.makam) return true;
 
+  const projeYetkili = liste.proje.yetkililer[0];
+  const projeYetkisiVar =
+    !!projeYetkili && SEVIYE_IZINLERI[projeYetkili.seviye].has(aksiyon);
+  const projeBirimYetkili = liste.proje.birimler.length > 0;
+  const listeDogruYetkili =
+    liste.yetkililer.length > 0 || liste.birimler.length > 0;
+
   if (aksiyon === "liste:read") {
-    if (liste.uyeler.length > 0 || liste.birimler.length > 0) return true;
-    // Saf model: alt karta dogrudan atama varsa liste kabugu gorunur
-    if (liste.kartlar.length > 0) return true;
-    return false;
+    return (
+      !!projeYetkili ||
+      projeBirimYetkili ||
+      listeDogruYetkili ||
+      liste.kartlar.length > 0
+    );
   }
 
-  return canProje(kullaniciId, "proje:edit", liste.proje_id);
+  if (aksiyon === "liste:delete") {
+    return !!projeYetkili && SEVIYE_IZINLERI[projeYetkili.seviye].has(aksiyon);
+  }
+
+  return projeYetkisiVar || projeBirimYetkili || listeDogruYetkili;
 }
 
 export async function canKart(
@@ -178,7 +206,35 @@ export async function canKart(
     select: {
       silindi_mi: true,
       liste_id: true,
-      uyeler: {
+      liste: {
+        select: {
+          yetkililer: {
+            where: { kullanici_id: kullaniciId },
+            select: { kullanici_id: true },
+            take: 1,
+          },
+          birimler: {
+            where: birimWhere,
+            select: { birim_id: true },
+            take: 1,
+          },
+          proje: {
+            select: {
+              yetkililer: {
+                where: { kullanici_id: kullaniciId },
+                select: { seviye: true },
+                take: 1,
+              },
+              birimler: {
+                where: birimWhere,
+                select: { birim_id: true },
+                take: 1,
+              },
+            },
+          },
+        },
+      },
+      yetkililer: {
         where: { kullanici_id: kullaniciId },
         select: { kullanici_id: true },
         take: 1,
@@ -195,18 +251,34 @@ export async function canKart(
   if (kart.silindi_mi && aksiyon !== "kart:read") return false;
   if (erisim.makam) return true;
 
+  const projeYetkili = kart.liste.proje.yetkililer[0];
+  const projeYetkisiVar =
+    !!projeYetkili && SEVIYE_IZINLERI[projeYetkili.seviye].has(aksiyon);
+  const projeBirimYetkili = kart.liste.proje.birimler.length > 0;
+  const listeDogruYetkili =
+    kart.liste.yetkililer.length > 0 || kart.liste.birimler.length > 0;
+  const kartDogruYetkili =
+    kart.yetkililer.length > 0 || kart.birimler.length > 0;
+
   if (aksiyon === "kart:read") {
-    // Saf model: kart sadece dogrudan atananlara gorunur
-    if (kart.uyeler.length > 0 || kart.birimler.length > 0) return true;
-    return false;
+    return (
+      !!projeYetkili ||
+      projeBirimYetkili ||
+      listeDogruYetkili ||
+      kartDogruYetkili
+    );
   }
 
-  const liste = await db.liste.findUnique({
-    where: { id: kart.liste_id },
-    select: { proje_id: true },
-  });
-  if (!liste) return false;
-  return canProje(kullaniciId, "proje:edit", liste.proje_id);
+  if (aksiyon === "kart:delete") {
+    return !!projeYetkili && SEVIYE_IZINLERI[projeYetkili.seviye].has(aksiyon);
+  }
+
+  return (
+    projeYetkisiVar ||
+    projeBirimYetkili ||
+    listeDogruYetkili ||
+    kartDogruYetkili
+  );
 }
 
 export async function yetkiZorunluProje(

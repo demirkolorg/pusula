@@ -1,13 +1,20 @@
 "use client"
 
+import * as React from "react"
 import { useTheme } from "next-themes"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
 import { useMobil } from "@/hooks/use-breakpoint"
 
 const Toaster = ({ position, ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
+  const { theme = "light" } = useTheme()
+  const [mounted, setMounted] = React.useState(false)
   const mobil = useMobil()
+
+  React.useEffect(() => {
+    const timer = window.setTimeout(() => setMounted(true), 0)
+    return () => window.clearTimeout(timer)
+  }, [])
 
   // Plan 1.5/E: mobil = top-center, desktop = top-right
   const calculatedPosition: ToasterProps["position"] =
@@ -15,7 +22,7 @@ const Toaster = ({ position, ...props }: ToasterProps) => {
 
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
+      theme={(mounted ? theme : "light") as ToasterProps["theme"]}
       position={calculatedPosition}
       className="toaster group"
       icons={{

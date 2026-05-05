@@ -100,6 +100,134 @@ describe("projeDetayiniGetir", () => {
     expect(detay.listeler[2]!.kartlar).toEqual([]);
   });
 
+  it("proje yetkilisi tüm liste ve kartları mirasla görür", async () => {
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+    const listeler = await listeleriSeedle(adminDb, {
+      projeId: proje.id,
+      tipler: [{ ad: "L1" }, { ad: "L2" }],
+    });
+    await kartlariSeedle(adminDb, {
+      listeId: listeler[0]!.id,
+      tipler: [{ baslik: "L1-K1" }],
+    });
+    await kartlariSeedle(adminDb, {
+      listeId: listeler[1]!.id,
+      tipler: [{ baslik: "L2-K1" }],
+    });
+    await adminDb.projeYetkilisi.create({
+      data: {
+        proje_id: proje.id,
+        kullanici_id: ortam.digerKullanici.id,
+        seviye: "NORMAL",
+      },
+    });
+
+    const detay = await projeDetayiniGetir(ortam.digerKullanici.id, proje.id);
+
+    expect(detay.listeler.map((l) => l.ad)).toEqual(["L1", "L2"]);
+    expect(detay.listeler.flatMap((l) => l.kartlar.map((k) => k.baslik))).toEqual([
+      "L1-K1",
+      "L2-K1",
+    ]);
+  });
+
+  it("liste yetkilisi sadece o listeyi ve altındaki kartları görür", async () => {
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+    const listeler = await listeleriSeedle(adminDb, {
+      projeId: proje.id,
+      tipler: [{ ad: "L1" }, { ad: "L2" }],
+    });
+    await kartlariSeedle(adminDb, {
+      listeId: listeler[0]!.id,
+      tipler: [{ baslik: "L1-K1" }, { baslik: "L1-K2" }],
+    });
+    await kartlariSeedle(adminDb, {
+      listeId: listeler[1]!.id,
+      tipler: [{ baslik: "L2-K1" }],
+    });
+    await adminDb.listeYetkilisi.create({
+      data: {
+        liste_id: listeler[0]!.id,
+        kullanici_id: ortam.digerKullanici.id,
+      },
+    });
+
+    const detay = await projeDetayiniGetir(ortam.digerKullanici.id, proje.id);
+
+    expect(detay.listeler.map((l) => l.ad)).toEqual(["L1"]);
+    expect(detay.listeler[0]!.kartlar.map((k) => k.baslik)).toEqual([
+      "L1-K1",
+      "L1-K2",
+    ]);
+  });
+
+  it("kart yetkilisi sadece kartın bulunduğu listeyi ve o kartı görür", async () => {
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+    const listeler = await listeleriSeedle(adminDb, {
+      projeId: proje.id,
+      tipler: [{ ad: "L1" }, { ad: "L2" }],
+    });
+    const l1Kartlar = await kartlariSeedle(adminDb, {
+      listeId: listeler[0]!.id,
+      tipler: [{ baslik: "L1-K1" }, { baslik: "L1-K2" }],
+    });
+    await kartlariSeedle(adminDb, {
+      listeId: listeler[1]!.id,
+      tipler: [{ baslik: "L2-K1" }],
+    });
+    await adminDb.kartYetkilisi.create({
+      data: {
+        kart_id: l1Kartlar[1]!.id,
+        kullanici_id: ortam.digerKullanici.id,
+      },
+    });
+
+    const detay = await projeDetayiniGetir(ortam.digerKullanici.id, proje.id);
+
+    expect(detay.listeler.map((l) => l.ad)).toEqual(["L1"]);
+    expect(detay.listeler[0]!.kartlar.map((k) => k.baslik)).toEqual(["L1-K2"]);
+  });
+
+  it("liste birimi o listenin tüm kartlarını mirasla görür", async () => {
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+    const listeler = await listeleriSeedle(adminDb, {
+      projeId: proje.id,
+      tipler: [{ ad: "L1" }, { ad: "L2" }],
+    });
+    await kartlariSeedle(adminDb, {
+      listeId: listeler[1]!.id,
+      tipler: [{ baslik: "L2-K1" }, { baslik: "L2-K2" }],
+    });
+    await adminDb.listeBirimi.create({
+      data: { liste_id: listeler[1]!.id, birim_id: ortam.digerBirim.id },
+    });
+
+    const detay = await projeDetayiniGetir(ortam.digerKullanici.id, proje.id);
+
+    expect(detay.listeler.map((l) => l.ad)).toEqual(["L2"]);
+    expect(detay.listeler[0]!.kartlar.map((k) => k.baslik)).toEqual([
+      "L2-K1",
+      "L2-K2",
+    ]);
+  });
+
+  it("kart birimi sadece kartın bulunduğu listeyi ve o kartı görür", async () => {
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+    const liste = await listeOlusturFiks(adminDb, { projeId: proje.id, ad: "L1" });
+    const kartlar = await kartlariSeedle(adminDb, {
+      listeId: liste.id,
+      tipler: [{ baslik: "K1" }, { baslik: "K2" }],
+    });
+    await adminDb.kartBirimi.create({
+      data: { kart_id: kartlar[0]!.id, birim_id: ortam.digerBirim.id },
+    });
+
+    const detay = await projeDetayiniGetir(ortam.digerKullanici.id, proje.id);
+
+    expect(detay.listeler.map((l) => l.ad)).toEqual(["L1"]);
+    expect(detay.listeler[0]!.kartlar.map((k) => k.baslik)).toEqual(["K1"]);
+  });
+
   it("arsivlenmis listeler dahil edilmez", async () => {
     const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
     await listeleriSeedle(adminDb, {
@@ -127,7 +255,7 @@ describe("projeDetayiniGetir", () => {
     expect(detay.listeler[0]!.kartlar.map((k) => k.baslik)).toEqual(["Aktif"]);
   });
 
-  // Eski birim izolasyonu testi paylaşım modeliyle kapsam dışı kaldı.
+  // Eski birim izolasyonu testi yetkilendirme modeliyle kapsam dışı kaldı.
 
   it("silinmis proje BULUNAMADI hatasi verir", async () => {
     const p = await projeOlusturFiks(adminDb, {
@@ -178,7 +306,7 @@ describe("listeOlustur", () => {
     expect(yeni.sira).toBe(SIRA_BAS);
   });
 
-  // Eski birim izolasyonu testi paylaşım modeliyle kapsam dışı kaldı.
+  // Eski birim izolasyonu testi yetkilendirme modeliyle kapsam dışı kaldı.
 });
 
 // ============================================================
@@ -220,7 +348,7 @@ describe("listeGuncelle", () => {
     expect(sonra?.wip_limit).toBeNull();
   });
 
-  // Eski birim izolasyonu testi paylaşım modeliyle kapsam dışı kaldı.
+  // Eski birim izolasyonu testi yetkilendirme modeliyle kapsam dışı kaldı.
 });
 
 // ============================================================
@@ -246,7 +374,7 @@ describe("listeSil", () => {
     expect(kartSayisi).toBe(0);
   });
 
-  // Eski birim izolasyonu testi paylaşım modeliyle kapsam dışı kaldı.
+  // Eski birim izolasyonu testi yetkilendirme modeliyle kapsam dışı kaldı.
 });
 
 // ============================================================
@@ -370,7 +498,7 @@ describe("kartOlustur", () => {
     expect(yeni.baslik).toBe("K3");
     expect(yeni.sira > enBuyukSira).toBe(true);
     expect(yeni.liste_id).toBe(liste.id);
-    expect(yeni.uye_sayisi).toBe(1);
+    expect(yeni.yetkili_sayisi).toBe(1);
     expect(yeni.etiket_sayisi).toBe(0);
   });
 
@@ -399,7 +527,7 @@ describe("kartOlustur", () => {
     expect(ham?.olusturan_id).toBe(ortam.personel.id);
   });
 
-  // Eski birim izolasyonu testi paylaşım modeliyle kapsam dışı kaldı.
+  // Eski birim izolasyonu testi yetkilendirme modeliyle kapsam dışı kaldı.
 });
 
 // ============================================================
@@ -458,7 +586,7 @@ describe("kartGuncelle", () => {
     expect(sonra?.bitis).toBeNull();
   });
 
-  // Eski birim izolasyonu testi paylaşım modeliyle kapsam dışı kaldı.
+  // Eski birim izolasyonu testi yetkilendirme modeliyle kapsam dışı kaldı.
 });
 
 // ============================================================
@@ -778,5 +906,5 @@ describe("projedeTumKartlar", () => {
     expect(kartlar[0]!.liste_id).toBe(liste.id);
   });
 
-  // Eski birim izolasyonu testi paylaşım modeliyle kapsam dışı kaldı.
+  // Eski birim izolasyonu testi yetkilendirme modeliyle kapsam dışı kaldı.
 });

@@ -3,14 +3,14 @@ import { db } from "@/lib/db";
 import { EylemHatasi } from "@/lib/action-wrapper";
 import { HATA_KODU } from "@/lib/sonuc";
 
-export type BirimPaylasimOzeti = {
+export type BirimYetkiliOzeti = {
   birim_id: string;
   ad: string | null;
   tip: BirimTipi;
   eklenme_zamani: Date;
 };
 
-export type KisiPaylasimOzeti = {
+export type KisiYetkiliOzeti = {
   kullanici_id: string;
   ad: string;
   soyad: string;
@@ -19,7 +19,7 @@ export type KisiPaylasimOzeti = {
   eklenme_zamani: Date;
 };
 
-export type AdayKisiPaylasim = {
+export type AdayKisiYetkili = {
   id: string;
   ad: string;
   soyad: string;
@@ -48,6 +48,21 @@ async function listeyiDogrula(listeId: string): Promise<{ proje_id: string }> {
   return liste;
 }
 
+export async function listeProjeIdGetir(listeId: string): Promise<string> {
+  return (await listeyiDogrula(listeId)).proje_id;
+}
+
+export async function kartProjeIdGetir(kartId: string): Promise<string> {
+  const kart = await db.kart.findUnique({
+    where: { id: kartId },
+    select: { liste: { select: { proje_id: true } } },
+  });
+  if (!kart) {
+    throw new EylemHatasi("Kart bulunamadi.", HATA_KODU.BULUNAMADI);
+  }
+  return kart.liste.proje_id;
+}
+
 async function aktifBirimDogrula(birimId: string): Promise<void> {
   const birim = await db.birim.findUnique({
     where: { id: birimId },
@@ -60,7 +75,7 @@ async function aktifBirimDogrula(birimId: string): Promise<void> {
 
 async function aktifKullaniciDogrula(
   kullaniciId: string,
-): Promise<Omit<KisiPaylasimOzeti, "eklenme_zamani">> {
+): Promise<Omit<KisiYetkiliOzeti, "eklenme_zamani">> {
   const kullanici = await db.kullanici.findUnique({
     where: { id: kullaniciId },
     select: {
@@ -93,7 +108,7 @@ async function aktifKullaniciDogrula(
 
 export async function projeBirimleriniListele(
   projeId: string,
-): Promise<BirimPaylasimOzeti[]> {
+): Promise<BirimYetkiliOzeti[]> {
   await projeyiDogrula(projeId);
   const kayitlar = await db.projeBirimi.findMany({
     where: { proje_id: projeId },
@@ -138,7 +153,7 @@ export async function projeBirimKaldir(
 
 export async function listeBirimleriniListele(
   listeId: string,
-): Promise<BirimPaylasimOzeti[]> {
+): Promise<BirimYetkiliOzeti[]> {
   await listeyiDogrula(listeId);
   const kayitlar = await db.listeBirimi.findMany({
     where: { liste_id: listeId },
@@ -181,11 +196,11 @@ export async function listeBirimKaldir(
     .catch(() => undefined);
 }
 
-export async function listeUyeleriniListele(
+export async function listeYetkilileriniListele(
   listeId: string,
-): Promise<KisiPaylasimOzeti[]> {
+): Promise<KisiYetkiliOzeti[]> {
   await listeyiDogrula(listeId);
-  const kayitlar = await db.listeUyesi.findMany({
+  const kayitlar = await db.listeYetkilisi.findMany({
     where: { liste_id: listeId },
     orderBy: { eklenme_zamani: "asc" },
     select: {
@@ -215,7 +230,7 @@ export async function listeUyeleriniListele(
 export async function listeAdayKisileriAra(
   listeId: string,
   q?: string,
-): Promise<AdayKisiPaylasim[]> {
+): Promise<AdayKisiYetkili[]> {
   await listeyiDogrula(listeId);
   const arama = q?.trim();
   const adaylar = await db.kullanici.findMany({
@@ -223,7 +238,7 @@ export async function listeAdayKisileriAra(
       aktif: true,
       silindi_mi: false,
       onay_durumu: "ONAYLANDI",
-      liste_uyelik: { none: { liste_id: listeId } },
+      liste_yetkileri: { none: { liste_id: listeId } },
       ...(arama
         ? {
             OR: [
@@ -257,13 +272,13 @@ export async function listeAdayKisileriAra(
   }));
 }
 
-export async function listeUyeEkle(
+export async function listeYetkiliEkle(
   listeId: string,
   kullaniciId: string,
-): Promise<KisiPaylasimOzeti> {
+): Promise<KisiYetkiliOzeti> {
   await listeyiDogrula(listeId);
   const kullanici = await aktifKullaniciDogrula(kullaniciId);
-  const yeni = await db.listeUyesi.upsert({
+  const yeni = await db.listeYetkilisi.upsert({
     where: {
       liste_id_kullanici_id: {
         liste_id: listeId,
@@ -277,12 +292,12 @@ export async function listeUyeEkle(
   return { ...kullanici, eklenme_zamani: yeni.eklenme_zamani };
 }
 
-export async function listeUyeKaldir(
+export async function listeYetkiliKaldir(
   listeId: string,
   kullaniciId: string,
 ): Promise<void> {
   await listeyiDogrula(listeId);
-  await db.listeUyesi
+  await db.listeYetkilisi
     .delete({
       where: {
         liste_id_kullanici_id: {

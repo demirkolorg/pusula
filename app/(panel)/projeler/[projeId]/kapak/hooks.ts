@@ -4,8 +4,18 @@ import { eylemMutasyonu, useOptimisticMutation } from "@/lib/optimistic";
 import { projeDetayKey } from "../hooks/detay-sorgulari";
 import { kartAktiviteleriKey } from "../aktivite/keys";
 import type { ProjeDetayOzeti } from "../services";
-import { kapagiAyarlaEylem, kapagiKaldirEylem } from "./actions";
-import type { KapagiAyarla, KapagiKaldir } from "./schemas";
+import {
+  kapagiAyarlaEylem,
+  kapagiKaldirEylem,
+  kapakRenginiAyarlaEylem,
+  kapakRenginiKaldirEylem,
+} from "./actions";
+import type {
+  KapagiAyarla,
+  KapagiKaldir,
+  KapakRenginiAyarla,
+  KapakRenginiKaldir,
+} from "./schemas";
 
 // Kapak görseli URL'i server-side ProjeDetay yanıtında üretilir; ayarla/kaldır
 // invalidate ile yenilenir. Optimistic için detay cache'inde kapak alanını
@@ -65,5 +75,48 @@ export function useKapagiKaldir(projeId: string) {
       })),
     ekInvalidate: (vars) => [kartAktiviteleriKey(vars.kart_id)],
     hataMesaji: "Kapak kaldırılamadı",
+  });
+}
+
+export function useKapakRenginiAyarla(projeId: string) {
+  return useOptimisticMutation<
+    KapakRenginiAyarla,
+    { kart_id: string; renk: string }
+  >({
+    queryKey: projeDetayKey(projeId),
+    mutationFn: eylemMutasyonu(kapakRenginiAyarlaEylem),
+    optimistic: (eski, vars) =>
+      detayHaritala(eski, (d) => ({
+        ...d,
+        listeler: d.listeler.map((l) => ({
+          ...l,
+          kartlar: l.kartlar.map((k) =>
+            k.id === vars.kart_id
+              ? { ...k, kapak_renk: vars.renk, kapak: null }
+              : k,
+          ),
+        })),
+      })),
+    ekInvalidate: (vars) => [kartAktiviteleriKey(vars.kart_id)],
+    hataMesaji: "Kapak rengi ayarlanamadı",
+  });
+}
+
+export function useKapakRenginiKaldir(projeId: string) {
+  return useOptimisticMutation<KapakRenginiKaldir, { kart_id: string }>({
+    queryKey: projeDetayKey(projeId),
+    mutationFn: eylemMutasyonu(kapakRenginiKaldirEylem),
+    optimistic: (eski, vars) =>
+      detayHaritala(eski, (d) => ({
+        ...d,
+        listeler: d.listeler.map((l) => ({
+          ...l,
+          kartlar: l.kartlar.map((k) =>
+            k.id === vars.kart_id ? { ...k, kapak_renk: null } : k,
+          ),
+        })),
+      })),
+    ekInvalidate: (vars) => [kartAktiviteleriKey(vars.kart_id)],
+    hataMesaji: "Kapak rengi kaldırılamadı",
   });
 }

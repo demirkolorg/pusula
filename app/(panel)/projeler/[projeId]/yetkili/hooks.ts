@@ -6,47 +6,52 @@ import { projeDetayKey } from "../hooks/detay-sorgulari";
 import { kartAktiviteleriKey } from "../aktivite/keys";
 import type { ProjeDetayOzeti } from "../services";
 import {
-  kartaUyeEkleEylem,
-  kartaUyeKaldirEylem,
-  kartinUyeleriEylem,
+  kartAdayKullanicilarEylem,
+  kartaYetkiliEkleEylem,
+  kartaYetkiliKaldirEylem,
+  kartinYetkilileriEylem,
   projeAdayKullanicilarEylem,
-  projeUyeleriniListeleEylem,
-  projeUyesiSeviyeGuncelleEylem,
-  projeyeUyeEkleEylem,
-  projeyeUyeKaldirEylem,
+  projeYetkilileriniListeleEylem,
+  projeYetkilisiSeviyeGuncelleEylem,
+  projeyeYetkiliEkleEylem,
+  projeyeYetkiliKaldirEylem,
 } from "./actions";
 import type {
-  KartaUyeEkle,
-  KartaUyeKaldir,
-  ProjeUyesiSeviyeGuncelle,
-  ProjeyeUyeEkle,
-  ProjeyeUyeKaldir,
+  KartaYetkiliEkle,
+  KartaYetkiliKaldir,
+  ProjeYetkilisiSeviyeGuncelle,
+  ProjeyeYetkiliEkle,
+  ProjeyeYetkiliKaldir,
 } from "./schemas";
-import type { KartUyeOzeti, ProjeUyeOzeti } from "./services";
+import type { KartYetkiliOzeti, ProjeYetkiliOzeti } from "./services";
 
-export const PROJE_UYELERI_KEY = "proje-uyeleri";
-export const KART_UYELERI_KEY = "kart-uyeleri";
+export const PROJE_YETKILILERI_KEY = "proje-yetkilileri";
+export const KART_YETKILILERI_KEY = "kart-yetkilileri";
+export const KART_ADAY_KEY = "kart-aday-kullanicilar";
 export const PROJE_ADAY_KEY = "proje-aday-kullanicilar";
 
-export function projeUyeleriKey(projeId: string) {
-  return [PROJE_UYELERI_KEY, projeId] as const;
+export function projeYetkilileriKey(projeId: string) {
+  return [PROJE_YETKILILERI_KEY, projeId] as const;
 }
-export function kartUyeleriKey(kartId: string) {
-  return [KART_UYELERI_KEY, kartId] as const;
+export function kartYetkilileriKey(kartId: string) {
+  return [KART_YETKILILERI_KEY, kartId] as const;
 }
 export function projeAdayKey(projeId: string, q: string) {
   return [PROJE_ADAY_KEY, projeId, q] as const;
+}
+export function kartAdayKey(kartId: string, q: string) {
+  return [KART_ADAY_KEY, kartId, q] as const;
 }
 
 // =====================================================================
 // Sorgular
 // =====================================================================
 
-export function useProjeUyeleri(projeId: string) {
+export function useProjeYetkilileri(projeId: string) {
   return useQuery({
-    queryKey: projeUyeleriKey(projeId),
+    queryKey: projeYetkilileriKey(projeId),
     queryFn: async () => {
-      const r = await projeUyeleriniListeleEylem({ proje_id: projeId });
+      const r = await projeYetkilileriniListeleEylem({ proje_id: projeId });
       if (!r.basarili) throw new Error(r.hata);
       return r.veri;
     },
@@ -54,12 +59,12 @@ export function useProjeUyeleri(projeId: string) {
   });
 }
 
-export function useKartUyeleri(kartId: string | null) {
+export function useKartYetkilileri(kartId: string | null) {
   return useQuery({
-    queryKey: kartUyeleriKey(kartId ?? ""),
+    queryKey: kartYetkilileriKey(kartId ?? ""),
     enabled: !!kartId,
     queryFn: async () => {
-      const r = await kartinUyeleriEylem({ kart_id: kartId! });
+      const r = await kartinYetkilileriEylem({ kart_id: kartId! });
       if (!r.basarili) throw new Error(r.hata);
       return r.veri;
     },
@@ -85,23 +90,41 @@ export function useProjeAdayKullanicilar(
   });
 }
 
+export function useKartAdayKullanicilar(
+  kartId: string,
+  q: string,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: kartAdayKey(kartId, q),
+    enabled,
+    queryFn: async () => {
+      const r = await kartAdayKullanicilarEylem({ kart_id: kartId, q });
+      if (!r.basarili) throw new Error(r.hata);
+      return r.veri;
+    },
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+  });
+}
+
 // =====================================================================
-// Proje üye yönetimi mutations
+// Proje yetkili yönetimi mutations
 // =====================================================================
 
-export function useProjeyeUyeEkle(projeId: string) {
-  return useOptimisticMutation<ProjeyeUyeEkle, ProjeUyeOzeti>({
-    queryKey: [projeUyeleriKey(projeId), [PROJE_ADAY_KEY, projeId]] as const,
-    mutationFn: eylemMutasyonu(projeyeUyeEkleEylem),
+export function useProjeyeYetkiliEkle(projeId: string) {
+  return useOptimisticMutation<ProjeyeYetkiliEkle, ProjeYetkiliOzeti>({
+    queryKey: [projeYetkilileriKey(projeId), [PROJE_ADAY_KEY, projeId]] as const,
+    mutationFn: eylemMutasyonu(projeyeYetkiliEkleEylem),
     optimisticMap: [
       {
-        queryKey: projeUyeleriKey(projeId),
+        queryKey: projeYetkilileriKey(projeId),
         update: (eski, vars) => {
-          const liste = (eski as ProjeUyeOzeti[] | undefined) ?? [];
+          const liste = (eski as ProjeYetkiliOzeti[] | undefined) ?? [];
           if (liste.some((u) => u.kullanici_id === vars.kullanici_id))
             return liste;
           // Aday listesinden bilgi gelmiyor — invalidate yenileyecek; geçici plak
-          const taslak: ProjeUyeOzeti = {
+          const taslak: ProjeYetkiliOzeti = {
             kullanici_id: vars.kullanici_id,
             ad: "—",
             soyad: "",
@@ -114,40 +137,40 @@ export function useProjeyeUyeEkle(projeId: string) {
       },
     ],
     swap: (eski, vars, yanit) => {
-      const liste = (eski as ProjeUyeOzeti[] | undefined) ?? [];
+      const liste = (eski as ProjeYetkiliOzeti[] | undefined) ?? [];
       return liste.map((u) =>
         u.kullanici_id === vars.kullanici_id ? yanit : u,
       );
     },
-    hataMesaji: "Üye eklenemedi",
-    basariMesaji: "Üye eklendi",
+    hataMesaji: "Yetkili eklenemedi",
+    basariMesaji: "Yetkili eklendi",
   });
 }
 
-export function useProjeyeUyeKaldir(projeId: string) {
+export function useProjeyeYetkiliKaldir(projeId: string) {
   return useOptimisticMutation<
-    ProjeyeUyeKaldir,
+    ProjeyeYetkiliKaldir,
     { proje_id: string; kullanici_id: string }
   >({
-    queryKey: projeUyeleriKey(projeId),
-    mutationFn: eylemMutasyonu(projeyeUyeKaldirEylem),
+    queryKey: projeYetkilileriKey(projeId),
+    mutationFn: eylemMutasyonu(projeyeYetkiliKaldirEylem),
     optimistic: (eski, vars) => {
-      const liste = (eski as ProjeUyeOzeti[] | undefined) ?? [];
+      const liste = (eski as ProjeYetkiliOzeti[] | undefined) ?? [];
       return liste.filter((u) => u.kullanici_id !== vars.kullanici_id);
     },
-    hataMesaji: "Üye kaldırılamadı",
+    hataMesaji: "Yetkili kaldırılamadı",
   });
 }
 
-export function useProjeUyesiSeviyeGuncelle(projeId: string) {
+export function useProjeYetkilisiSeviyeGuncelle(projeId: string) {
   return useOptimisticMutation<
-    ProjeUyesiSeviyeGuncelle,
+    ProjeYetkilisiSeviyeGuncelle,
     { proje_id: string; kullanici_id: string; seviye: string }
   >({
-    queryKey: projeUyeleriKey(projeId),
-    mutationFn: eylemMutasyonu(projeUyesiSeviyeGuncelleEylem),
+    queryKey: projeYetkilileriKey(projeId),
+    mutationFn: eylemMutasyonu(projeYetkilisiSeviyeGuncelleEylem),
     optimistic: (eski, vars) => {
-      const liste = (eski as ProjeUyeOzeti[] | undefined) ?? [];
+      const liste = (eski as ProjeYetkiliOzeti[] | undefined) ?? [];
       return liste.map((u) =>
         u.kullanici_id === vars.kullanici_id
           ? { ...u, seviye: vars.seviye }
@@ -159,28 +182,29 @@ export function useProjeUyesiSeviyeGuncelle(projeId: string) {
 }
 
 // =====================================================================
-// Kart üye atama mutations
+// Kart yetkili atama mutations
 // =====================================================================
 
-export function useKartaUyeEkle(kartId: string, projeId: string) {
+export function useKartaYetkiliEkle(kartId: string, projeId: string) {
   return useOptimisticMutation<
-    KartaUyeEkle & { uye_ozeti?: KartUyeOzeti },
+    KartaYetkiliEkle & { yetkili_ozeti?: KartYetkiliOzeti },
     { kart_id: string; kullanici_id: string }
   >({
     queryKey: [
-      kartUyeleriKey(kartId),
+      kartYetkilileriKey(kartId),
       projeDetayKey(projeId),
+      [KART_ADAY_KEY, kartId],
     ] as const,
-    mutationFn: ({ uye_ozeti: _uo, ...vars }) =>
-      eylemMutasyonu(kartaUyeEkleEylem)(vars),
+    mutationFn: ({ yetkili_ozeti: _uo, ...vars }) =>
+      eylemMutasyonu(kartaYetkiliEkleEylem)(vars),
     optimisticMap: [
       {
-        queryKey: kartUyeleriKey(kartId),
+        queryKey: kartYetkilileriKey(kartId),
         update: (eski, vars) => {
-          const liste = (eski as KartUyeOzeti[] | undefined) ?? [];
+          const liste = (eski as KartYetkiliOzeti[] | undefined) ?? [];
           if (liste.some((u) => u.kullanici_id === vars.kullanici_id))
             return liste;
-          const yeni: KartUyeOzeti = vars.uye_ozeti ?? {
+          const yeni: KartYetkiliOzeti = vars.yetkili_ozeti ?? {
             kullanici_id: vars.kullanici_id,
             ad: "—",
             soyad: "",
@@ -191,43 +215,44 @@ export function useKartaUyeEkle(kartId: string, projeId: string) {
       },
       {
         queryKey: projeDetayKey(projeId),
-        update: (eski, vars) => bumpUyeSayisi(eski, vars.kart_id, +1),
+        update: (eski, vars) => bumpYetkiliSayisi(eski, vars.kart_id, +1),
       },
     ],
-    ekInvalidate: [kartAktiviteleriKey(kartId)],
-    hataMesaji: "Üye eklenemedi",
+    ekInvalidate: [kartAktiviteleriKey(kartId), [KART_ADAY_KEY, kartId]],
+    hataMesaji: "Yetkili eklenemedi",
   });
 }
 
-export function useKartaUyeKaldir(kartId: string, projeId: string) {
+export function useKartaYetkiliKaldir(kartId: string, projeId: string) {
   return useOptimisticMutation<
-    KartaUyeKaldir,
+    KartaYetkiliKaldir,
     { kart_id: string; kullanici_id: string }
   >({
     queryKey: [
-      kartUyeleriKey(kartId),
+      kartYetkilileriKey(kartId),
       projeDetayKey(projeId),
+      [KART_ADAY_KEY, kartId],
     ] as const,
-    mutationFn: eylemMutasyonu(kartaUyeKaldirEylem),
+    mutationFn: eylemMutasyonu(kartaYetkiliKaldirEylem),
     optimisticMap: [
       {
-        queryKey: kartUyeleriKey(kartId),
+        queryKey: kartYetkilileriKey(kartId),
         update: (eski, vars) => {
-          const liste = (eski as KartUyeOzeti[] | undefined) ?? [];
+          const liste = (eski as KartYetkiliOzeti[] | undefined) ?? [];
           return liste.filter((u) => u.kullanici_id !== vars.kullanici_id);
         },
       },
       {
         queryKey: projeDetayKey(projeId),
-        update: (eski, vars) => bumpUyeSayisi(eski, vars.kart_id, -1),
+        update: (eski, vars) => bumpYetkiliSayisi(eski, vars.kart_id, -1),
       },
     ],
-    ekInvalidate: [kartAktiviteleriKey(kartId)],
-    hataMesaji: "Üye kaldırılamadı",
+    ekInvalidate: [kartAktiviteleriKey(kartId), [KART_ADAY_KEY, kartId]],
+    hataMesaji: "Yetkili kaldırılamadı",
   });
 }
 
-function bumpUyeSayisi(
+function bumpYetkiliSayisi(
   eski: unknown,
   kartId: string,
   delta: 1 | -1,
@@ -240,7 +265,7 @@ function bumpUyeSayisi(
       ...l,
       kartlar: l.kartlar.map((k) =>
         k.id === kartId
-          ? { ...k, uye_sayisi: Math.max(0, k.uye_sayisi + delta) }
+          ? { ...k, yetkili_sayisi: Math.max(0, k.yetkili_sayisi + delta) }
           : k,
       ),
     })),

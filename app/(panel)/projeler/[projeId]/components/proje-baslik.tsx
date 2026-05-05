@@ -3,19 +3,19 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { KanbanIcon, ListIcon, StarIcon } from "lucide-react";
+import { KanbanIcon, ListIcon, ShieldCheckIcon, StarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { kapakArkaplanSinifi } from "@/lib/kapak-renk";
 import type { ProjeDetayOzeti } from "../services";
-import { ProjePaylasimPopover } from "./proje-paylasim-popover";
+import { YetkililerPaneliPopover } from "../yetkili/components/yetkililer-paneli";
 
 type Props = {
   proje: ProjeDetayOzeti;
-  paylasimYonet?: boolean;
+  yetkiliYonet?: boolean;
 };
 
-export function ProjeBaslik({ proje, paylasimYonet = false }: Props) {
+export function ProjeBaslik({ proje, yetkiliYonet = false }: Props) {
   const yol = usePathname();
   const listedeMi = yol?.endsWith("/liste");
 
@@ -66,7 +66,20 @@ export function ProjeBaslik({ proje, paylasimYonet = false }: Props) {
         >
           <ListIcon className="size-4" /> Liste
         </Button>
-        {paylasimYonet && <ProjePaylasimPopover projeId={proje.id} />}
+        {yetkiliYonet && (
+          <YetkililerPaneliPopover
+            kaynak={{
+              tip: "proje",
+              projeId: proje.id,
+              izinler: { birimYonet: true, kisiYonet: true },
+            }}
+            trigger={
+              <Button size="sm" variant="outline">
+                <ShieldCheckIcon className="size-4" /> Yetkililer
+              </Button>
+            }
+          />
+        )}
       </div>
     </div>
   );

@@ -36,7 +36,7 @@ const TIP_IKON: Record<
   React.ComponentType<{ className?: string }>
 > = {
   YORUM_MENTION: MessageSquareIcon,
-  KART_UYE_ATAMA: UsersIcon,
+  KART_YETKILI_ATAMA: UsersIcon,
   MADDE_ATAMA: CheckSquareIcon,
   BITIS_YAKLASIYOR: CalendarClockIcon,
   BITIS_GECTI: AlertTriangleIcon,
@@ -46,7 +46,7 @@ const TIP_IKON: Record<
 
 const TIP_RENK: Record<BildirimTipi, string> = {
   YORUM_MENTION: "bg-blue-100 text-blue-700",
-  KART_UYE_ATAMA: "bg-purple-100 text-purple-700",
+  KART_YETKILI_ATAMA: "bg-purple-100 text-purple-700",
   MADDE_ATAMA: "bg-emerald-100 text-emerald-700",
   BITIS_YAKLASIYOR: "bg-amber-100 text-amber-700",
   BITIS_GECTI: "bg-red-100 text-red-700",

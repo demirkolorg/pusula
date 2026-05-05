@@ -34,7 +34,7 @@ let kart: { id: string };
 
 async function sahipliProjeOlustur(birimId: string, sahipId: string) {
   const p = await projeOlusturFiks(adminDb, { birimId, olusturanId: sahipId });
-  await adminDb.projeUyesi.create({
+  await adminDb.projeYetkilisi.create({
     data: { proje_id: p.id, kullanici_id: sahipId, seviye: "ADMIN" },
   });
   return { id: p.id };
@@ -96,7 +96,7 @@ describe("yorumGuncelle", () => {
       icerik: "Asıl",
     });
 
-    // Personel projeye üye değil ama services seviyesinde yetki kontrolü
+    // Personel projeye yetkili değil ama services seviyesinde yetki kontrolü
     // sadece "yazan_id == silenId" çıkışı YETKISIZ verir.
     await expect(
       yorumGuncelle(ortam.birim.id, ortam.personel.id, {
@@ -126,12 +126,12 @@ describe("yorumSil", () => {
   });
 
   it("proje ADMIN başkasının yorumunu silebilir", async () => {
-    // Personeli projeye NORMAL üye yap, yorum ekletsin
-    const proje = await adminDb.projeUyesi.findFirst({
+    // Personeli projeye NORMAL yetkili yap, yorum ekletsin
+    const proje = await adminDb.projeYetkilisi.findFirst({
       where: { kullanici_id: ortam.superAdmin.id },
       select: { proje_id: true },
     });
-    await adminDb.projeUyesi.create({
+    await adminDb.projeYetkilisi.create({
       data: {
         proje_id: proje!.proje_id,
         kullanici_id: ortam.personel.id,

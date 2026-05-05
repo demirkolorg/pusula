@@ -30,7 +30,7 @@ let projeId: string;
 
 async function sahipliProjeOlustur(birimId: string, sahipId: string) {
   const p = await projeOlusturFiks(adminDb, { birimId, olusturanId: sahipId });
-  await adminDb.projeUyesi.create({
+  await adminDb.projeYetkilisi.create({
     data: { proje_id: p.id, kullanici_id: sahipId, seviye: "ADMIN" },
   });
   return { id: p.id };
@@ -250,10 +250,10 @@ describe("Kontrol Listesi aktiviteleri", () => {
 });
 
 // =====================================================================
-// KartEtiket / KartUyesi (composite PK, kart_id JSON path) — etiket/üye join
+// KartEtiket / KartYetkilisi (composite PK, kart_id JSON path) — etiket/yetkili join
 // =====================================================================
 
-describe("Etiket / Üye aktiviteleri", () => {
+describe("Etiket / Yetkili aktiviteleri", () => {
   it("KartEtiket CREATE → etiket adı join ile dolu detay", async () => {
     const e = await adminDb.etiket.create({
       data: { proje_id: projeId, ad: "Acil", renk: "#ef4444" },
@@ -274,8 +274,8 @@ describe("Etiket / Üye aktiviteleri", () => {
     expect(etiketEkle?.detay).toBe("Acil");
   });
 
-  it("KartUyesi CREATE → 'üye atadı' + ad soyad join", async () => {
-    await adminDb.projeUyesi.create({
+  it("KartYetkilisi CREATE → 'yetki verdi' + ad soyad join", async () => {
+    await adminDb.projeYetkilisi.create({
       data: {
         proje_id: projeId,
         kullanici_id: ortam.personel.id,
@@ -285,7 +285,7 @@ describe("Etiket / Üye aktiviteleri", () => {
     await aktiviteEkle({
       kullaniciId: ortam.superAdmin.id,
       islem: "CREATE",
-      kaynakTip: "KartUyesi",
+      kaynakTip: "KartYetkilisi",
       yeniVeri: { kart_id: kart.id, kullanici_id: ortam.personel.id },
     });
     const r = await kartAktiviteleriniListele(ortam.birim.id, {
@@ -293,18 +293,18 @@ describe("Etiket / Üye aktiviteleri", () => {
       limit: 50,
     });
     const ekle = r.find(
-      (a) => a.kategori === "uye" && a.mesaj === "üye atadı",
+      (a) => a.kategori === "yetkili" && a.mesaj === "yetki verdi",
     );
     expect(ekle?.detay).toBeTruthy();
     expect(ekle!.detay!.length).toBeGreaterThan(0);
   });
 
   // Why: Geçmişte audit middleware `upsert`'i UPDATE olarak loglardı; bu
-  // yüzden üye eklendiğinde aktivite "üyeyi kaldırdı" görünüyordu (üretim
+  // yüzden yetkili eklendiğinde aktivite "yetkiyi kaldırdı" görünüyordu (üretim
   // logu). Mesaj fonksiyonu artık veri varlığına göre karar verir: yeni_veri
   // doluysa eklendi, yalnız eski_veri doluysa kaldırıldı.
-  it("KartUyesi UPDATE + yeni_veri dolu → 'üye atadı' (upsert geriye dönük)", async () => {
-    await adminDb.projeUyesi.create({
+  it("KartYetkilisi UPDATE + yeni_veri dolu → 'yetki verdi' (upsert geriye dönük)", async () => {
+    await adminDb.projeYetkilisi.create({
       data: {
         proje_id: projeId,
         kullanici_id: ortam.personel.id,
@@ -314,7 +314,7 @@ describe("Etiket / Üye aktiviteleri", () => {
     await aktiviteEkle({
       kullaniciId: ortam.superAdmin.id,
       islem: "UPDATE",
-      kaynakTip: "KartUyesi",
+      kaynakTip: "KartYetkilisi",
       yeniVeri: { kart_id: kart.id, kullanici_id: ortam.personel.id },
     });
     const r = await kartAktiviteleriniListele(ortam.birim.id, {
@@ -322,7 +322,7 @@ describe("Etiket / Üye aktiviteleri", () => {
       limit: 50,
     });
     const ekle = r.find(
-      (a) => a.kategori === "uye" && a.mesaj === "üye atadı",
+      (a) => a.kategori === "yetkili" && a.mesaj === "yetki verdi",
     );
     expect(ekle).toBeDefined();
   });
@@ -386,8 +386,8 @@ it("KontrolMaddesi UPDATE diff.sira → 'yeniden sıraladı' (drag-drop gürült
     expect(adDegistir?.detay).toBe("Yeni");
   });
 
-  it("KartUyesi DELETE (yalnız eski_veri) → 'üyeyi kaldırdı'", async () => {
-    await adminDb.projeUyesi.create({
+  it("KartYetkilisi DELETE (yalnız eski_veri) → 'yetkiyi kaldırdı'", async () => {
+    await adminDb.projeYetkilisi.create({
       data: {
         proje_id: projeId,
         kullanici_id: ortam.personel.id,
@@ -397,7 +397,7 @@ it("KontrolMaddesi UPDATE diff.sira → 'yeniden sıraladı' (drag-drop gürült
     await aktiviteEkle({
       kullaniciId: ortam.superAdmin.id,
       islem: "DELETE",
-      kaynakTip: "KartUyesi",
+      kaynakTip: "KartYetkilisi",
       eskiVeri: { kart_id: kart.id, kullanici_id: ortam.personel.id },
     });
     const r = await kartAktiviteleriniListele(ortam.birim.id, {
@@ -405,7 +405,7 @@ it("KontrolMaddesi UPDATE diff.sira → 'yeniden sıraladı' (drag-drop gürült
       limit: 50,
     });
     const kaldir = r.find(
-      (a) => a.kategori === "uye" && a.mesaj === "üyeyi kaldırdı",
+      (a) => a.kategori === "yetkili" && a.mesaj === "yetkiyi kaldırdı",
     );
     expect(kaldir).toBeDefined();
   });

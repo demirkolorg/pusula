@@ -45,13 +45,15 @@ import {
   listeBirimEkle,
   listeBirimKaldir,
   listeBirimleriniListele,
-  listeUyeEkle,
-  listeUyeKaldir,
-  listeUyeleriniListele,
+  listeProjeIdGetir,
+  listeYetkiliEkle,
+  listeYetkiliKaldir,
+  listeYetkilileriniListele,
+  kartProjeIdGetir,
   projeBirimEkle,
   projeBirimKaldir,
   projeBirimleriniListele,
-} from "./paylasim";
+} from "./yetkilendirme";
 
 function kullaniciIdAl(ctx: { oturum: { kullaniciId?: string } | null }): string {
   const id = ctx.oturum?.kullaniciId;
@@ -196,41 +198,46 @@ export const kartTasiEylem = eylem({
 // ============================================================
 
 export const kartBirimleriEylem = eylem({
-  ad: "kart:hedef-birimler",
+  ad: "kart:yetkili-birimler",
   girdi: z.object({ kart_id: z.string().uuid() }),
   calistir: async (girdi, ctx) => {
+    await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:read", girdi.kart_id);
     return kartBirimleriniListele(kullaniciIdAl(ctx), girdi.kart_id);
   },
 });
 
 export const kartBirimEkleEylem = eylem({
-  ad: "kart:hedef-birim-ekle",
+  ad: "kart:yetkili-birim-ekle",
   girdi: z.object({
     kart_id: z.string().uuid(),
     birim_id: z.string().uuid(),
   }),
   calistir: async (girdi, ctx) => {
-    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
+    const projeId = await kartProjeIdGetir(girdi.kart_id);
+    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_YETKILI_YONET);
+    await yetkiZorunluProje(ctx.oturum?.kullaniciId, "proje:authorize", projeId);
     await kartBirimEkle(kullaniciIdAl(ctx), girdi.kart_id, girdi.birim_id);
     return { kart_id: girdi.kart_id, birim_id: girdi.birim_id };
   },
 });
 
 export const kartBirimKaldirEylem = eylem({
-  ad: "kart:hedef-birim-kaldir",
+  ad: "kart:yetkili-birim-kaldir",
   girdi: z.object({
     kart_id: z.string().uuid(),
     birim_id: z.string().uuid(),
   }),
   calistir: async (girdi, ctx) => {
-    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
+    const projeId = await kartProjeIdGetir(girdi.kart_id);
+    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_YETKILI_YONET);
+    await yetkiZorunluProje(ctx.oturum?.kullaniciId, "proje:authorize", projeId);
     await kartBirimKaldir(kullaniciIdAl(ctx), girdi.kart_id, girdi.birim_id);
     return { kart_id: girdi.kart_id, birim_id: girdi.birim_id };
   },
 });
 
 // ============================================================
-// Proje/Liste paylaşımı
+// Proje/Liste/Kart yetkilendirmesi
 // ============================================================
 
 export const projeBirimleriEylem = eylem({
@@ -249,10 +256,10 @@ export const projeBirimEkleEylem = eylem({
     birim_id: z.string().uuid(),
   }),
   calistir: async (girdi, ctx) => {
-    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_UYE_YONET);
+    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_YETKILI_YONET);
     await yetkiZorunluProje(
       ctx.oturum?.kullaniciId,
-      "proje:uye-yonet",
+      "proje:authorize",
       girdi.proje_id,
     );
     await projeBirimEkle(girdi.proje_id, girdi.birim_id);
@@ -268,10 +275,10 @@ export const projeBirimKaldirEylem = eylem({
     birim_id: z.string().uuid(),
   }),
   calistir: async (girdi, ctx) => {
-    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_UYE_YONET);
+    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_YETKILI_YONET);
     await yetkiZorunluProje(
       ctx.oturum?.kullaniciId,
-      "proje:uye-yonet",
+      "proje:authorize",
       girdi.proje_id,
     );
     await projeBirimKaldir(girdi.proje_id, girdi.birim_id);
@@ -296,8 +303,9 @@ export const listeBirimEkleEylem = eylem({
     birim_id: z.string().uuid(),
   }),
   calistir: async (girdi, ctx) => {
-    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.LISTE_DUZENLE);
-    await yetkiZorunluListe(ctx.oturum?.kullaniciId, "liste:edit", girdi.liste_id);
+    const projeId = await listeProjeIdGetir(girdi.liste_id);
+    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_YETKILI_YONET);
+    await yetkiZorunluProje(ctx.oturum?.kullaniciId, "proje:authorize", projeId);
     await listeBirimEkle(girdi.liste_id, girdi.birim_id);
     return { liste_id: girdi.liste_id, birim_id: girdi.birim_id };
   },
@@ -310,19 +318,20 @@ export const listeBirimKaldirEylem = eylem({
     birim_id: z.string().uuid(),
   }),
   calistir: async (girdi, ctx) => {
-    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.LISTE_DUZENLE);
-    await yetkiZorunluListe(ctx.oturum?.kullaniciId, "liste:edit", girdi.liste_id);
+    const projeId = await listeProjeIdGetir(girdi.liste_id);
+    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_YETKILI_YONET);
+    await yetkiZorunluProje(ctx.oturum?.kullaniciId, "proje:authorize", projeId);
     await listeBirimKaldir(girdi.liste_id, girdi.birim_id);
     return { liste_id: girdi.liste_id, birim_id: girdi.birim_id };
   },
 });
 
-export const listeUyeleriEylem = eylem({
-  ad: "liste:uyeler",
+export const listeYetkilileriEylem = eylem({
+  ad: "liste:yetkililer",
   girdi: z.object({ liste_id: z.string().uuid() }),
   calistir: async (girdi, ctx) => {
     await yetkiZorunluListe(ctx.oturum?.kullaniciId, "liste:read", girdi.liste_id);
-    return listeUyeleriniListele(girdi.liste_id);
+    return listeYetkilileriniListele(girdi.liste_id);
   },
 });
 
@@ -333,36 +342,39 @@ export const listeAdayKisilerEylem = eylem({
     q: z.string().trim().max(100).optional(),
   }),
   calistir: async (girdi, ctx) => {
-    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.LISTE_DUZENLE);
-    await yetkiZorunluListe(ctx.oturum?.kullaniciId, "liste:edit", girdi.liste_id);
+    const projeId = await listeProjeIdGetir(girdi.liste_id);
+    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_YETKILI_YONET);
+    await yetkiZorunluProje(ctx.oturum?.kullaniciId, "proje:authorize", projeId);
     return listeAdayKisileriAra(girdi.liste_id, girdi.q);
   },
 });
 
-export const listeUyeEkleEylem = eylem({
-  ad: "liste:uye-ekle",
+export const listeYetkiliEkleEylem = eylem({
+  ad: "liste:yetkili-ekle",
   girdi: z.object({
     liste_id: z.string().uuid(),
     kullanici_id: z.string().uuid(),
   }),
   calistir: async (girdi, ctx) => {
-    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.LISTE_DUZENLE);
-    await yetkiZorunluListe(ctx.oturum?.kullaniciId, "liste:edit", girdi.liste_id);
-    const uye = await listeUyeEkle(girdi.liste_id, girdi.kullanici_id);
-    return { liste_id: girdi.liste_id, uye };
+    const projeId = await listeProjeIdGetir(girdi.liste_id);
+    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_YETKILI_YONET);
+    await yetkiZorunluProje(ctx.oturum?.kullaniciId, "proje:authorize", projeId);
+    const yetkili = await listeYetkiliEkle(girdi.liste_id, girdi.kullanici_id);
+    return { liste_id: girdi.liste_id, yetkili };
   },
 });
 
-export const listeUyeKaldirEylem = eylem({
-  ad: "liste:uye-kaldir",
+export const listeYetkiliKaldirEylem = eylem({
+  ad: "liste:yetkili-kaldir",
   girdi: z.object({
     liste_id: z.string().uuid(),
     kullanici_id: z.string().uuid(),
   }),
   calistir: async (girdi, ctx) => {
-    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.LISTE_DUZENLE);
-    await yetkiZorunluListe(ctx.oturum?.kullaniciId, "liste:edit", girdi.liste_id);
-    await listeUyeKaldir(girdi.liste_id, girdi.kullanici_id);
+    const projeId = await listeProjeIdGetir(girdi.liste_id);
+    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_YETKILI_YONET);
+    await yetkiZorunluProje(ctx.oturum?.kullaniciId, "proje:authorize", projeId);
+    await listeYetkiliKaldir(girdi.liste_id, girdi.kullanici_id);
     return { liste_id: girdi.liste_id, kullanici_id: girdi.kullanici_id };
   },
 });

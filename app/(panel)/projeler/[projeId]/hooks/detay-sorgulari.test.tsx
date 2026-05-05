@@ -106,7 +106,7 @@ function ornekKart(p: Partial<ListeKartOzeti> = {}): ListeKartOzeti {
     bitis: p.bitis ?? null,
     arsiv_mi: p.arsiv_mi ?? false,
     silindi_mi: p.silindi_mi ?? false,
-    uye_sayisi: p.uye_sayisi ?? 0,
+    yetkili_sayisi: p.yetkili_sayisi ?? 0,
     etiket_sayisi: p.etiket_sayisi ?? 0,
   };
 }
@@ -197,7 +197,7 @@ describe("useProjeKartlari (sorgu)", () => {
           bitis: null,
           arsiv_mi: false,
           silindi_mi: false,
-          uye_sayisi: 0,
+          yetkili_sayisi: 0,
           etiket_sayisi: 0,
         },
       ]),
@@ -812,7 +812,7 @@ describe("useKartOlustur", () => {
           bitis: null,
           arsiv_mi: false,
           silindi_mi: false,
-          uye_sayisi: 0,
+          yetkili_sayisi: 0,
           etiket_sayisi: 0,
         }),
       );

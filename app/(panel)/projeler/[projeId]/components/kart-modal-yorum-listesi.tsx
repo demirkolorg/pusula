@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { tempIdMi } from "@/lib/temp-id";
 import { useOturumKullanicisi } from "@/hooks/use-oturum";
-import { MentionliMetin, type UyeMap } from "@/lib/mention";
-import { UyeAvatar } from "../uye/components/uye-avatar";
-import { useProjeUyeleri } from "../uye/hooks";
+import { MentionliMetin, type KisiMap } from "@/lib/mention";
+import { KisiAvatar } from "../yetkili/components/kisi-avatar";
+import { useProjeYetkilileri } from "../yetkili/hooks";
 import {
   useKartYorumlari,
   useYorumGuncelle,
@@ -21,9 +21,10 @@ const TARIH_BICIM = new Intl.DateTimeFormat("tr-TR", {
   month: "short",
   hour: "2-digit",
   minute: "2-digit",
+  timeZone: "Europe/Istanbul",
 });
 
-// projeId opsiyonel — verilirse mention rozetleri proje üyesi adlarıyla
+// projeId opsiyonel — verilirse mention rozetleri proje yetkilisi adlarıyla
 // zenginleşir. Yoksa UUID ham görünür (geriye uyumlu).
 type Props = { kartId: string; projeId?: string };
 
@@ -33,16 +34,16 @@ export function KartModalYorumListesi({ kartId, projeId }: Props) {
   const sorgu = useKartYorumlari(kartId);
   const oturumQ = useOturumKullanicisi();
   const oturum = oturumQ.data;
-  const uyelerQ = useProjeUyeleri(projeId ?? "");
+  const yetkililerQ = useProjeYetkilileri(projeId ?? "");
 
-  const uyeMap: UyeMap = React.useMemo(() => {
-    const m: UyeMap = new Map();
+  const kisiMap: KisiMap = React.useMemo(() => {
+    const m: KisiMap = new Map();
     if (!projeId) return m;
-    for (const u of uyelerQ.data ?? []) {
+    for (const u of yetkililerQ.data ?? []) {
       m.set(u.kullanici_id, { ad: u.ad, soyad: u.soyad });
     }
     return m;
-  }, [projeId, uyelerQ.data]);
+  }, [projeId, yetkililerQ.data]);
 
   if (sorgu.isLoading) {
     return (
@@ -71,7 +72,7 @@ export function KartModalYorumListesi({ kartId, projeId }: Props) {
             yorum={y}
             kartId={kartId}
             duzenleyebilirMi={!!oturum && y.yazan_id === oturum.id}
-            uyeMap={uyeMap}
+            kisiMap={kisiMap}
           />
         </li>
       ))}
@@ -83,12 +84,12 @@ function YorumSatiri({
   yorum,
   kartId,
   duzenleyebilirMi,
-  uyeMap,
+  kisiMap,
 }: {
   yorum: YorumOzeti;
   kartId: string;
   duzenleyebilirMi: boolean;
-  uyeMap: UyeMap;
+  kisiMap: KisiMap;
 }) {
   const [duzenliyor, setDuzenliyor] = React.useState(false);
   const [icerik, setIcerik] = React.useState(yorum.icerik);
@@ -109,7 +110,7 @@ function YorumSatiri({
 
   return (
     <div className="flex items-start gap-2">
-      <UyeAvatar ad={yorum.yazan.ad} soyad={yorum.yazan.soyad} />
+      <KisiAvatar ad={yorum.yazan.ad} soyad={yorum.yazan.soyad} />
       <div className="min-w-0 flex-1">
         <div className="border-input bg-background rounded-md border px-2.5 py-1.5">
           <div className="flex items-baseline gap-2">
@@ -159,7 +160,7 @@ function YorumSatiri({
             </form>
           ) : (
             <p className="text-foreground mt-0.5 whitespace-pre-wrap text-[13px] leading-[1.55]">
-              <MentionliMetin metin={yorum.icerik} uyeMap={uyeMap} />
+              <MentionliMetin metin={yorum.icerik} kisiMap={kisiMap} />
             </p>
           )}
         </div>

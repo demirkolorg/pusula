@@ -10,6 +10,8 @@ vi.mock("@/auth", () => ({
 
 import {
   bekleyenKullanicilariListele,
+  davetOlustur,
+  kullaniciyiGuncelle,
   kullaniciyiOnayla,
   kullaniciyiReddet,
 } from "./services";
@@ -44,6 +46,43 @@ async function bekleyenKullaniciOlustur(args: {
     },
     select: { id: true, email: true },
   });
+}
+
+async function onayliKullaniciOlustur(args: {
+  birimId: string | null;
+  email: string;
+}): Promise<{ id: string; email: string }> {
+  const parolaHash = await argon2.hash("Test1234!", { type: argon2.argon2id });
+  return adminDb.kullanici.create({
+    data: {
+      birim_id: args.birimId,
+      email: args.email,
+      parola_hash: parolaHash,
+      ad: "Onaylı",
+      soyad: "Kullanıcı",
+      aktif: true,
+      onay_durumu: "ONAYLANDI",
+      onay_zamani: new Date(),
+    },
+    select: { id: true, email: true },
+  });
+}
+
+async function rolIdAl(kod: string): Promise<string> {
+  const rol = await adminDb.rol.findUnique({
+    where: { kod },
+    select: { id: true },
+  });
+  if (!rol) throw new Error(`${kod} rolü bulunamadı.`);
+  return rol.id;
+}
+
+async function kaymakamKullaniciOlustur(email: string): Promise<string> {
+  const kullanici = await onayliKullaniciOlustur({ birimId: null, email });
+  await adminDb.kullaniciRol.create({
+    data: { kullanici_id: kullanici.id, rol_id: await rolIdAl("KAYMAKAM") },
+  });
+  return kullanici.id;
 }
 
 beforeAll(async () => {
@@ -101,6 +140,117 @@ describe("bekleyenKullanicilariListele", () => {
     });
     const liste = await bekleyenKullanicilariListele();
     expect(liste[0]?.birim?.id).toBe(ortam.birim.id);
+  });
+});
+
+describe("makam rol politikası", () => {
+  it("Kaymakam rolü kullanıcıyı birimsiz günceller", async () => {
+    const hedef = await onayliKullaniciOlustur({
+      birimId: ortam.birim.id,
+      email: "kaymakam-adayi@test.local",
+    });
+
+    await kullaniciyiGuncelle(
+      {
+        id: hedef.id,
+        ad: "Murat",
+        soyad: "Aksoy",
+        unvan: "Kaymakam",
+        telefon: "",
+        birim_id: null,
+        aktif: true,
+        rol_idleri: [await rolIdAl("KAYMAKAM")],
+      },
+      ortam.superAdmin.id,
+    );
+
+    const guncel = await adminDb.kullanici.findUnique({
+      where: { id: hedef.id },
+      select: {
+        birim_id: true,
+        roller: { select: { rol: { select: { kod: true } } } },
+      },
+    });
+    expect(guncel?.birim_id).toBeNull();
+    expect(guncel?.roller.map((r) => r.rol.kod)).toEqual(["KAYMAKAM"]);
+  });
+
+  it("ikinci Kaymakam rolünü reddeder", async () => {
+    await kaymakamKullaniciOlustur("kaymakam@test.local");
+    const hedef = await onayliKullaniciOlustur({
+      birimId: ortam.birim.id,
+      email: "ikinci-kaymakam@test.local",
+    });
+
+    await expect(
+      kullaniciyiGuncelle(
+        {
+          id: hedef.id,
+          ad: "İkinci",
+          soyad: "Kaymakam",
+          unvan: "",
+          telefon: "",
+          birim_id: null,
+          aktif: true,
+          rol_idleri: [await rolIdAl("KAYMAKAM")],
+        },
+        ortam.superAdmin.id,
+      ),
+    ).rejects.toThrow("zaten Kaymakam rolüne sahip");
+  });
+
+  it("birim rolü birimsiz bırakılırsa reddeder", async () => {
+    const hedef = await onayliKullaniciOlustur({
+      birimId: ortam.birim.id,
+      email: "birimsiz-personel@test.local",
+    });
+
+    await expect(
+      kullaniciyiGuncelle(
+        {
+          id: hedef.id,
+          ad: "Birim",
+          soyad: "Personeli",
+          unvan: "",
+          telefon: "",
+          birim_id: null,
+          aktif: true,
+          rol_idleri: [await rolIdAl("PERSONEL")],
+        },
+        ortam.superAdmin.id,
+      ),
+    ).rejects.toThrow("birim seçimi zorunludur");
+  });
+
+  it("Kaymakam daveti birimsiz oluşturulur", async () => {
+    const davet = await davetOlustur(ortam.superAdmin.id, {
+      email: "davet-kaymakam@test.local",
+      rol_id: await rolIdAl("KAYMAKAM"),
+      birim_id: null,
+    });
+
+    const kayit = await adminDb.davetTokeni.findUnique({
+      where: { id: davet.id },
+      select: { birim_id: true },
+    });
+    expect(kayit?.birim_id).toBeNull();
+  });
+
+  it("Kaymakam rolü için ikinci aktif daveti reddeder", async () => {
+    const rolId = await rolIdAl("KAYMAKAM");
+    await davetOlustur(ortam.superAdmin.id, {
+      email: "ilk-kaymakam-daveti@test.local",
+      rol_id: rolId,
+      birim_id: null,
+    });
+
+    await expect(
+      davetOlustur(ortam.superAdmin.id, {
+        email: "ikinci-kaymakam-daveti@test.local",
+        rol_id: rolId,
+        birim_id: null,
+      }),
+    ).rejects.toThrow("zaten geçerli bir davet");
   });
 });
 

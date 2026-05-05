@@ -180,7 +180,7 @@ describe("projeleriListele", () => {
     expect(sonuc).toHaveLength(200);
   }, 30_000);
 
-  // Eski birim izolasyonu testi paylaşım modeliyle kapsam dışı kaldı.
+  // Eski birim izolasyonu testi yetkilendirme modeliyle kapsam dışı kaldı.
 });
 
 describe("projeOlustur", () => {
@@ -201,12 +201,12 @@ describe("projeOlustur", () => {
     expect(liste.map((p) => p.ad)).toEqual(["Eski 1", "Eski 2", "Yepyeni"]);
   });
 
-  it("olusturan otomatik ProjeUyesi olarak ADMIN seviyesinde eklenir", async () => {
+  it("olusturan otomatik ProjeYetkilisi olarak ADMIN seviyesinde eklenir", async () => {
     const yeni = await projeOlustur(ortam.superAdmin.id, {
-      ad: "Uyeli Proje",
+      ad: "Yetkilili Proje",
     });
 
-    const uye = await adminDb.projeUyesi.findUnique({
+    const yetkili = await adminDb.projeYetkilisi.findUnique({
       where: {
         proje_id_kullanici_id: {
           proje_id: yeni.id,
@@ -214,10 +214,10 @@ describe("projeOlustur", () => {
         },
       },
     });
-    expect(uye).not.toBeNull();
-    expect(uye?.seviye).toBe("ADMIN");
-    // services tarafindan donen `uye_sayisi` 1 olmali.
-    expect(yeni.uye_sayisi).toBe(1);
+    expect(yetkili).not.toBeNull();
+    expect(yetkili?.seviye).toBe("ADMIN");
+    // services tarafindan donen `yetkili_sayisi` 1 olmali.
+    expect(yeni.yetkili_sayisi).toBe(1);
   });
 
   it("kapak rengi opsiyonel — verilmezse null kalir", async () => {
@@ -259,7 +259,7 @@ describe("projeGuncelle", () => {
     expect(sonra?.yildizli_mi).toBe(true);
   });
 
-  // Eski birim izolasyonu testi paylaşım modeliyle kapsam dışı kaldı.
+  // Eski birim izolasyonu testi yetkilendirme modeliyle kapsam dışı kaldı.
 });
 
 describe("projeArsivle", () => {
@@ -383,5 +383,5 @@ describe("projeyeSiraVer", () => {
     expect(liste.map((p) => p.ad)[liste.length - 1]).toBe("A");
   });
 
-  // Eski birim izolasyonu testi paylaşım modeliyle kapsam dışı kaldı.
+  // Eski birim izolasyonu testi yetkilendirme modeliyle kapsam dışı kaldı.
 });

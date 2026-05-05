@@ -116,8 +116,8 @@ describe("kartBirimEkle", () => {
   });
 
   it("farklı birim oturumu da karta hedef ekleyebilir (tek-birim mimarisi)", async () => {
-    // ADR-0007 — birim izolasyonu kaldırıldı; erişim ProjeUyesi seviyesinde
-    // (test fixtures sahibi superAdmin proje üyesi olduğu için ekleme başarılı).
+    // ADR-0007 — birim izolasyonu kaldırıldı; erişim ProjeYetkilisi seviyesinde
+    // (test fixtures sahibi superAdmin proje yetkilisi olduğu için ekleme başarılı).
     const hedef = await birimOlustur({
       kategori: "SAGLIK",
       tip: "ECZANE",

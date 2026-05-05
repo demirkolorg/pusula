@@ -18,7 +18,7 @@ import {
 import {
   mentionParse,
   tetikleEklentiYuklendi,
-  tetikleKartUyeAtama,
+  tetikleKartYetkiliAtama,
   tetikleMaddeAtama,
   tetikleYorumEklendi,
   tetikleYorumMention,
@@ -44,7 +44,7 @@ let kart: { id: string };
 
 async function sahipliProjeOlustur(birimId: string, sahipId: string) {
   const p = await projeOlusturFiks(adminDb, { birimId, olusturanId: sahipId });
-  await adminDb.projeUyesi.create({
+  await adminDb.projeYetkilisi.create({
     data: { proje_id: p.id, kullanici_id: sahipId, seviye: "ADMIN" },
   });
   return { id: p.id };
@@ -73,14 +73,14 @@ beforeEach(async () => {
 
 describe("bildirimUret", () => {
   it("birden fazla alıcıya tek tek bildirim üretir, üreteni dışlar", async () => {
-    await adminDb.projeUyesi.create({
+    await adminDb.projeYetkilisi.create({
       data: { proje_id: projeId, kullanici_id: ortam.personel.id, seviye: "NORMAL" },
     });
 
     const r = await bildirimUret({
       alici_idler: [ortam.personel.id, ortam.superAdmin.id],
       ureten_id: ortam.superAdmin.id,
-      tip: "KART_UYE_ATAMA",
+      tip: "KART_YETKILI_ATAMA",
       baslik: "Bir karta eklendiniz",
       kart_id: kart.id,
     });
@@ -93,7 +93,7 @@ describe("bildirimUret", () => {
     const r = await bildirimUret({
       alici_idler: [ortam.personel.id, ortam.personel.id],
       ureten_id: ortam.superAdmin.id,
-      tip: "KART_UYE_ATAMA",
+      tip: "KART_YETKILI_ATAMA",
       baslik: "X",
     });
     expect(r).toHaveLength(1);
@@ -105,7 +105,7 @@ describe("bildirimleriListele", () => {
     await bildirimUret({
       alici_idler: [ortam.personel.id],
       ureten_id: ortam.superAdmin.id,
-      tip: "KART_UYE_ATAMA",
+      tip: "KART_YETKILI_ATAMA",
       baslik: "Personel bildirimi",
     });
     await bildirimUret({
@@ -219,8 +219,8 @@ describe("mentionParse", () => {
 });
 
 describe("tetikleYorumMention", () => {
-  it("sadece proje üyelerine bildirim gönderir", async () => {
-    await adminDb.projeUyesi.create({
+  it("sadece karta erişimi olan yetkililere bildirim gönderir", async () => {
+    await adminDb.projeYetkilisi.create({
       data: { proje_id: projeId, kullanici_id: ortam.personel.id, seviye: "NORMAL" },
     });
 
@@ -231,7 +231,7 @@ describe("tetikleYorumMention", () => {
       icerik: `Selam @${ortam.personel.id} ve @${ortam.digerKullanici.id}`,
     });
 
-    // Personel proje üyesi → bildirim alır
+    // Personel proje yetkilisi olduğu için karta erişir → bildirim alır
     const personel = await bildirimleriListele(ortam.personel.id, {
       filtre: "hepsi",
       limit: 20,
@@ -239,7 +239,7 @@ describe("tetikleYorumMention", () => {
     expect(personel).toHaveLength(1);
     expect(personel[0]!.tip).toBe("YORUM_MENTION");
 
-    // diger kullanıcı proje üyesi DEĞİL → bildirim almamalı
+    // diger kullanıcı karta erişmez → bildirim almamalı
     const yabanci = await bildirimleriListele(ortam.digerKullanici.id, {
       filtre: "hepsi",
       limit: 20,
@@ -248,9 +248,9 @@ describe("tetikleYorumMention", () => {
   });
 });
 
-describe("tetikleKartUyeAtama", () => {
+describe("tetikleKartYetkiliAtama", () => {
   it("atayanın kendine bildirim atmaz", async () => {
-    await tetikleKartUyeAtama({
+    await tetikleKartYetkiliAtama({
       kartId: kart.id,
       atananId: ortam.superAdmin.id,
       atayanId: ortam.superAdmin.id,
@@ -263,10 +263,10 @@ describe("tetikleKartUyeAtama", () => {
   });
 
   it("atanana bildirim üretir", async () => {
-    await adminDb.projeUyesi.create({
+    await adminDb.projeYetkilisi.create({
       data: { proje_id: projeId, kullanici_id: ortam.personel.id, seviye: "NORMAL" },
     });
-    await tetikleKartUyeAtama({
+    await tetikleKartYetkiliAtama({
       kartId: kart.id,
       atananId: ortam.personel.id,
       atayanId: ortam.superAdmin.id,
@@ -276,21 +276,21 @@ describe("tetikleKartUyeAtama", () => {
       limit: 20,
     });
     expect(list).toHaveLength(1);
-    expect(list[0]!.tip).toBe("KART_UYE_ATAMA");
+    expect(list[0]!.tip).toBe("KART_YETKILI_ATAMA");
     expect(list[0]!.kart_id).toBe(kart.id);
   });
 });
 
 describe("tetikleYorumEklendi", () => {
-  it("kart üyelerine bildirim, yazan hariç", async () => {
-    await adminDb.projeUyesi.create({
+  it("kart yetkililerine bildirim, yazan hariç", async () => {
+    await adminDb.projeYetkilisi.create({
       data: { proje_id: projeId, kullanici_id: ortam.personel.id, seviye: "NORMAL" },
     });
-    // Personeli karta üye yap, ayrıca superAdmin de proje üyesi
-    await adminDb.kartUyesi.create({
+    // Personeli karta yetkili yap, ayrıca superAdmin de proje yetkilisi
+    await adminDb.kartYetkilisi.create({
       data: { kart_id: kart.id, kullanici_id: ortam.personel.id },
     });
-    await adminDb.kartUyesi.create({
+    await adminDb.kartYetkilisi.create({
       data: { kart_id: kart.id, kullanici_id: ortam.superAdmin.id },
     });
 
@@ -301,7 +301,7 @@ describe("tetikleYorumEklendi", () => {
       icerik: "Test yorumu",
     });
 
-    // Personel kart üyesi (yazan değil) → bildirim alır
+    // Personel kart yetkilisi (yazan değil) → bildirim alır
     const personel = await bildirimleriListele(ortam.personel.id, {
       filtre: "hepsi",
       limit: 20,
@@ -318,10 +318,10 @@ describe("tetikleYorumEklendi", () => {
   });
 
   it("mention edilmiş kullanıcıya YORUM_EKLENDI atmaz (çift bildirim önleme)", async () => {
-    await adminDb.projeUyesi.create({
+    await adminDb.projeYetkilisi.create({
       data: { proje_id: projeId, kullanici_id: ortam.personel.id, seviye: "NORMAL" },
     });
-    await adminDb.kartUyesi.create({
+    await adminDb.kartYetkilisi.create({
       data: { kart_id: kart.id, kullanici_id: ortam.personel.id },
     });
 
@@ -342,11 +342,11 @@ describe("tetikleYorumEklendi", () => {
 });
 
 describe("tetikleEklentiYuklendi", () => {
-  it("kart üyelerine bildirim, yükleyen hariç", async () => {
-    await adminDb.projeUyesi.create({
+  it("kart yetkililerine bildirim, yükleyen hariç", async () => {
+    await adminDb.projeYetkilisi.create({
       data: { proje_id: projeId, kullanici_id: ortam.personel.id, seviye: "NORMAL" },
     });
-    await adminDb.kartUyesi.create({
+    await adminDb.kartYetkilisi.create({
       data: { kart_id: kart.id, kullanici_id: ortam.personel.id },
     });
 
@@ -368,7 +368,7 @@ describe("tetikleEklentiYuklendi", () => {
 
 describe("tetikleMaddeAtama", () => {
   it("madde atan değişince atanan kullanıcıya bildirim", async () => {
-    await adminDb.projeUyesi.create({
+    await adminDb.projeYetkilisi.create({
       data: { proje_id: projeId, kullanici_id: ortam.personel.id, seviye: "NORMAL" },
     });
     const kl = await adminDb.kontrolListesi.create({

@@ -52,7 +52,7 @@ let projeId: string;
 
 async function sahipliProjeOlustur(birimId: string, sahipId: string) {
   const p = await projeOlusturFiks(adminDb, { birimId, olusturanId: sahipId });
-  await adminDb.projeUyesi.create({
+  await adminDb.projeYetkilisi.create({
     data: { proje_id: p.id, kullanici_id: sahipId, seviye: "ADMIN" },
   });
   return { id: p.id };
@@ -189,8 +189,8 @@ describe("eklentiSil", () => {
   });
 
   it("ne yükleyen ne ADMIN olmayan başkasının eklentisini silemez", async () => {
-    // Personeli projeye NORMAL üye yap, eklenti ekletsin
-    await adminDb.projeUyesi.create({
+    // Personeli projeye NORMAL yetkili yap, eklenti ekletsin
+    await adminDb.projeYetkilisi.create({
       data: { proje_id: projeId, kullanici_id: ortam.personel.id, seviye: "NORMAL" },
     });
     const baslat = await yuklemeBaslat(ortam.birim.id, {

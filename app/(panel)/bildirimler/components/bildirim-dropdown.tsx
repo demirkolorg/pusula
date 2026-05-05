@@ -44,8 +44,10 @@ const TARIH_KISA = new Intl.DateTimeFormat("tr-TR", {
 
 const RELATIVE = new Intl.RelativeTimeFormat("tr-TR", { numeric: "auto" });
 
-function relatifZaman(d: Date): string {
-  const fark = (Date.now() - new Date(d).getTime()) / 1000;
+function relatifZaman(d: Date, simdi: number | null): string {
+  if (simdi === null) return TARIH_KISA.format(new Date(d));
+
+  const fark = (simdi - new Date(d).getTime()) / 1000;
   if (fark < 60) return "şimdi";
   if (fark < 3600) return RELATIVE.format(-Math.round(fark / 60), "minute");
   if (fark < 86_400) return RELATIVE.format(-Math.round(fark / 3600), "hour");
@@ -58,7 +60,7 @@ const TIP_IKON: Record<
   React.ComponentType<{ className?: string }>
 > = {
   YORUM_MENTION: MessageSquareIcon,
-  KART_UYE_ATAMA: UsersIcon,
+  KART_YETKILI_ATAMA: UsersIcon,
   MADDE_ATAMA: CheckSquareIcon,
   BITIS_YAKLASIYOR: CalendarClockIcon,
   BITIS_GECTI: AlertTriangleIcon,
@@ -68,7 +70,7 @@ const TIP_IKON: Record<
 
 const TIP_RENK: Record<BildirimTipi, string> = {
   YORUM_MENTION: "bg-blue-100 text-blue-700",
-  KART_UYE_ATAMA: "bg-purple-100 text-purple-700",
+  KART_YETKILI_ATAMA: "bg-purple-100 text-purple-700",
   MADDE_ATAMA: "bg-emerald-100 text-emerald-700",
   BITIS_YAKLASIYOR: "bg-amber-100 text-amber-700",
   BITIS_GECTI: "bg-red-100 text-red-700",
@@ -145,6 +147,17 @@ function BildirimDropdownIcerik({ kapat }: { kapat: () => void }) {
   const tumunu = useTumunuOkuduIsaretle();
   const isaretle = useBildirimOkuduIsaretle();
   const okunmamisVar = (sorgu.data ?? []).some((b) => !b.okundu_mu);
+  const [simdi, setSimdi] = React.useState<number | null>(null);
+
+  React.useEffect(() => {
+    const guncelle = () => setSimdi(Date.now());
+    const ilkTimer = window.setTimeout(guncelle, 0);
+    const tekrarTimer = window.setInterval(guncelle, 60_000);
+    return () => {
+      window.clearTimeout(ilkTimer);
+      window.clearInterval(tekrarTimer);
+    };
+  }, []);
 
   return (
     <div className="flex flex-col">
@@ -173,6 +186,7 @@ function BildirimDropdownIcerik({ kapat }: { kapat: () => void }) {
             <li key={b.id}>
               <BildirimSatiri
                 bildirim={b}
+                simdi={simdi}
                 tikla={() => {
                   if (!b.okundu_mu) isaretle.mutate({ ids: [b.id] });
                   kapat();
@@ -199,9 +213,11 @@ function BildirimDropdownIcerik({ kapat }: { kapat: () => void }) {
 
 function BildirimSatiri({
   bildirim,
+  simdi,
   tikla,
 }: {
   bildirim: BildirimOzeti;
+  simdi: number | null;
   tikla: () => void;
 }) {
   const Ikon = TIP_IKON[bildirim.tip];
@@ -242,7 +258,7 @@ function BildirimSatiri({
           </p>
         )}
         <time className="text-muted-foreground/70 mt-1 block text-[10.5px]">
-          {relatifZaman(bildirim.olusturma_zamani)}
+          {relatifZaman(bildirim.olusturma_zamani, simdi)}
         </time>
       </div>
       {!bildirim.okundu_mu && (

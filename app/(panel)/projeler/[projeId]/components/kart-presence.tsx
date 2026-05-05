@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useKartPresence } from "@/hooks/use-socket";
 import { useOturumKullanicisi } from "@/hooks/use-oturum";
-import { UyeAvatar } from "../uye/components/uye-avatar";
+import { KisiAvatar } from "../yetkili/components/kisi-avatar";
 
 type Props = {
   kartId: string;
@@ -35,7 +35,7 @@ export function KartPresence({ kartId }: Props) {
       </span>
       <div className="ml-1 flex -space-x-1.5">
         {baskalari.slice(0, 3).map((u) => (
-          <UyeAvatar
+          <KisiAvatar
             key={u.id}
             ad={u.ad}
             soyad={u.soyad}

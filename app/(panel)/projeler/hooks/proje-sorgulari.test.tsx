@@ -79,7 +79,7 @@ function ornek(p: Partial<ProjeKart> = {}): ProjeKart {
     arsiv_mi: p.arsiv_mi ?? false,
     silindi_mi: p.silindi_mi ?? false,
     sira: p.sira ?? "M",
-    uye_sayisi: p.uye_sayisi ?? 1,
+    yetkili_sayisi: p.yetkili_sayisi ?? 1,
     liste_sayisi: p.liste_sayisi ?? 0,
     olusturma_zamani: p.olusturma_zamani ?? new Date(),
   };

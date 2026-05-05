@@ -39,7 +39,7 @@ export type ListeKartOzeti = {
   bitis: Date | null;
   arsiv_mi: boolean;
   silindi_mi: boolean;
-  uye_sayisi: number;
+  yetkili_sayisi: number;
   etiket_sayisi: number;
 };
 
@@ -79,18 +79,21 @@ function listeGorunurlukWhere(
   erisim: KaynakErisimi,
 ): Prisma.ListeWhereInput {
   if (erisim.makam) return { arsiv_mi: false };
-  // Saf model: liste sadece dogrudan atama (uye/birim) veya alt karta atama varsa gorunur
+  // Yetki asagi iner: proje yetkilisi butun listeleri, liste yetkilisi o
+  // listeyi, kart yetkilisi ise liste kabugunu gorur.
   const kartKosullari: Prisma.KartWhereInput[] = [
-    { uyeler: { some: { kullanici_id: erisim.kullaniciId } } },
+    { yetkililer: { some: { kullanici_id: erisim.kullaniciId } } },
   ];
   if (erisim.birimId) {
     kartKosullari.push({ birimler: { some: { birim_id: erisim.birimId } } });
   }
   const kosullar: Prisma.ListeWhereInput[] = [
-    { uyeler: { some: { kullanici_id: erisim.kullaniciId } } },
+    { proje: { yetkililer: { some: { kullanici_id: erisim.kullaniciId } } } },
+    { yetkililer: { some: { kullanici_id: erisim.kullaniciId } } },
     { kartlar: { some: { OR: kartKosullari } } },
   ];
   if (erisim.birimId) {
+    kosullar.push({ proje: { birimler: { some: { birim_id: erisim.birimId } } } });
     kosullar.push({ birimler: { some: { birim_id: erisim.birimId } } });
   }
   return { arsiv_mi: false, OR: kosullar };
@@ -100,11 +103,32 @@ function kartGorunurlukWhere(
   erisim: KaynakErisimi,
 ): Prisma.KartWhereInput {
   if (erisim.makam) return { silindi_mi: false, arsiv_mi: false };
-  // Saf model: kart sadece dogrudan atama varsa gorunur
+  // Yetki asagi iner: proje yetkilisi tum kartlari, liste yetkilisi listenin
+  // kartlarini, kart yetkilisi ise sadece karti gorur.
   const kosullar: Prisma.KartWhereInput[] = [
-    { uyeler: { some: { kullanici_id: erisim.kullaniciId } } },
+    {
+      liste: {
+        proje: {
+          yetkililer: { some: { kullanici_id: erisim.kullaniciId } },
+        },
+      },
+    },
+    {
+      liste: {
+        yetkililer: { some: { kullanici_id: erisim.kullaniciId } },
+      },
+    },
+    { yetkililer: { some: { kullanici_id: erisim.kullaniciId } } },
   ];
   if (erisim.birimId) {
+    kosullar.push({
+      liste: {
+        proje: { birimler: { some: { birim_id: erisim.birimId } } },
+      },
+    });
+    kosullar.push({
+      liste: { birimler: { some: { birim_id: erisim.birimId } } },
+    });
     kosullar.push({ birimler: { some: { birim_id: erisim.birimId } } });
   }
   return { silindi_mi: false, arsiv_mi: false, OR: kosullar };
@@ -205,7 +229,7 @@ export async function projeDetayiniGetir(
               bitis: true,
               arsiv_mi: true,
               silindi_mi: true,
-              _count: { select: { uyeler: true, etiketler: true } },
+              _count: { select: { yetkililer: true, etiketler: true } },
             },
           },
         },
@@ -272,7 +296,7 @@ export async function projeDetayiniGetir(
         bitis: k.bitis,
         arsiv_mi: k.arsiv_mi,
         silindi_mi: k.silindi_mi,
-        uye_sayisi: k._count.uyeler,
+        yetkili_sayisi: k._count.yetkililer,
         etiket_sayisi: k._count.etiketler,
       })),
     })),
@@ -302,7 +326,7 @@ export async function listeOlustur(
       proje_id: girdi.proje_id,
       ad: girdi.ad.trim(),
       sira,
-      uyeler: { create: { kullanici_id: kullaniciId } },
+      yetkililer: { create: { kullanici_id: kullaniciId } },
       birimler: erisim.birimId
         ? { create: { birim_id: erisim.birimId } }
         : undefined,
@@ -465,7 +489,7 @@ export async function kartOlustur(
       aciklama: girdi.aciklama?.trim() || null,
       sira,
       olusturan_id: kullaniciId,
-      uyeler: { create: { kullanici_id: kullaniciId } },
+      yetkililer: { create: { kullanici_id: kullaniciId } },
       birimler: erisim.birimId
         ? { create: { birim_id: erisim.birimId } }
         : undefined,
@@ -494,7 +518,7 @@ export async function kartOlustur(
     bitis: yeni.bitis,
     arsiv_mi: yeni.arsiv_mi,
     silindi_mi: yeni.silindi_mi,
-    uye_sayisi: 1,
+    yetkili_sayisi: 1,
     etiket_sayisi: 0,
   };
   yayinla(SOCKET.KART_OLUSTUR, room.proje(proje_id), {
@@ -594,7 +618,7 @@ export async function kartiTasi(
 
   // Aynı proje içinde olmalı (proje arası taşıma şu anda kapsam dışı).
   // Plan S3: drag-drop "proje içi/arası" yazıyor — proje arası ileride
-  // ProjeUyesi yetki kontrolü ile genişletilir; MVP'de proje içi kabul.
+  // ProjeYetkilisi yetki kontrolü ile genişletilir; MVP'de proje içi kabul.
   if (kaynakProjeId !== hedefProjeId) {
     throw new EylemHatasi(
       "Kart şu anda sadece aynı proje içinde taşınabilir.",
@@ -702,7 +726,7 @@ export async function projedeTumKartlar(
       bitis: true,
       arsiv_mi: true,
       silindi_mi: true,
-      _count: { select: { uyeler: true, etiketler: true } },
+      _count: { select: { yetkililer: true, etiketler: true } },
     },
   });
 
@@ -720,7 +744,7 @@ export async function projedeTumKartlar(
     bitis: k.bitis,
     arsiv_mi: k.arsiv_mi,
     silindi_mi: k.silindi_mi,
-    uye_sayisi: k._count.uyeler,
+    yetkili_sayisi: k._count.yetkililer,
     etiket_sayisi: k._count.etiketler,
   }));
 }

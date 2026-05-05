@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { eylemMutasyonu, useOptimisticMutation } from "@/lib/optimistic";
 import { siraSonuna } from "@/lib/sira";
 import { tempId } from "@/lib/temp-id";
@@ -10,6 +10,7 @@ import {
   kontrolListesiGuncelleEylem,
   kontrolListesiOlusturEylem,
   kontrolListesiSilEylem,
+  maddeAdayKullanicilarEylem,
   maddeGuncelleEylem,
   maddeOlusturEylem,
   maddeSilEylem,
@@ -22,12 +23,27 @@ import type {
   MaddeOlustur,
   MaddeSil,
 } from "./schemas";
-import type { KontrolListesiOzeti, MaddeOzeti } from "./services";
+import type {
+  KontrolListesiOzeti,
+  MaddeAdayKullanici,
+  MaddeOzeti,
+} from "./services";
+
+// Optimistic update için isim de geliyorsa nested `atanan` görsel olarak
+// hemen güncellenir; aksi halde server cevabı dönene kadar boş görünürdü.
+export type MaddeGuncelleOptimistic = MaddeGuncelle & {
+  atanan_ozeti?: { ad: string; soyad: string } | null;
+};
 
 export const KART_KONTROL_KEY = "kart-kontrol-listeleri";
+export const MADDE_ADAY_KEY = "kontrol-madde-aday-kullanicilar";
 
 export function kartKontrolKey(kartId: string) {
   return [KART_KONTROL_KEY, kartId] as const;
+}
+
+export function maddeAdayKey(kartId: string, q: string) {
+  return [MADDE_ADAY_KEY, kartId, q] as const;
 }
 
 // =====================================================================
@@ -156,9 +172,10 @@ export function useMaddeOlustur(kartId: string) {
 }
 
 export function useMaddeGuncelle(kartId: string) {
-  return useOptimisticMutation<MaddeGuncelle, { id: string }>({
+  return useOptimisticMutation<MaddeGuncelleOptimistic, { id: string }>({
     queryKey: kartKontrolKey(kartId),
-    mutationFn: eylemMutasyonu(maddeGuncelleEylem),
+    mutationFn: ({ atanan_ozeti: _ozet, ...vars }) =>
+      eylemMutasyonu(maddeGuncelleEylem)(vars),
     optimistic: (eski, vars) => {
       const liste = (eski as KontrolListesiOzeti[] | undefined) ?? [];
       return liste.map((kl) => ({
@@ -180,6 +197,12 @@ export function useMaddeGuncelle(kartId: string) {
                       : m.tamamlama_zamani,
                 atanan_id:
                   vars.atanan_id !== undefined ? vars.atanan_id : m.atanan_id,
+                atanan:
+                  vars.atanan_id === null
+                    ? null
+                    : vars.atanan_id !== undefined
+                      ? (vars.atanan_ozeti ?? m.atanan)
+                      : m.atanan,
                 bitis: vars.bitis !== undefined ? (vars.bitis ?? null) : m.bitis,
               }
             : m,
@@ -204,6 +227,28 @@ export function useMaddeSil(kartId: string) {
     },
     ekInvalidate: [kartAktiviteleriKey(kartId)],
     hataMesaji: "Madde silinemedi",
+  });
+}
+
+// =====================================================================
+// Madde sorumlu picker'ı için aday kullanıcı sorgusu
+// =====================================================================
+
+export function useKartMaddeAdayKullanicilar(
+  kartId: string,
+  q: string,
+  enabled: boolean,
+) {
+  return useQuery<MaddeAdayKullanici[]>({
+    queryKey: maddeAdayKey(kartId, q),
+    enabled,
+    queryFn: async () => {
+      const r = await maddeAdayKullanicilarEylem({ kart_id: kartId, q });
+      if (!r.basarili) throw new Error(r.hata);
+      return r.veri;
+    },
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
   });
 }
 

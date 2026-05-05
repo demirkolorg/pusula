@@ -10,12 +10,14 @@ import {
   kontrolListesiGuncelleSemasi,
   kontrolListesiOlusturSemasi,
   kontrolListesiSilSemasi,
+  maddeAdayKullanicilarSemasi,
   maddeGuncelleSemasi,
   maddeOlusturSemasi,
   maddeSilSemasi,
 } from "./schemas";
 import {
   kartKontrolListeleriniListele,
+  kartMaddeAdayKullanicilariniAra,
   kontrolListesiGuncelle as kontrolListesiGuncelleSrv,
   kontrolListesiOlustur as kontrolListesiOlusturSrv,
   kontrolListesiSil as kontrolListesiSilSrv,
@@ -131,5 +133,16 @@ export const maddeSilEylem = eylem({
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
     await maddeSilSrv(birimIdAl(ctx), girdi.id);
     return { id: girdi.id };
+  },
+});
+
+export const maddeAdayKullanicilarEylem = eylem({
+  ad: "kontrol-maddesi:aday-kullanicilar",
+  girdi: maddeAdayKullanicilarSemasi,
+  calistir: async (girdi, ctx) => {
+    // Picker'ı kart düzenleyebilen herkese aç (Kural V.2/146 — kaynak bazlı).
+    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
+    await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.kart_id);
+    return kartMaddeAdayKullanicilariniAra(birimIdAl(ctx), girdi);
   },
 });

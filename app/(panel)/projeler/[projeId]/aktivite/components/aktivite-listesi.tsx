@@ -25,9 +25,9 @@ import {
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
-import { MentionliMetin, type UyeMap } from "@/lib/mention";
-import { UyeAvatar } from "../../uye/components/uye-avatar";
-import { useProjeUyeleri } from "../../uye/hooks";
+import { MentionliMetin, type KisiMap } from "@/lib/mention";
+import { KisiAvatar } from "../../yetkili/components/kisi-avatar";
+import { useProjeYetkilileri } from "../../yetkili/hooks";
 import { useKartAktiviteleri } from "../hooks";
 import type { AktiviteOzeti } from "../services";
 import { aktiviteDiff, type DiffSegment } from "../aktivite-diff";
@@ -35,12 +35,11 @@ import { aktiviteDiff, type DiffSegment } from "../aktivite-diff";
 const KATEGORI_ETIKET: Record<AktiviteOzeti["kategori"], string> = {
   kart: "Kart",
   etiket: "Etiket",
-  uye: "Üye",
+  yetkili: "Yetkili",
   "kontrol-listesi": "Kontrol Listesi",
   "kontrol-maddesi": "Kontrol Maddesi",
   yorum: "Yorum",
   eklenti: "Eklenti",
-  iliski: "İlişki",
   "hedef-birim": "Birim",
   diger: "Diğer",
 };
@@ -94,12 +93,11 @@ const KATEGORI_IKON: Record<
 > = {
   kart: ActivityIcon,
   etiket: TagIcon,
-  uye: UsersIcon,
+  yetkili: UsersIcon,
   "kontrol-listesi": ListChecksIcon,
   "kontrol-maddesi": CheckSquareIcon,
   yorum: MessageSquareIcon,
   eklenti: PaperclipIcon,
-  iliski: LinkIcon,
   "hedef-birim": Building2Icon,
   diger: FilePlus2Icon,
 };
@@ -108,15 +106,15 @@ const KATEGORI_IKON: Record<
 // 22x22 daire (kategori rengi), sağda kullanıcı + mesaj + detay + zaman.
 export function AktiviteListesi({ kartId, projeId }: Props) {
   const sorgu = useKartAktiviteleri(kartId);
-  const uyelerQ = useProjeUyeleri(projeId ?? "");
-  const uyeMap: UyeMap = React.useMemo(() => {
-    const m: UyeMap = new Map();
+  const yetkililerQ = useProjeYetkilileri(projeId ?? "");
+  const kisiMap: KisiMap = React.useMemo(() => {
+    const m: KisiMap = new Map();
     if (!projeId) return m;
-    for (const u of uyelerQ.data ?? []) {
+    for (const u of yetkililerQ.data ?? []) {
       m.set(u.kullanici_id, { ad: u.ad, soyad: u.soyad });
     }
     return m;
-  }, [projeId, uyelerQ.data]);
+  }, [projeId, yetkililerQ.data]);
 
   if (sorgu.isLoading) {
     return (
@@ -151,7 +149,7 @@ export function AktiviteListesi({ kartId, projeId }: Props) {
       <ul className="relative flex flex-col gap-5">
         {sorgu.data?.map((a) => (
           <li key={a.id}>
-            <AktiviteSatiri aktivite={a} uyeMap={uyeMap} />
+            <AktiviteSatiri aktivite={a} kisiMap={kisiMap} />
           </li>
         ))}
       </ul>
@@ -161,10 +159,10 @@ export function AktiviteListesi({ kartId, projeId }: Props) {
 
 function AktiviteSatiri({
   aktivite,
-  uyeMap,
+  kisiMap,
 }: {
   aktivite: AktiviteOzeti;
-  uyeMap: UyeMap;
+  kisiMap: KisiMap;
 }) {
   const Ikon = KATEGORI_IKON[aktivite.kategori];
   const adSoyad = aktivite.kullanici
@@ -180,7 +178,7 @@ function AktiviteSatiri({
       <div className="flex w-[30px] shrink-0 justify-center">
         {aktivite.kullanici ? (
           <span className="ring-background relative z-[1] ring-2">
-            <UyeAvatar
+            <KisiAvatar
               ad={aktivite.kullanici.ad}
               soyad={aktivite.kullanici.soyad}
               className="size-[30px] text-[10px]"
@@ -240,7 +238,7 @@ function AktiviteSatiri({
           {aktivite.detay && (
             <span className="bg-muted text-foreground inline-block max-w-[260px] truncate rounded-md px-2 py-0.5 text-[11.5px] font-medium">
               {detayMentionlu ? (
-                <MentionliMetin metin={aktivite.detay} uyeMap={uyeMap} />
+                <MentionliMetin metin={aktivite.detay} kisiMap={kisiMap} />
               ) : (
                 aktivite.detay
               )}
@@ -255,7 +253,7 @@ function AktiviteSatiri({
       <AktiviteDetayDiyalog
         aktivite={aktivite}
         kullanici={adSoyad}
-        uyeMap={uyeMap}
+        kisiMap={kisiMap}
         acik={detayAcik}
         onAcikDegisti={setDetayAcik}
       />
@@ -268,13 +266,13 @@ function AktiviteSatiri({
 function AktiviteDetayDiyalog({
   aktivite,
   kullanici,
-  uyeMap,
+  kisiMap,
   acik,
   onAcikDegisti,
 }: {
   aktivite: AktiviteOzeti;
   kullanici: string;
-  uyeMap: UyeMap;
+  kisiMap: KisiMap;
   acik: boolean;
   onAcikDegisti: (a: boolean) => void;
 }) {
@@ -305,7 +303,7 @@ function AktiviteDetayDiyalog({
             Aktivite detayı
           </ResponsiveDialogTitle>
           <ResponsiveDialogDescription className="text-muted-foreground text-[12px]">
-            Bu kayıt audit log'tan alınmış ham olay verisinin tamamını içerir.
+            Bu kayıt audit logundan alınmış ham olay verisinin tamamını içerir.
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
@@ -329,7 +327,7 @@ function AktiviteDetayDiyalog({
                     {detayMentionlu ? (
                       <MentionliMetin
                         metin={aktivite.detay}
-                        uyeMap={uyeMap}
+                        kisiMap={kisiMap}
                       />
                     ) : (
                       aktivite.detay
@@ -556,15 +554,13 @@ function kategoriArkaplan(kategori: AktiviteOzeti["kategori"]): string {
       return "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300";
     case "etiket":
       return "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300";
-    case "uye":
+    case "yetkili":
       return "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300";
     case "kontrol-listesi":
     case "kontrol-maddesi":
       return "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300";
     case "eklenti":
       return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
-    case "iliski":
-      return "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300";
     case "hedef-birim":
       return "bg-cyan-100 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300";
     case "kart":
@@ -580,13 +576,11 @@ function kategoriYazi(kategori: AktiviteOzeti["kategori"]): string {
       return "text-blue-600 dark:text-blue-400";
     case "etiket":
       return "text-amber-600 dark:text-amber-400";
-    case "uye":
+    case "yetkili":
       return "text-purple-600 dark:text-purple-400";
     case "kontrol-listesi":
     case "kontrol-maddesi":
       return "text-emerald-600 dark:text-emerald-400";
-    case "iliski":
-      return "text-rose-600 dark:text-rose-400";
     case "hedef-birim":
       return "text-cyan-600 dark:text-cyan-400";
     default:

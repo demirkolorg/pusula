@@ -81,7 +81,7 @@ export function ProjeKart({
               <ListIcon className="size-3" /> {proje.liste_sayisi}
             </span>
             <span className="inline-flex items-center gap-1">
-              <UsersIcon className="size-3" /> {proje.uye_sayisi}
+              <UsersIcon className="size-3" /> {proje.yetkili_sayisi}
             </span>
           </div>
         </div>

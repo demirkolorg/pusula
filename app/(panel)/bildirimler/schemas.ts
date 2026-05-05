@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const BILDIRIM_TIPLERI = [
   "YORUM_MENTION",
-  "KART_UYE_ATAMA",
+  "KART_YETKILI_ATAMA",
   "MADDE_ATAMA",
   "BITIS_YAKLASIYOR",
   "BITIS_GECTI",

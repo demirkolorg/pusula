@@ -96,6 +96,7 @@ export const davetGonderEylem = eylem({
       revalidatePath("/ayarlar/kullanicilar");
       return kayit;
     } catch (err) {
+      if (err instanceof EylemHatasi) throw err;
       if (err instanceof Error) {
         throw new EylemHatasi(err.message, HATA_KODU.CAKISMA);
       }

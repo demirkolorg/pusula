@@ -3,6 +3,7 @@ import { EylemHatasi } from "@/lib/action-wrapper";
 import { HATA_KODU } from "@/lib/sonuc";
 import { yayinla } from "@/lib/realtime";
 import { SOCKET, room } from "@/lib/socket-events";
+import { tokenMi, type KapakRenk } from "@/lib/kapak-renk";
 
 // =====================================================================
 // Erişim doğrulama
@@ -86,4 +87,53 @@ export async function kapagiKaldir(
   yayinla(SOCKET.KAPAK_KALDIR, room.kart(kartId), { kart_id: kartId }).catch(
     () => {},
   );
+}
+
+// =====================================================================
+// Kapak rengini ayarla — KapakRenk token'larından biri (lib/kapak-renk.ts)
+// Renk konunca görsel kapak null'lanır — tek kapak gösterilir.
+// =====================================================================
+
+export async function kapakRenginiAyarla(
+  birimId: string,
+  kartId: string,
+  renk: KapakRenk,
+): Promise<void> {
+  await kartiBulVeProjeAl(birimId, kartId);
+
+  // Defansif: schema'da z.enum doğruluyor ama service public — direkt çağrı
+  // ihtimalini düşürelim (Kural #2 phantom-mindset).
+  if (!tokenMi(renk)) {
+    throw new EylemHatasi(
+      "Geçersiz kapak rengi.",
+      HATA_KODU.GECERSIZ_GIRDI,
+    );
+  }
+
+  await db.kart.update({
+    where: { id: kartId },
+    data: { kapak_renk: renk, kapak_dosya_id: null },
+  });
+  yayinla(SOCKET.KAPAK_RENGI_AYARLA, room.kart(kartId), {
+    kart_id: kartId,
+    renk,
+  }).catch(() => {});
+}
+
+// =====================================================================
+// Kapak rengini kaldır — kapak_renk null'lanır (görsel kapak dokunulmaz)
+// =====================================================================
+
+export async function kapakRenginiKaldir(
+  birimId: string,
+  kartId: string,
+): Promise<void> {
+  await kartiBulVeProjeAl(birimId, kartId);
+  await db.kart.update({
+    where: { id: kartId },
+    data: { kapak_renk: null },
+  });
+  yayinla(SOCKET.KAPAK_RENGI_KALDIR, room.kart(kartId), {
+    kart_id: kartId,
+  }).catch(() => {});
 }

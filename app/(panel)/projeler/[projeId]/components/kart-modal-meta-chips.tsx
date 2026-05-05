@@ -5,49 +5,67 @@ import {
   CalendarIcon,
   ChevronDownIcon,
   HashIcon,
-  LinkIcon,
+  PaletteIcon,
   TagIcon,
   UserIcon,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { kapakArkaplanSinifi } from "@/lib/kapak-renk";
 import { kartBirimleriEylem } from "../actions";
 import { useKartEtiketleri, useEtiketler } from "../etiket/hooks";
-import { useKartUyeleri } from "../uye/hooks";
-import { useKartIliskileri } from "../iliski/hooks";
+import { useKartYetkilileri } from "../yetkili/hooks";
 import { EtiketPopover } from "../etiket/components/etiket-popover";
-import { UyePopover } from "../uye/components/uye-popover";
-import { IliskiPopover } from "../iliski/components/iliski-popover";
+import { YetkililerPaneliPopover } from "../yetkili/components/yetkililer-paneli";
+import type { YetkiliKaynagi } from "../yetkili/yetkili-tipler";
 import { KartBitisPopover } from "./kart-bitis-popover";
-import { KartBirimPopover } from "./kart-birim-popover";
+import { KartKapakPopover } from "./kart-kapak-popover";
 
 const TARIH_BICIM = new Intl.DateTimeFormat("tr-TR", {
   day: "2-digit",
   month: "short",
+  timeZone: "Europe/Istanbul",
 });
 
 type Props = {
   kartId: string;
   projeId: string;
+  yetkiliYonet: boolean;
   bitis: Date | string | null;
   bitisKaydet: (yeni: Date | null) => void;
+  kapakRenk: string | null;
 };
 
 // Sancak `meta-chip` strip'i — pill chip'ler: ICON · sayı/metin · (preview) · chevron.
-// Sırası referansla aynı: Atananlar · Tarih · Etiketler · Birimler · İlişkili Kartlar.
+// Sırası referansla aynı: Yetkililer · Tarih · Etiketler · Birimler · Kapak.
 export function KartModalMetaChips({
   kartId,
   projeId,
+  yetkiliYonet,
   bitis,
   bitisKaydet,
+  kapakRenk,
 }: Props) {
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <UyeChipBaglanti kartId={kartId} projeId={projeId} />
+      <YetkiliChipBaglanti
+        kartId={kartId}
+        projeId={projeId}
+        yetkiliYonet={yetkiliYonet}
+      />
       <BitisChip bitis={bitis} bitisKaydet={bitisKaydet} />
       <EtiketChipBaglanti kartId={kartId} projeId={projeId} />
-      <BirimChipBaglanti kartId={kartId} />
-      <IliskiChipBaglanti kartId={kartId} projeId={projeId} />
+      <BirimChipBaglanti
+        kartId={kartId}
+        projeId={projeId}
+        yetkiliYonet={yetkiliYonet}
+      />
+      <KapakChipBaglanti
+        kartId={kartId}
+        projeId={projeId}
+        yetkiliYonet={yetkiliYonet}
+        kapakRenk={kapakRenk}
+      />
     </div>
   );
 }
@@ -106,27 +124,48 @@ const ChipButon = React.forwardRef<HTMLButtonElement, ChipProps>(
 // Chip varyantları
 // ---------------------------------------------------------------------------
 
-function UyeChipBaglanti({
+// Why aynı kaynak: yetkili kişiler ve birimler artık tek polimorfik panelde
+// yönetilir. Hem `Yetkili` chip hem `Birim` chip aynı popover'ı açar — her
+// iki alandaki tüm yetkilendirme tek yerden görünür.
+function kartYetkiliKaynagi(
+  kartId: string,
+  projeId: string,
+  yetkiliYonet: boolean,
+): YetkiliKaynagi {
+  return {
+    tip: "kart",
+    kartId,
+    projeId,
+    izinler: { birimYonet: yetkiliYonet, kisiYonet: yetkiliYonet },
+  };
+}
+
+function YetkiliChipBaglanti({
   kartId,
   projeId,
+  yetkiliYonet,
 }: {
   kartId: string;
   projeId: string;
+  yetkiliYonet: boolean;
 }) {
-  const sorgu = useKartUyeleri(kartId);
+  const sorgu = useKartYetkilileri(kartId);
   const sayi = sorgu.data?.length ?? 0;
+  const trigger = (
+    <ChipButon
+      icon={UserIcon}
+      sayi={sayi}
+      bosMu={sayi === 0}
+      aria-label="Yetkililer"
+    />
+  );
+  if (!yetkiliYonet) return trigger;
   return (
-    <UyePopover
-      kartId={kartId}
-      projeId={projeId}
-      trigger={
-        <ChipButon
-          icon={UserIcon}
-          sayi={sayi}
-          bosMu={sayi === 0}
-          aria-label="Atananlar"
-        />
-      }
+    <YetkililerPaneliPopover
+      kaynak={kartYetkiliKaynagi(kartId, projeId, yetkiliYonet)}
+      side="bottom"
+      align="start"
+      trigger={trigger}
     />
   );
 }
@@ -144,12 +183,15 @@ function BitisChip({
     return Number.isNaN(d.getTime()) ? undefined : TARIH_BICIM.format(d);
   }, [bitis]);
 
-  // Tarih yaklaştıysa sancak'ta amber dot — 7 gün kuralı.
-  // Şu anki zamanı render-pure tutmak için mount anında bir kez ölçüyoruz;
-  // modal kısa süre açık kalır, milisaniye doğruluğu kritik değil.
-  const [simdi] = React.useState(() => Date.now());
+  const [simdi, setSimdi] = React.useState<number | null>(null);
+
+  React.useEffect(() => {
+    const timer = window.setTimeout(() => setSimdi(Date.now()), 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   const yaklasiyorMu = React.useMemo(() => {
-    if (!bitis) return false;
+    if (simdi === null || !bitis) return false;
     const d = bitis instanceof Date ? bitis : new Date(bitis);
     if (Number.isNaN(d.getTime())) return false;
     const fark = (d.getTime() - simdi) / (1000 * 60 * 60 * 24);
@@ -228,8 +270,16 @@ function EtiketChipBaglanti({
   );
 }
 
-function BirimChipBaglanti({ kartId }: { kartId: string }) {
-  // KartBirimler ile aynı queryKey — cache paylaşımı.
+function BirimChipBaglanti({
+  kartId,
+  projeId,
+  yetkiliYonet,
+}: {
+  kartId: string;
+  projeId: string;
+  yetkiliYonet: boolean;
+}) {
+  // Adaptör'le aynı cache key — chip ve panel tek cache paylaşır.
   const sorgu = useQuery({
     queryKey: ["kart-birimler", kartId] as const,
     queryFn: async () => {
@@ -240,42 +290,59 @@ function BirimChipBaglanti({ kartId }: { kartId: string }) {
     staleTime: 30_000,
   });
   const sayi = sorgu.data?.length ?? 0;
+  const trigger = (
+    <ChipButon
+      icon={HashIcon}
+      sayi={sayi}
+      bosMu={sayi === 0}
+      aria-label="Yetkili birimler"
+    />
+  );
+  if (!yetkiliYonet) return trigger;
   return (
-    <KartBirimPopover
-      kartId={kartId}
-      trigger={
-        <ChipButon
-          icon={HashIcon}
-          sayi={sayi}
-          bosMu={sayi === 0}
-          aria-label="Birimler"
-        />
-      }
+    <YetkililerPaneliPopover
+      kaynak={kartYetkiliKaynagi(kartId, projeId, yetkiliYonet)}
+      side="bottom"
+      align="start"
+      trigger={trigger}
     />
   );
 }
 
-function IliskiChipBaglanti({
+function KapakChipBaglanti({
   kartId,
   projeId,
+  yetkiliYonet,
+  kapakRenk,
 }: {
   kartId: string;
   projeId: string;
+  yetkiliYonet: boolean;
+  kapakRenk: string | null;
 }) {
-  const sorgu = useKartIliskileri(kartId);
-  const sayi = sorgu.data?.length ?? 0;
+  const sinif = kapakArkaplanSinifi(kapakRenk);
+  const trigger = (
+    <ChipButon
+      icon={PaletteIcon}
+      bosMu={!sinif}
+      aria-label="Kapak rengi"
+      onPreview={
+        sinif && (
+          <span
+            className={cn("size-2.5 rounded-full", sinif)}
+            aria-hidden
+          />
+        )
+      }
+    />
+  );
   return (
-    <IliskiPopover
+    <KartKapakPopover
       kartId={kartId}
       projeId={projeId}
-      trigger={
-        <ChipButon
-          icon={LinkIcon}
-          sayi={sayi}
-          bosMu={sayi === 0}
-          aria-label="İlişkili kartlar"
-        />
-      }
+      mevcut={kapakRenk}
+      duzenleyebilir={yetkiliYonet}
+      trigger={trigger}
     />
   );
 }

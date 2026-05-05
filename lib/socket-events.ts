@@ -6,13 +6,13 @@
 // =====================================================================
 
 export const SOCKET = {
-  // İstemciden gelir — bir proje room'una katılma isteği. Server üyelik kontrol eder.
+  // İstemciden gelir — bir proje room'una katılma isteği. Server yetki kontrol eder.
   PROJE_KATIL: "proje:katil",
   PROJE_AYRIL: "proje:ayril",
   // Kart presence (kim aktif görüntülüyor)
   KART_KATIL: "kart:katil",
   KART_AYRIL: "kart:ayril",
-  // Server'dan gelir — kart room üyeleri (presence list)
+  // Server'dan gelir — kart room katılımcıları (presence list)
   KART_PRESENCE: "kart:presence",
   // Bildirim — kullanıcı kendi room'unda alır
   BILDIRIM_YENI: "bildirim:yeni",
@@ -44,8 +44,8 @@ export const SOCKET = {
   ETIKET_KART_EKLE: "etiket:kart-ekle",
   ETIKET_KART_KALDIR: "etiket:kart-kaldir",
 
-  UYE_KART_EKLE: "uye:kart-ekle",
-  UYE_KART_KALDIR: "uye:kart-kaldir",
+  YETKILI_KART_EKLE: "yetkili:kart-ekle",
+  YETKILI_KART_KALDIR: "yetkili:kart-kaldir",
 
   KONTROL_LISTESI_OLUSTUR: "kontrol-listesi:olustur",
   KONTROL_LISTESI_GUNCELLE: "kontrol-listesi:guncelle",
@@ -57,11 +57,10 @@ export const SOCKET = {
   EKLENTI_OLUSTUR: "eklenti:olustur",
   EKLENTI_SIL: "eklenti:sil",
 
-  ILISKI_OLUSTUR: "iliski:olustur",
-  ILISKI_SIL: "iliski:sil",
-
   KAPAK_AYARLA: "kapak:ayarla",
   KAPAK_KALDIR: "kapak:kaldir",
+  KAPAK_RENGI_AYARLA: "kapak-rengi:ayarla",
+  KAPAK_RENGI_KALDIR: "kapak-rengi:kaldir",
 } as const;
 
 export type SocketEventAdi = (typeof SOCKET)[keyof typeof SOCKET];

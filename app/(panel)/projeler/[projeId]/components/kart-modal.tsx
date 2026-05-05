@@ -30,6 +30,7 @@ import { KartModalYanPanel } from "./kart-modal-yan-panel";
 type Props = {
   kartId: string | null;
   projeId: string;
+  yetkiliYonet: boolean;
   kapat: () => void;
 };
 
@@ -49,7 +50,7 @@ function kartiBul(
   return null;
 }
 
-export function KartModal({ kartId, projeId, kapat }: Props) {
+export function KartModal({ kartId, projeId, yetkiliYonet, kapat }: Props) {
   return (
     <ResponsiveDialog open={!!kartId} onOpenChange={(a) => !a && kapat()}>
       {/* Modal viewport'un %70'ini kaplar (genişlik + yükseklik). DialogContent
@@ -62,7 +63,12 @@ export function KartModal({ kartId, projeId, kapat }: Props) {
         className="flex flex-col gap-0 overflow-hidden p-0 sm:!max-w-none"
       >
         {kartId ? (
-          <KartModalIcerik kartId={kartId} projeId={projeId} kapat={kapat} />
+          <KartModalIcerik
+            kartId={kartId}
+            projeId={projeId}
+            yetkiliYonet={yetkiliYonet}
+            kapat={kapat}
+          />
         ) : null}
       </ResponsiveDialogContent>
     </ResponsiveDialog>
@@ -72,10 +78,12 @@ export function KartModal({ kartId, projeId, kapat }: Props) {
 function KartModalIcerik({
   kartId,
   projeId,
+  yetkiliYonet,
   kapat,
 }: {
   kartId: string;
   projeId: string;
+  yetkiliYonet: boolean;
   kapat: () => void;
 }) {
   const anahtar = React.useMemo(() => projeDetayKey(projeId), [projeId]);
@@ -172,7 +180,7 @@ function KartModalIcerik({
         {kart.baslik}
       </ResponsiveDialogTitle>
       <ResponsiveDialogDescription className="sr-only">
-        Kart detayları — başlık, açıklama, üyeler, etiketler, kontrol listesi,
+        Kart detayları — başlık, açıklama, yetkililer, etiketler, kontrol listesi,
         ekler ve yorumlar.
       </ResponsiveDialogDescription>
 
@@ -207,8 +215,10 @@ function KartModalIcerik({
             <KartModalMetaChips
               kartId={kart.id}
               projeId={projeId}
+              yetkiliYonet={yetkiliYonet}
               bitis={kart.bitis}
               bitisKaydet={bitisKaydet}
+              kapakRenk={kart.kapak_renk}
             />
 
             <KartModalAciklama

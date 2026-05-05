@@ -345,7 +345,6 @@ KontrolListesi                          (kart_id, baslik, sıra)
 KontrolMaddesi                          (liste_id, metin, tamamlandi, atanan_id, son_tarih)
 Yorum                                   (kart_id, yazar_id, içerik, mention_user_ids[])
 Eklenti                                 (kart_id, dosya_url, mime, boyut, yukleyen_id)
-KartIliskisi                            (kart_a, kart_b, tip: BLOCKS|RELATES|DUPLICATES)
 ProjeSablonu                            (template)
 
 Bildirim                                (kullanici_id, tip, kaynak_tip, kaynak_id, okundu)

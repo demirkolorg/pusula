@@ -15,6 +15,7 @@ import {
   MoreHorizontalIcon,
   Plus,
   PencilIcon,
+  ShieldCheckIcon,
   Trash2Icon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -36,15 +37,14 @@ import {
   useListeSil,
 } from "../hooks/detay-sorgulari";
 import type { KanbanYetkileri } from "./kanban-pano";
-import {
-  ListePaylasimPopover,
-  ListePaylasimTrigger,
-} from "./liste-paylasim-popover";
+import { YetkililerPaneliPopover } from "../yetkili/components/yetkililer-paneli";
 
 type Props = {
   liste: ListeOzeti;
   projeId: string;
   yetkiler: KanbanYetkileri;
+  // Tüm proje listeleri — kart bağlam menüsünde "Listeye taşı ›" submenu için.
+  tumListeler: ReadonlyArray<ListeOzeti>;
   kartPlaceholder: {
     liste_id: string;
     index: number;
@@ -71,9 +71,27 @@ export function KanbanListe({
   liste,
   projeId,
   yetkiler,
+  tumListeler,
   kartPlaceholder,
   onKartAc,
 }: Props) {
+  // KartMini'ye geçilen granüler yetki objesini her render yeniden üretmemek
+  // için memoize — KanbanYetkileri kararlı, dolayısıyla turning-key sabit.
+  const baglamYetkileri = React.useMemo(
+    () => ({
+      duzenle: yetkiler.kartDuzenle,
+      yetkiliYonet: yetkiler.yetkiliYonet,
+      tasi: yetkiler.kartTasi,
+      arsivle: yetkiler.kartDuzenle,
+      sil: yetkiler.kartSil,
+    }),
+    [
+      yetkiler.kartDuzenle,
+      yetkiler.kartSil,
+      yetkiler.kartTasi,
+      yetkiler.yetkiliYonet,
+    ],
+  );
   // anahtar her render'da yeni array referansı olmasın diye memoize.
   const anahtar = React.useMemo(() => projeDetayKey(projeId), [projeId]);
   const kartOlustur = useKartOlustur(anahtar);
@@ -227,16 +245,24 @@ export function KanbanListe({
             </span>
           </div>
         )}
-        {!taslak && yetkiler.listeDuzenle && !duzenlemeAcik && (
-          <ListePaylasimPopover
-            listeId={liste.id}
+        {!taslak && yetkiler.yetkiliYonet && !duzenlemeAcik && (
+          <YetkililerPaneliPopover
+            kaynak={{
+              tip: "liste",
+              listeId: liste.id,
+              izinler: { birimYonet: true, kisiYonet: true },
+            }}
+            side="right"
             trigger={
-              <span
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                aria-label="Liste yetkilileri"
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => e.stopPropagation()}
               >
-                <ListePaylasimTrigger />
-              </span>
+                <ShieldCheckIcon className="size-4" />
+              </Button>
             }
           />
         )}
@@ -305,7 +331,10 @@ export function KanbanListe({
                 <KartMini
                   kart={k}
                   listeId={liste.id}
-                  yetkili={yetkiler.kartTasi}
+                  surukleyebilir={yetkiler.kartTasi}
+                  baglamYetkileri={baglamYetkileri}
+                  listeler={tumListeler}
+                  projeId={projeId}
                   onAc={() => onKartAc(k.id)}
                 />
                 {kartPlaceholder?.index === index + 1 && (

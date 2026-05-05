@@ -21,7 +21,7 @@ type AnyPrisma = Pick<
   | "kullaniciRol"
   | "proje"
   | "projeBirimi"
-  | "projeUyesi"
+  | "projeYetkilisi"
   | "liste"
   | "kart"
 >;
@@ -32,7 +32,7 @@ const IZINLER = [
   { kod: "proje:create", ad: "Proje Olustur", kategori: "proje" },
   { kod: "proje:edit", ad: "Proje Duzenle", kategori: "proje" },
   { kod: "proje:delete", ad: "Proje Sil", kategori: "proje" },
-  { kod: "proje:member", ad: "Proje Uyelerini Yonet", kategori: "proje" },
+  { kod: "proje:authorize", ad: "Yetkilileri Yonet", kategori: "proje" },
 ];
 
 const ROLLER = [
@@ -52,7 +52,7 @@ export type Ortam = {
   digerBirim: { id: string; ad: string };
   superAdmin: { id: string; email: string };
   personel: { id: string; email: string };
-  // Diger birimin bir kullanicisi — paylasim kapsami testleri icin.
+  // Diger birimin bir kullanicisi — yetkili kapsami testleri icin.
   digerKullanici: { id: string; email: string };
 };
 
@@ -153,7 +153,7 @@ export async function kullaniciOlusturFiks(
 }
 
 // Iki birim + uc kullaniciyi tek seferde kuran ortam fabrikasi.
-// Paylasim kapsami test ihtiyaclari icin `digerBirim` ve `digerKullanici` da hazir.
+// Yetkili kapsami test ihtiyaclari icin `digerBirim` ve `digerKullanici` da hazir.
 export async function ortamKur(db: AnyPrisma): Promise<Ortam> {
   await rolIzinSeedle(db);
   const birim = await birimOlusturFiks(db, "Test Birim A");
