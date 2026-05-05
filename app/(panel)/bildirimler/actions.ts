@@ -3,11 +3,13 @@
 import { eylem, EylemHatasi } from "@/lib/action-wrapper";
 import { HATA_KODU } from "@/lib/sonuc";
 import {
+  bildirimKartaGoreOkuduSemasi,
   bildirimleriListeleSemasi,
   bildirimOkuduIsaretleSemasi,
   tumunuOkuduIsaretleSemasi,
 } from "./schemas";
 import {
+  bildirimleriKartaGoreOkuduIsaretle,
   bildirimleriListele,
   bildirimOkuduIsaretle as bildirimOkuduIsaretleSrv,
   okunmamisSayisi,
@@ -51,5 +53,16 @@ export const tumunuOkuduIsaretleEylem = eylem({
   calistir: async (_girdi, ctx) => {
     await tumunuOkuduIsaretleSrv(kullaniciIdAl(ctx));
     return { sayi: 0 };
+  },
+});
+
+export const bildirimKartaGoreOkuduIsaretleEylem = eylem({
+  ad: "bildirim:karta-gore-okudu-isaretle",
+  girdi: bildirimKartaGoreOkuduSemasi,
+  calistir: async (girdi, ctx) => {
+    return bildirimleriKartaGoreOkuduIsaretle(
+      kullaniciIdAl(ctx),
+      girdi.kart_id,
+    );
   },
 });

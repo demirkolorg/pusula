@@ -35,5 +35,11 @@ export const bildirimOkuduIsaretleSemasi = z.object({
 
 export const tumunuOkuduIsaretleSemasi = z.object({});
 
+// Faz 5.1 — Kart açılışı sırasında o kartla ilgili okunmamış bildirimler
+// otomatik okundu olur. Tek girdi: kart_id (alıcı ctx'ten gelir).
+export const bildirimKartaGoreOkuduSemasi = z.object({
+  kart_id: z.string().uuid(),
+});
+
 export type BildirimleriListele = z.infer<typeof bildirimleriListeleSemasi>;
 export type BildirimOkuduIsaretle = z.infer<typeof bildirimOkuduIsaretleSemasi>;

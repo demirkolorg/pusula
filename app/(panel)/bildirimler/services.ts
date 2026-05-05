@@ -121,6 +121,27 @@ export async function tumunuOkuduIsaretle(aliciId: string): Promise<void> {
   });
 }
 
+/**
+ * Faz 5.1 — Karta tıklandığında (modal açılışı) o karta ait tüm okunmamış
+ * bildirimleri otomatik okundu işaretle. Slack/Linear UX'i: kart açılınca
+ * kullanıcı zaten içeriği gördü kabul edilir, dropdown'daki sayaç
+ * temizlensin.
+ */
+export async function bildirimleriKartaGoreOkuduIsaretle(
+  aliciId: string,
+  kartId: string,
+): Promise<{ guncellenen: number }> {
+  const sonuc = await db.bildirim.updateMany({
+    where: {
+      alici_id: aliciId,
+      kart_id: kartId,
+      okundu_mu: false,
+    },
+    data: { okundu_mu: true, okuma_zamani: new Date() },
+  });
+  return { guncellenen: sonuc.count };
+}
+
 // =====================================================================
 // Yardımcı: birden fazla alıcıya tek bildirim üret (broadcast pattern)
 // =====================================================================

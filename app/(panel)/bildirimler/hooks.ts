@@ -1,8 +1,9 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { eylemMutasyonu, useOptimisticMutation } from "@/lib/optimistic";
 import {
+  bildirimKartaGoreOkuduIsaretleEylem,
   bildirimleriListeleEylem,
   bildirimOkuduIsaretleEylem,
   okunmamisSayisiEylem,
@@ -132,4 +133,35 @@ function bildirimleriCikar(eski: unknown, ids: string[]): BildirimOzeti[] {
   const liste = (eski as BildirimOzeti[] | undefined) ?? [];
   const set = new Set(ids);
   return liste.filter((b) => !set.has(b.id));
+}
+
+// =====================================================================
+// Faz 5.1 — Kart açılınca otomatik mark-as-read
+// =====================================================================
+
+/**
+ * Kart modal'ı açıldığında o karta ait tüm okunmamış bildirimleri otomatik
+ * okundu işaretler. UX: Slack/Linear gibi — kullanıcı içeriği gördü kabul
+ * edilir, dropdown'daki sayaç temizlenir. Cache invalidate ile listeler
+ * ve sayaç anında yenilenir.
+ *
+ * Optimistic değil — kart açma anında görünür bir UI etkisi yok (modal
+ * ana içerik zaten render ediliyor); arka planda okundu işaretler.
+ */
+export function useKartAcilisindaOkuduIsaretle() {
+  const istemci = useQueryClient();
+  return useMutation({
+    mutationFn: async (kartId: string) => {
+      const r = await bildirimKartaGoreOkuduIsaretleEylem({ kart_id: kartId });
+      if (!r.basarili) throw new Error(r.hata);
+      return r.veri;
+    },
+    onSuccess: (sonuc) => {
+      if (sonuc.guncellenen === 0) return;
+      istemci.invalidateQueries({ queryKey: bildirimOkunmamisKey });
+      istemci.invalidateQueries({ queryKey: bildirimListeKey("hepsi") });
+      istemci.invalidateQueries({ queryKey: bildirimListeKey("okunmamis") });
+      istemci.invalidateQueries({ queryKey: bildirimListeKey("okunmus") });
+    },
+  });
 }

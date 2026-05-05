@@ -20,6 +20,7 @@ import {
   useProjeDetay,
 } from "../hooks/detay-sorgulari";
 import { useKartRealtime } from "../hooks/use-kart-realtime";
+import { useKartAcilisindaOkuduIsaretle } from "@/app/(panel)/bildirimler/hooks";
 import type { ListeKartOzeti, ProjeDetayOzeti } from "../services";
 import { KartModalHeader } from "./kart-modal-header";
 import { KartModalAksiyonMenusu } from "./kart-modal-aksiyon-menusu";
@@ -28,11 +29,14 @@ import { KartModalMetaChips } from "./kart-modal-meta-chips";
 import { KartModalAciklama } from "./kart-modal-aciklama";
 import { KartModalKontrolBlogu } from "./kart-modal-kontrol-blogu";
 import { KartModalYanPanel } from "./kart-modal-yan-panel";
+import { tamamlamaYasakHesapla } from "../kart-tamamla-kontrol";
 
 type Props = {
   kartId: string | null;
   projeId: string;
   yetkiliYonet: boolean;
+  // ADR-0018 — kart tamamlama yetkisi. Düzenleyebilen herkes kapatamaz.
+  kartTamamla: boolean;
   kapat: () => void;
 };
 
@@ -52,7 +56,13 @@ function kartiBul(
   return null;
 }
 
-export function KartModal({ kartId, projeId, yetkiliYonet, kapat }: Props) {
+export function KartModal({
+  kartId,
+  projeId,
+  yetkiliYonet,
+  kartTamamla,
+  kapat,
+}: Props) {
   return (
     <ResponsiveDialog open={!!kartId} onOpenChange={(a) => !a && kapat()}>
       {/* Modal viewport'un %70'ini kaplar (genişlik + yükseklik). DialogContent
@@ -69,6 +79,7 @@ export function KartModal({ kartId, projeId, yetkiliYonet, kapat }: Props) {
             kartId={kartId}
             projeId={projeId}
             yetkiliYonet={yetkiliYonet}
+            kartTamamla={kartTamamla}
             kapat={kapat}
           />
         ) : null}
@@ -81,16 +92,29 @@ function KartModalIcerik({
   kartId,
   projeId,
   yetkiliYonet,
+  kartTamamla,
   kapat,
 }: {
   kartId: string;
   projeId: string;
   yetkiliYonet: boolean;
+  kartTamamla: boolean;
   kapat: () => void;
 }) {
   const anahtar = React.useMemo(() => projeDetayKey(projeId), [projeId]);
   const sorgu = useProjeDetay(projeId);
   const bulunan = kartiBul(sorgu.data, kartId);
+
+  // Faz 5.1: Kart açılınca o karta ait okunmamış bildirimleri otomatik
+  // okundu işaretle (Slack/Linear UX). kartId değişince yeniden tetikler.
+  const okuduIsaretle = useKartAcilisindaOkuduIsaretle();
+  const okuduIsaretleRef = React.useRef(okuduIsaretle);
+  React.useEffect(() => {
+    okuduIsaretleRef.current = okuduIsaretle;
+  }, [okuduIsaretle]);
+  React.useEffect(() => {
+    okuduIsaretleRef.current.mutate(kartId);
+  }, [kartId]);
 
   // Faz 1.2: Kart canlı senkron — kart room'una katıl + alt-kaynak event'lerini
   // dinle (yorum/yetkili/etiket/eklenti/kontrol-listesi/kapak). request_id +
@@ -142,6 +166,22 @@ function KartModalIcerik({
   const bitisKaydet = (yeni: Date | null) => {
     guncelle.mutate({ id: kart.id, bitis: yeni });
   };
+
+  const tamamlaToggle = (sonraki: boolean) => {
+    guncelle.mutate({ id: kart.id, tamamlandi_mi: sonraki });
+  };
+
+  // ADR-0018 — yetki + kontrol listesi durumuna göre yasak; KartModalBaslik
+  // tooltip ve disabled durumu için kullanır. Aynı hesap server'da DB sayımı
+  // ile tekrar uygulanır (ek savunma).
+  const tamamlamaYasak = tamamlamaYasakHesapla({
+    yetkiVar: kartTamamla,
+    yeniDurum: !kart.tamamlandi_mi,
+    kontrol: {
+      toplam: kart.madde_toplam,
+      tamamlanan: kart.madde_tamamlanan,
+    },
+  });
 
   const baglantiKopyala = () => {
     try {
@@ -224,6 +264,9 @@ function KartModalIcerik({
               baslik={baslik}
               setBaslik={setBaslik}
               kaydet={baslikKaydet}
+              tamamlandi={kart.tamamlandi_mi}
+              onTamamla={tamamlaToggle}
+              tamamlamaYasak={tamamlamaYasak}
             />
           </div>
 
@@ -235,6 +278,7 @@ function KartModalIcerik({
               bitis={kart.bitis}
               bitisKaydet={bitisKaydet}
               kapakRenk={kart.kapak_renk}
+              tamamlandi={kart.tamamlandi_mi}
             />
 
             <KartModalAciklama
@@ -243,7 +287,10 @@ function KartModalIcerik({
               kaydet={aciklamaKaydet}
             />
 
-            <KartModalKontrolBlogu kartId={kart.id} />
+            <KartModalKontrolBlogu
+              kartId={kart.id}
+              yetkiler={{ atanaDegistir: yetkiliYonet, tamamla: kartTamamla }}
+            />
           </div>
         </div>
 
