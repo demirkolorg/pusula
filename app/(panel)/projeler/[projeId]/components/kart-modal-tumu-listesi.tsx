@@ -234,6 +234,8 @@ const KATEGORI_IKON: Record<
   AktiviteOzeti["kategori"],
   React.ComponentType<{ className?: string }>
 > = {
+  proje: ActivityIcon,
+  liste: ActivityIcon,
   kart: ActivityIcon,
   etiket: TagIcon,
   yetkili: UsersIcon,

@@ -166,7 +166,7 @@ export function BildirimDropdown() {
           >
             <BellIcon className="size-4" />
             {sayi > 0 && (
-              <span className="bg-destructive text-destructive-foreground absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-medium leading-none">
+              <span className="bg-destructive absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-medium leading-none text-white">
                 {sayi > 99 ? "99+" : sayi}
               </span>
             )}
@@ -244,6 +244,7 @@ function BildirimDropdownIcerik({ kapat }: { kapat: () => void }) {
         <Button
           variant="ghost"
           size="sm"
+          nativeButton={false}
           className="w-full text-xs"
           render={<Link href="/bildirimler" onClick={kapat} />}
         >

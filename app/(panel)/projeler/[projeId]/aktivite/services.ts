@@ -3,7 +3,10 @@ import { db } from "@/lib/db";
 import { EylemHatasi } from "@/lib/action-wrapper";
 import { HATA_KODU } from "@/lib/sonuc";
 import { kapakEtiketi } from "@/lib/kapak-renk";
-import type { KartAktiviteleriListele } from "./schemas";
+import type {
+  KartAktiviteleriListele,
+  ProjeAktiviteleriListele,
+} from "./schemas";
 
 // =====================================================================
 // Tipler
@@ -23,6 +26,8 @@ export type AktiviteOzeti = {
   zaman: Date;
   kullanici: { id: string; ad: string; soyad: string } | null;
   kategori:
+    | "proje"
+    | "liste"
     | "kart"
     | "etiket"
     | "yetkili"
@@ -165,11 +170,204 @@ export async function kartAktiviteleriniListele(
     },
   });
 
-  // Kullanıcı bilgileri tek seferde — N+1 yasak (Kural 43)
+  return zenginlestirVeOzetle(ham);
+}
+
+// =====================================================================
+// Proje aktiviteleri — proje altındaki TÜM kayıtların audit log'u
+// =====================================================================
+//
+// Kapsam: Proje (kendisi), Liste, Kart, Yorum, Eklenti, KontrolListesi,
+// KontrolMaddesi, KartEtiket, KartYetkilisi, KartBirimi, ProjeYetkilisi,
+// ProjeBirimi, ListeYetkilisi, ListeBirimi, Etiket (tanım).
+// "Proje detay sayfasında biri baktığında en küçük hareketi bile görmeli"
+// gereksinimi (kullanıcı talebi 2026-05-06).
+
+export async function projeAktiviteleriniListele(
+  _birimId: string,
+  girdi: ProjeAktiviteleriListele,
+): Promise<AktiviteOzeti[]> {
+  // Why: Proje silinmişse bile audit log okunabilmeli — sadece varlık
+  // kontrolü yapıyoruz (yetki katmanı action'da yapılır).
+  const proje = await db.proje.findUnique({
+    where: { id: girdi.proje_id },
+    select: { id: true },
+  });
+  if (!proje) {
+    throw new EylemHatasi("Proje bulunamadı.", HATA_KODU.BULUNAMADI);
+  }
+
+  // Proje altındaki tüm liste/kart/kontrol-listesi id'lerini topla.
+  // Sıra önemli: önce listeler, sonra kartlar (liste_id'ye göre), sonra
+  // kontrol listeleri (kart_id'ye göre).
+  const listeler = await db.liste.findMany({
+    where: { proje_id: girdi.proje_id },
+    select: { id: true },
+  });
+  const listeIdler = listeler.map((l) => l.id);
+
+  const kartlar =
+    listeIdler.length > 0
+      ? await db.kart.findMany({
+          where: { liste_id: { in: listeIdler } },
+          select: { id: true },
+        })
+      : [];
+  const kartIdler = kartlar.map((k) => k.id);
+
+  const kontrolListeleri =
+    kartIdler.length > 0
+      ? await db.kontrolListesi.findMany({
+          where: { kart_id: { in: kartIdler } },
+          select: { id: true },
+        })
+      : [];
+  const klIdler = kontrolListeleri.map((kl) => kl.id);
+
+  const cursorWhere: Prisma.AktiviteLoguWhereInput | null = girdi.cursor
+    ? { id: { lt: BigInt(girdi.cursor) } }
+    : null;
+
+  const orKosullari: Prisma.AktiviteLoguWhereInput[] = [
+    // Proje kendisi
+    { kaynak_tip: "Proje", kaynak_id: girdi.proje_id },
+    // Etiket (proje düzeyi tanımlar) — proje_id JSON path
+    {
+      kaynak_tip: "Etiket",
+      OR: [
+        { yeni_veri: { path: ["proje_id"], equals: girdi.proje_id } },
+        { eski_veri: { path: ["proje_id"], equals: girdi.proje_id } },
+      ],
+    },
+    // ProjeYetkilisi
+    {
+      kaynak_tip: "ProjeYetkilisi",
+      OR: [
+        { yeni_veri: { path: ["proje_id"], equals: girdi.proje_id } },
+        { eski_veri: { path: ["proje_id"], equals: girdi.proje_id } },
+      ],
+    },
+    // ProjeBirimi
+    {
+      kaynak_tip: "ProjeBirimi",
+      OR: [
+        { yeni_veri: { path: ["proje_id"], equals: girdi.proje_id } },
+        { eski_veri: { path: ["proje_id"], equals: girdi.proje_id } },
+      ],
+    },
+  ];
+
+  if (listeIdler.length > 0) {
+    orKosullari.push(
+      { kaynak_tip: "Liste", kaynak_id: { in: listeIdler } },
+      // ListeYetkilisi / ListeBirimi — liste_id JSON path
+      {
+        kaynak_tip: { in: ["ListeYetkilisi", "ListeBirimi"] },
+        OR: listeIdler.flatMap((id) => [
+          {
+            yeni_veri: {
+              path: ["liste_id"],
+              equals: id,
+            } as Prisma.JsonNullableFilter<"AktiviteLogu">,
+          },
+          {
+            eski_veri: {
+              path: ["liste_id"],
+              equals: id,
+            } as Prisma.JsonNullableFilter<"AktiviteLogu">,
+          },
+        ]),
+      },
+    );
+  }
+
+  if (kartIdler.length > 0) {
+    orKosullari.push(
+      { kaynak_tip: "Kart", kaynak_id: { in: kartIdler } },
+      // kart_id alanı içeren ilişki tabloları
+      {
+        kaynak_tip: { in: [...KART_ID_ICEREN_TIPLER] },
+        OR: kartIdler.flatMap((id) => [
+          {
+            yeni_veri: {
+              path: ["kart_id"],
+              equals: id,
+            } as Prisma.JsonNullableFilter<"AktiviteLogu">,
+          },
+          {
+            eski_veri: {
+              path: ["kart_id"],
+              equals: id,
+            } as Prisma.JsonNullableFilter<"AktiviteLogu">,
+          },
+        ]),
+      },
+    );
+  }
+
+  if (klIdler.length > 0) {
+    orKosullari.push({
+      kaynak_tip: "KontrolMaddesi",
+      OR: klIdler.flatMap((id) => [
+        {
+          yeni_veri: {
+            path: ["kontrol_listesi_id"],
+            equals: id,
+          } as Prisma.JsonNullableFilter<"AktiviteLogu">,
+        },
+        {
+          eski_veri: {
+            path: ["kontrol_listesi_id"],
+            equals: id,
+          } as Prisma.JsonNullableFilter<"AktiviteLogu">,
+        },
+      ]),
+    });
+  }
+
+  const where: Prisma.AktiviteLoguWhereInput = {
+    AND: [...(cursorWhere ? [cursorWhere] : []), { OR: orKosullari }],
+  };
+
+  const limit = girdi.limit ?? 200;
+  const ham = await db.aktiviteLogu.findMany({
+    where,
+    orderBy: { id: "desc" },
+    take: limit,
+    select: {
+      id: true,
+      zaman: true,
+      kullanici_id: true,
+      islem: true,
+      kaynak_tip: true,
+      kaynak_id: true,
+      yeni_veri: true,
+      eski_veri: true,
+      diff: true,
+    },
+  });
+
+  return zenginlestirVeOzetle(ham);
+}
+
+// Ortak: ham aktivitelerden id setlerini topla, join'le ve özetle.
+// kart + proje servisleri arasında DRY kazanımı (id toplama + map kurulum
+// pattern'i tek noktada).
+async function zenginlestirVeOzetle(
+  ham: Array<{
+    id: bigint;
+    zaman: Date;
+    kullanici_id: string | null;
+    islem: string;
+    kaynak_tip: string;
+    kaynak_id: string | null;
+    yeni_veri: unknown;
+    eski_veri: unknown;
+    diff: unknown;
+  }>,
+): Promise<AktiviteOzeti[]> {
   const kullaniciIdler = Array.from(
-    new Set(
-      ham.map((a) => a.kullanici_id).filter((x): x is string => !!x),
-    ),
+    new Set(ham.map((a) => a.kullanici_id).filter((x): x is string => !!x)),
   );
   const kullanicilar = kullaniciIdler.length
     ? await db.kullanici.findMany({
@@ -179,7 +377,6 @@ export async function kartAktiviteleriniListele(
     : [];
   const kullaniciMap = new Map(kullanicilar.map((k) => [k.id, k]));
 
-  // Etiket / kullanıcı / birim / liste id'lerini join için topla
   const etiketIdler = new Set<string>();
   const atananIdler = new Set<string>();
   const birimIdler = new Set<string>();
@@ -192,7 +389,11 @@ export async function kartAktiviteleriniListele(
       if (ePost) etiketIdler.add(ePost);
       if (ePre) etiketIdler.add(ePre);
     }
-    if (a.kaynak_tip === "KartYetkilisi") {
+    if (
+      a.kaynak_tip === "KartYetkilisi" ||
+      a.kaynak_tip === "ProjeYetkilisi" ||
+      a.kaynak_tip === "ListeYetkilisi"
+    ) {
       const uPost = (a.yeni_veri as { kullanici_id?: string } | null)
         ?.kullanici_id;
       const uPre = (a.eski_veri as { kullanici_id?: string } | null)
@@ -200,13 +401,16 @@ export async function kartAktiviteleriniListele(
       if (uPost) atananIdler.add(uPost);
       if (uPre) atananIdler.add(uPre);
     }
-    if (a.kaynak_tip === "KartBirimi") {
+    if (
+      a.kaynak_tip === "KartBirimi" ||
+      a.kaynak_tip === "ProjeBirimi" ||
+      a.kaynak_tip === "ListeBirimi"
+    ) {
       const kPost = (a.yeni_veri as { birim_id?: string } | null)?.birim_id;
       const kPre = (a.eski_veri as { birim_id?: string } | null)?.birim_id;
       if (kPost) birimIdler.add(kPost);
       if (kPre) birimIdler.add(kPre);
     }
-    // Diff içinden id alanlarını topla (kart taşıma, atan değişimi, kapak)
     const diff = a.diff as Record<string, { eski: unknown; yeni: unknown }> | null;
     if (diff) {
       const idAlan = (k: string, set: Set<string>) => {
@@ -222,38 +426,40 @@ export async function kartAktiviteleriniListele(
     }
   }
 
-  const [etiketler, atananlar, birimler, listeler, eklentiAdlar] = await Promise.all([
-    etiketIdler.size > 0
-      ? db.etiket.findMany({
-          where: { id: { in: Array.from(etiketIdler) } },
-          select: { id: true, ad: true, renk: true },
-        })
-      : Promise.resolve([]),
-    atananIdler.size > 0
-      ? db.kullanici.findMany({
-          where: { id: { in: Array.from(atananIdler) } },
-          select: { id: true, ad: true, soyad: true },
-        })
-      : Promise.resolve([]),
-    birimIdler.size > 0
-      ? db.birim.findMany({
-          where: { id: { in: Array.from(birimIdler) } },
-          select: { id: true, ad: true, kisa_ad: true, tip: true },
-        })
-      : Promise.resolve([]),
-    listeIdler.size > 0
-      ? db.liste.findMany({
-          where: { id: { in: Array.from(listeIdler) } },
-          select: { id: true, ad: true },
-        })
-      : Promise.resolve([]),
-    eklentiIdler.size > 0
-      ? db.eklenti.findMany({
-          where: { id: { in: Array.from(eklentiIdler) } },
-          select: { id: true, ad: true },
-        })
-      : Promise.resolve([]),
-  ]);
+  const [etiketler, atananlar, birimler, listeler, eklentiAdlar] =
+    await Promise.all([
+      etiketIdler.size > 0
+        ? db.etiket.findMany({
+            where: { id: { in: Array.from(etiketIdler) } },
+            select: { id: true, ad: true, renk: true },
+          })
+        : Promise.resolve([]),
+      atananIdler.size > 0
+        ? db.kullanici.findMany({
+            where: { id: { in: Array.from(atananIdler) } },
+            select: { id: true, ad: true, soyad: true },
+          })
+        : Promise.resolve([]),
+      birimIdler.size > 0
+        ? db.birim.findMany({
+            where: { id: { in: Array.from(birimIdler) } },
+            select: { id: true, ad: true, kisa_ad: true, tip: true },
+          })
+        : Promise.resolve([]),
+      listeIdler.size > 0
+        ? db.liste.findMany({
+            where: { id: { in: Array.from(listeIdler) } },
+            select: { id: true, ad: true },
+          })
+        : Promise.resolve([]),
+      eklentiIdler.size > 0
+        ? db.eklenti.findMany({
+            where: { id: { in: Array.from(eklentiIdler) } },
+            select: { id: true, ad: true },
+          })
+        : Promise.resolve([]),
+    ]);
+
   const etiketMap = new Map(etiketler.map((e) => [e.id, e]));
   const atananMap = new Map(atananlar.map((u) => [u.id, u]));
   const birimMap = new Map(
@@ -264,8 +470,6 @@ export async function kartAktiviteleriniListele(
     eklentiAdlar.map((e) => [e.id, e.ad] as const),
   );
 
-  // Atan kullanıcısı ad/soyad'ı da string olarak hazır olsun (degisiklikler
-  // formatlamasında kullanılır)
   const idMaplar: IdMaplar = {
     liste: listeMap,
     kullanici: new Map(atananlar.map((u) => [u.id, `${u.ad} ${u.soyad}`])),
@@ -314,12 +518,12 @@ type HamAktivite = {
 // yüzden bu eşlemenin içinde yer almazlar — aksi halde generic "değiştirdi"
 // fallback'ine düşme riski olur.
 const KART_ALAN_ETIKETI: Record<string, string> = {
-  baslik: "başlığı",
-  aciklama: "açıklamayı",
-  bitis: "bitiş tarihini",
-  baslangic: "başlangıç tarihini",
-  kapak_renk: "kapak rengini",
-  kapak_dosya_id: "kapak görselini",
+  baslik: "kartın başlığı",
+  aciklama: "kartın açıklaması",
+  bitis: "kartın bitiş tarihi",
+  baslangic: "kartın başlangıç tarihi",
+  kapak_renk: "kartın kapak rengi",
+  kapak_dosya_id: "kartın kapak görseli",
 };
 
 function jsonAlan<T = unknown>(j: unknown, alan: string): T | undefined {
@@ -358,6 +562,10 @@ function aktiviteOzetle(
   };
 
   switch (a.kaynak_tip) {
+    case "Proje":
+      return { ...ortak, ...projeMesaji(a, islem) };
+    case "Liste":
+      return { ...ortak, ...listeMesaji(a, islem) };
     case "Kart":
       return { ...ortak, ...kartMesaji(a, islem) };
     case "Yorum":
@@ -374,6 +582,16 @@ function aktiviteOzetle(
       return { ...ortak, ...kartYetkilisiMesaji(a, islem, atananMap) };
     case "KartBirimi":
       return { ...ortak, ...hedefBirimMesaji(a, islem, birimMap) };
+    case "Etiket":
+      return { ...ortak, ...etiketTanimMesaji(a, islem) };
+    case "ProjeYetkilisi":
+      return { ...ortak, ...projeYetkilisiMesaji(a, islem, atananMap) };
+    case "ProjeBirimi":
+      return { ...ortak, ...projeBirimiMesaji(a, islem, birimMap) };
+    case "ListeYetkilisi":
+      return { ...ortak, ...listeYetkilisiMesaji(a, islem, atananMap) };
+    case "ListeBirimi":
+      return { ...ortak, ...listeBirimiMesaji(a, islem, birimMap) };
     default:
       return {
         ...ortak,
@@ -386,6 +604,215 @@ function aktiviteOzetle(
 
 function islemAdi(i: "CREATE" | "UPDATE" | "DELETE"): string {
   return i === "CREATE" ? "ekledi" : i === "UPDATE" ? "güncelledi" : "sildi";
+}
+
+// Proje kendisinin CRUD'u — proje aktivite logu kapsamında.
+function projeMesaji(
+  a: HamAktivite,
+  islem: AktiviteOzeti["islem"],
+): Pick<AktiviteOzeti, "kategori" | "mesaj" | "detay"> {
+  const ad =
+    jsonAlan<string>(a.yeni_veri, "ad") ??
+    jsonAlan<string>(a.eski_veri, "ad") ??
+    null;
+  if (islem === "CREATE") {
+    return { kategori: "proje", mesaj: "projeyi oluşturdu", detay: ad };
+  }
+  if (islem === "DELETE") {
+    return { kategori: "proje", mesaj: "projeyi sildi", detay: ad };
+  }
+  const diff = a.diff as Record<string, { eski: unknown; yeni: unknown }> | null;
+  const yeniSilindi = jsonAlan<boolean>(a.yeni_veri, "silindi_mi");
+  const yeniArsiv = jsonAlan<boolean>(a.yeni_veri, "arsiv_mi");
+  if (diff?.silindi_mi) {
+    const yeni = diff.silindi_mi.yeni;
+    return {
+      kategori: "proje",
+      mesaj: yeni ? "projeyi çöp kutusuna taşıdı" : "projeyi geri yükledi",
+      detay: ad,
+    };
+  }
+  if (diff === null && yeniSilindi === true) {
+    return { kategori: "proje", mesaj: "projeyi çöp kutusuna taşıdı", detay: ad };
+  }
+  if (diff?.arsiv_mi) {
+    const yeni = diff.arsiv_mi.yeni;
+    return {
+      kategori: "proje",
+      mesaj: yeni ? "projeyi arşivledi" : "projeyi arşivden çıkardı",
+      detay: ad,
+    };
+  }
+  if (diff === null && yeniArsiv === true) {
+    return { kategori: "proje", mesaj: "projeyi arşivledi", detay: ad };
+  }
+  if (diff?.ad) {
+    return { kategori: "proje", mesaj: "projenin adını değiştirdi", detay: ad };
+  }
+  if (diff?.aciklama) {
+    return { kategori: "proje", mesaj: "projenin açıklamasını değiştirdi", detay: ad };
+  }
+  if (diff?.yildiz_mi) {
+    const yeni = diff.yildiz_mi.yeni;
+    return {
+      kategori: "proje",
+      mesaj: yeni ? "projeyi yıldızladı" : "projenin yıldızını kaldırdı",
+      detay: ad,
+    };
+  }
+  if (diff?.kapak_renk || diff?.simge) {
+    return { kategori: "proje", mesaj: "projenin görünümünü değiştirdi", detay: ad };
+  }
+  return { kategori: "proje", mesaj: "projeyi güncelledi", detay: ad };
+}
+
+// Liste — proje altındaki kanban listesi.
+function listeMesaji(
+  a: HamAktivite,
+  islem: AktiviteOzeti["islem"],
+): Pick<AktiviteOzeti, "kategori" | "mesaj" | "detay"> {
+  const ad =
+    jsonAlan<string>(a.yeni_veri, "ad") ??
+    jsonAlan<string>(a.eski_veri, "ad") ??
+    null;
+  if (islem === "CREATE") {
+    return { kategori: "liste", mesaj: "liste ekledi", detay: ad };
+  }
+  if (islem === "DELETE") {
+    return { kategori: "liste", mesaj: "listeyi sildi", detay: ad };
+  }
+  const diff = a.diff as Record<string, { eski: unknown; yeni: unknown }> | null;
+  const yeniSilindi = jsonAlan<boolean>(a.yeni_veri, "silindi_mi");
+  const yeniArsiv = jsonAlan<boolean>(a.yeni_veri, "arsiv_mi");
+  if (diff?.silindi_mi) {
+    const yeni = diff.silindi_mi.yeni;
+    return {
+      kategori: "liste",
+      mesaj: yeni ? "listeyi çöp kutusuna taşıdı" : "listeyi geri yükledi",
+      detay: ad,
+    };
+  }
+  if (diff === null && yeniSilindi === true) {
+    return { kategori: "liste", mesaj: "listeyi çöp kutusuna taşıdı", detay: ad };
+  }
+  if (diff?.arsiv_mi) {
+    const yeni = diff.arsiv_mi.yeni;
+    return {
+      kategori: "liste",
+      mesaj: yeni ? "listeyi arşivledi" : "listeyi arşivden çıkardı",
+      detay: ad,
+    };
+  }
+  if (diff === null && yeniArsiv === true) {
+    return { kategori: "liste", mesaj: "listeyi arşivledi", detay: ad };
+  }
+  // Sıra-only güncelleme — drag-drop gürültüsünü temiz mesaja çevir.
+  const alanlar = diff ? Object.keys(diff) : [];
+  const yardimciAlanlar = new Set(["sira", "guncelleme_zamani"]);
+  if (alanlar.length > 0 && alanlar.every((k) => yardimciAlanlar.has(k))) {
+    if (alanlar.includes("sira")) {
+      return { kategori: "liste", mesaj: "listeyi yeniden sıraladı", detay: ad };
+    }
+  }
+  if (diff?.ad) {
+    return { kategori: "liste", mesaj: "listenin adını değiştirdi", detay: ad };
+  }
+  return { kategori: "liste", mesaj: "listeyi güncelledi", detay: ad };
+}
+
+// Etiket tanımı (proje düzeyi) — KartEtiket'ten farklı, etiket havuzu CRUD.
+function etiketTanimMesaji(
+  a: HamAktivite,
+  islem: AktiviteOzeti["islem"],
+): Pick<AktiviteOzeti, "kategori" | "mesaj" | "detay"> {
+  const ad =
+    jsonAlan<string>(a.yeni_veri, "ad") ??
+    jsonAlan<string>(a.eski_veri, "ad") ??
+    null;
+  if (islem === "CREATE") {
+    return { kategori: "etiket", mesaj: "etiket tanımı ekledi", detay: ad };
+  }
+  if (islem === "DELETE") {
+    return { kategori: "etiket", mesaj: "etiket tanımını sildi", detay: ad };
+  }
+  const diff = a.diff as Record<string, { eski: unknown; yeni: unknown }> | null;
+  if (diff?.ad) {
+    return { kategori: "etiket", mesaj: "etiketin adını değiştirdi", detay: ad };
+  }
+  if (diff?.renk) {
+    return { kategori: "etiket", mesaj: "etiketin rengini değiştirdi", detay: ad };
+  }
+  return { kategori: "etiket", mesaj: "etiketi güncelledi", detay: ad };
+}
+
+// Proje yetkilisi (kullanıcı) — KartYetkilisi'yle aynı görsel kategori.
+function projeYetkilisiMesaji(
+  a: HamAktivite,
+  islem: AktiviteOzeti["islem"],
+  atananMap: Map<string, { id: string; ad: string; soyad: string }>,
+): Pick<AktiviteOzeti, "kategori" | "mesaj" | "detay"> {
+  const yeniId = jsonAlan<string>(a.yeni_veri, "kullanici_id");
+  const eskiId = jsonAlan<string>(a.eski_veri, "kullanici_id");
+  const uId = yeniId ?? eskiId ?? null;
+  const u = uId ? atananMap.get(uId) : null;
+  const ad = u ? `${u.ad} ${u.soyad}` : null;
+  const eklendi = yeniId ? true : islem === "CREATE";
+  if (eklendi) {
+    return { kategori: "yetkili", mesaj: "projeye kullanıcı yetkilisi ekledi", detay: ad };
+  }
+  return { kategori: "yetkili", mesaj: "projeden kullanıcı yetkilisini kaldırdı", detay: ad };
+}
+
+// Proje birimi — KartBirimi'yle aynı görsel kategori (hedef-birim).
+function projeBirimiMesaji(
+  a: HamAktivite,
+  islem: AktiviteOzeti["islem"],
+  birimMap: Map<string, string>,
+): Pick<AktiviteOzeti, "kategori" | "mesaj" | "detay"> {
+  const yeniId = jsonAlan<string>(a.yeni_veri, "birim_id");
+  const eskiId = jsonAlan<string>(a.eski_veri, "birim_id");
+  const birimId = yeniId ?? eskiId ?? null;
+  const ad = birimId ? birimMap.get(birimId) ?? null : null;
+  const eklendi = yeniId ? true : islem === "CREATE";
+  if (eklendi) {
+    return { kategori: "hedef-birim", mesaj: "projeye birim yetkilisi ekledi", detay: ad };
+  }
+  return { kategori: "hedef-birim", mesaj: "projeden birim yetkilisini kaldırdı", detay: ad };
+}
+
+// Liste yetkilisi (kullanıcı).
+function listeYetkilisiMesaji(
+  a: HamAktivite,
+  islem: AktiviteOzeti["islem"],
+  atananMap: Map<string, { id: string; ad: string; soyad: string }>,
+): Pick<AktiviteOzeti, "kategori" | "mesaj" | "detay"> {
+  const yeniId = jsonAlan<string>(a.yeni_veri, "kullanici_id");
+  const eskiId = jsonAlan<string>(a.eski_veri, "kullanici_id");
+  const uId = yeniId ?? eskiId ?? null;
+  const u = uId ? atananMap.get(uId) : null;
+  const ad = u ? `${u.ad} ${u.soyad}` : null;
+  const eklendi = yeniId ? true : islem === "CREATE";
+  if (eklendi) {
+    return { kategori: "yetkili", mesaj: "listeye kullanıcı yetkilisi ekledi", detay: ad };
+  }
+  return { kategori: "yetkili", mesaj: "listeden kullanıcı yetkilisini kaldırdı", detay: ad };
+}
+
+// Liste birimi.
+function listeBirimiMesaji(
+  a: HamAktivite,
+  islem: AktiviteOzeti["islem"],
+  birimMap: Map<string, string>,
+): Pick<AktiviteOzeti, "kategori" | "mesaj" | "detay"> {
+  const yeniId = jsonAlan<string>(a.yeni_veri, "birim_id");
+  const eskiId = jsonAlan<string>(a.eski_veri, "birim_id");
+  const birimId = yeniId ?? eskiId ?? null;
+  const ad = birimId ? birimMap.get(birimId) ?? null : null;
+  const eklendi = yeniId ? true : islem === "CREATE";
+  if (eklendi) {
+    return { kategori: "hedef-birim", mesaj: "listeye birim yetkilisi ekledi", detay: ad };
+  }
+  return { kategori: "hedef-birim", mesaj: "listeden birim yetkilisini kaldırdı", detay: ad };
 }
 
 function kartMesaji(
@@ -408,26 +835,47 @@ function kartMesaji(
   }
   // UPDATE — diff'e bak, hangi alan değişti
   const diff = a.diff as Record<string, { eski: unknown; yeni: unknown }> | null;
-  // Why: audit middleware findUnique başarısız olursa eskiVeri undefined kalır
-  // → diff hesaplanamaz. Bu savunmacı kontrol soft-delete/arşivin yeni_veri
-  // değerinden de tespit edilmesini sağlar; diff null olsa bile mesaj doğru.
+  // Why: silme/geri yükleme mesajı eski VE yeni değerin birlikte değiştiğini
+  // gerektirir. Diff varsa dümdüz oradan oku. Diff yoksa (audit middleware
+  // findUnique başarısızlığı, vb.) son çare olarak yeni_veri.silindi_mi=true
+  // tek yönlü "silme" tespitine izin ver — `silindi_mi: false` her kartın
+  // varsayılan alan değeri olduğundan bu durumdan "geri yükledi" SONUCU
+  // ÇIKARILAMAZ ve bu savunma yola uygulanmaz (yanlış pozitif yaratır).
   const yeniSilindi = jsonAlan<boolean>(a.yeni_veri, "silindi_mi");
   const yeniArsiv = jsonAlan<boolean>(a.yeni_veri, "arsiv_mi");
-  if (diff?.silindi_mi || (diff === null && typeof yeniSilindi === "boolean")) {
-    const yeni = diff?.silindi_mi?.yeni ?? yeniSilindi;
+  const yeniTamam = jsonAlan<boolean>(a.yeni_veri, "tamamlandi_mi");
+  if (diff?.silindi_mi) {
+    const yeni = diff.silindi_mi.yeni;
     return {
       kategori: "kart",
       mesaj: yeni ? "kartı çöp kutusuna taşıdı" : "kartı geri yükledi",
       detay: null,
     };
   }
-  if (diff?.arsiv_mi || (diff === null && typeof yeniArsiv === "boolean")) {
-    const yeni = diff?.arsiv_mi?.yeni ?? yeniArsiv;
+  if (diff === null && yeniSilindi === true) {
+    return { kategori: "kart", mesaj: "kartı çöp kutusuna taşıdı", detay: null };
+  }
+  if (diff?.arsiv_mi) {
+    const yeni = diff.arsiv_mi.yeni;
     return {
       kategori: "kart",
       mesaj: yeni ? "kartı arşivledi" : "kartı arşivden çıkardı",
       detay: null,
     };
+  }
+  if (diff === null && yeniArsiv === true) {
+    return { kategori: "kart", mesaj: "kartı arşivledi", detay: null };
+  }
+  if (diff?.tamamlandi_mi) {
+    const yeni = diff.tamamlandi_mi.yeni;
+    return {
+      kategori: "kart",
+      mesaj: yeni ? "kartı tamamladı" : "kartı tekrar açtı",
+      detay: null,
+    };
+  }
+  if (diff === null && yeniTamam === true) {
+    return { kategori: "kart", mesaj: "kartı tamamladı", detay: null };
   }
   if (!diff) {
     return { kategori: "kart", mesaj: "kartı güncelledi", detay: null };
@@ -436,17 +884,37 @@ function kartMesaji(
   if (alanlar.includes("liste_id")) {
     return { kategori: "kart", mesaj: "kartı taşıdı", detay: null };
   }
-  if (alanlar.includes("sira")) {
-    return { kategori: "kart", mesaj: "kartı yeniden sıraladı", detay: null };
+  // Sıra-only güncelleme — drag-drop gürültüsünü temiz mesaja çevir.
+  // tamamlanma_zamani / tamamlayan_id, tamamlandi_mi yan etkisi olarak
+  // yazılır — diff'te kalsa bile yardımcı kabul edilir.
+  const yardimciAlanlar = new Set([
+    "sira",
+    "guncelleme_zamani",
+    "tamamlanma_zamani",
+    "tamamlayan_id",
+  ]);
+  if (alanlar.length > 0 && alanlar.every((k) => yardimciAlanlar.has(k))) {
+    if (alanlar.includes("sira")) {
+      return { kategori: "kart", mesaj: "kartı yeniden sıraladı", detay: null };
+    }
   }
-  // Genel alan değişikliği
-  const onemli = alanlar.find((k) => KART_ALAN_ETIKETI[k]);
-  if (onemli) {
-    return {
-      kategori: "kart",
-      mesaj: `kartın ${KART_ALAN_ETIKETI[onemli]} değiştirdi`,
-      detay: null,
-    };
+  // KART_ALAN_ETIKETI'nde tanımlı ilk anlamlı alanı seç. null → değer / değer →
+  // null geçişi anlamsal olarak ekleme/kaldırma; daha açık mesaj üret.
+  // noUncheckedIndexedAccess: lookup `string | undefined` döndürür → null guard.
+  for (const alan of alanlar) {
+    const etiket = KART_ALAN_ETIKETI[alan];
+    if (!etiket) continue;
+    const eski = diff[alan]?.eski;
+    const yeni = diff[alan]?.yeni;
+    const eskiBos = eski === null || eski === undefined || eski === "";
+    const yeniBos = yeni === null || yeni === undefined || yeni === "";
+    if (eskiBos && !yeniBos) {
+      return { kategori: "kart", mesaj: `${etiket} ekledi`, detay: null };
+    }
+    if (!eskiBos && yeniBos) {
+      return { kategori: "kart", mesaj: `${etiket} kaldırdı`, detay: null };
+    }
+    return { kategori: "kart", mesaj: `${etiket} değiştirdi`, detay: null };
   }
   return { kategori: "kart", mesaj: "kartı güncelledi", detay: null };
 }
@@ -506,6 +974,14 @@ function eklentiMesaji(
         null,
     };
   }
+  // Rename — yeni "dosya yeniden adlandır" özelliği eklendiğinde tetiklenir.
+  if (diff?.ad) {
+    return {
+      kategori: "eklenti",
+      mesaj: "dosyanın adını değiştirdi",
+      detay: jsonAlan<string>(a.yeni_veri, "ad") ?? null,
+    };
+  }
   return { kategori: "eklenti", mesaj: "dosyayı güncelledi", detay: null };
 }
 
@@ -524,12 +1000,32 @@ function kontrolListesiMesaji(
     return { kategori: "kontrol-listesi", mesaj: "kontrol listesini sildi", detay: ad };
   }
   // Why: drag-drop sıralama her hareket için audit UPDATE üretir; "düzenledi"
-  // mesajı yanıltıcı. Sıra-only diff ayrı mesaj alır; ad değişikliği
-  // varsa düzenleme olarak gösterilir.
+  // mesajı yanıltıcı. Sıra-only diff ayrı mesaj alır; tamamlanma /
+  // ad değişikliği için ayrı spesifik mesajlar.
   const diff = a.diff as Record<string, { eski: unknown; yeni: unknown }> | null;
+  const yeniTamam = jsonAlan<boolean>(a.yeni_veri, "tamamlandi_mi");
+  if (diff?.tamamlandi_mi) {
+    const yeni = diff.tamamlandi_mi.yeni;
+    return {
+      kategori: "kontrol-listesi",
+      mesaj: yeni ? "kontrol listesini tamamladı" : "kontrol listesini tekrar açtı",
+      detay: ad,
+    };
+  }
+  if (diff === null && yeniTamam === true) {
+    return { kategori: "kontrol-listesi", mesaj: "kontrol listesini tamamladı", detay: ad };
+  }
   const alanlar = diff ? Object.keys(diff) : [];
-  if (alanlar.length > 0 && alanlar.every((k) => k === "sira" || k === "guncelleme_zamani")) {
-    return { kategori: "kontrol-listesi", mesaj: "kontrol listesini yeniden sıraladı", detay: ad };
+  const yardimciAlanlar = new Set([
+    "sira",
+    "guncelleme_zamani",
+    "tamamlanma_zamani",
+    "tamamlayan_id",
+  ]);
+  if (alanlar.length > 0 && alanlar.every((k) => yardimciAlanlar.has(k))) {
+    if (alanlar.includes("sira")) {
+      return { kategori: "kontrol-listesi", mesaj: "kontrol listesini yeniden sıraladı", detay: ad };
+    }
   }
   if (diff?.ad) {
     return { kategori: "kontrol-listesi", mesaj: "kontrol listesinin adını değiştirdi", detay: ad };
@@ -551,7 +1047,7 @@ function kontrolMaddesiMesaji(
   if (islem === "DELETE") {
     return { kategori: "kontrol-maddesi", mesaj: "kontrol maddesini sildi", detay: metin };
   }
-  // UPDATE — tamamlandi_mi'ye özel mesaj
+  // UPDATE — tamamlandi_mi'ye özel mesaj (en güçlü sinyal, önce gelir)
   const diff = a.diff as Record<string, { eski: unknown; yeni: unknown }> | null;
   if (diff?.tamamlandi_mi) {
     const yeni = diff.tamamlandi_mi.yeni === true;
@@ -562,8 +1058,7 @@ function kontrolMaddesiMesaji(
     };
   }
   // Why: drag-drop ile sıra her hareketinde UPDATE üretir; "güncelledi" mesajı
-  // yanıltıcı. Sıra-only diff için ayrı mesaj; metin değişikliği varsa daha
-  // spesifik mesaj.
+  // yanıltıcı. Sıra-only diff için ayrı mesaj.
   const alanlar = diff ? Object.keys(diff) : [];
   const yardimciAlanlar = new Set(["sira", "guncelleme_zamani", "tamamlama_zamani", "tamamlayan_id"]);
   if (alanlar.length > 0 && alanlar.every((k) => yardimciAlanlar.has(k))) {
@@ -573,6 +1068,20 @@ function kontrolMaddesiMesaji(
   }
   if (diff?.metin) {
     return { kategori: "kontrol-maddesi", mesaj: "kontrol maddesinin metnini değiştirdi", detay: metin };
+  }
+  if (diff?.atanan_id) {
+    const yeni = diff.atanan_id.yeni;
+    if (yeni === null || yeni === undefined) {
+      return { kategori: "kontrol-maddesi", mesaj: "kontrol maddesinin sorumlusunu kaldırdı", detay: metin };
+    }
+    return { kategori: "kontrol-maddesi", mesaj: "kontrol maddesinin sorumlusunu değiştirdi", detay: metin };
+  }
+  if (diff?.bitis) {
+    const yeni = diff.bitis.yeni;
+    if (yeni === null || yeni === undefined) {
+      return { kategori: "kontrol-maddesi", mesaj: "kontrol maddesinin bitiş tarihini kaldırdı", detay: metin };
+    }
+    return { kategori: "kontrol-maddesi", mesaj: "kontrol maddesinin bitiş tarihini değiştirdi", detay: metin };
   }
   return { kategori: "kontrol-maddesi", mesaj: "kontrol maddesini güncelledi", detay: metin };
 }
@@ -630,7 +1139,7 @@ function hedefBirimMesaji(
   if (eklendi) {
     return { kategori: "hedef-birim", mesaj: "birim ekledi", detay: ad };
   }
-  return { kategori: "hedef-birim", mesaj: "birimu kaldırdı", detay: ad };
+  return { kategori: "hedef-birim", mesaj: "birimi kaldırdı", detay: ad };
 }
 
 function kisalt(s: string, n: number): string {
@@ -646,8 +1155,12 @@ const YOKSAY_ALANLAR = new Set([
   "olusturma_zamani",
   "guncelleme_zamani",
   "tamamlama_zamani",
+  "tamamlanma_zamani",
+  "tamamlayan_id",
   "eklenme_zamani",
   "silinme_zamani",
+  "arsiv_zamani",
+  "arsiv_oncesi_liste_id",
   "sira",
   // Bu alanlar ana mesajda zaten ifade ediliyor, çift göstermeyelim
   "silindi_mi",
@@ -664,6 +1177,16 @@ const YOKSAY_ALANLAR = new Set([
 
 // Kaynak tip + alan adı → TR etiket
 const ALAN_ETIKETI: Record<string, Record<string, string>> = {
+  Proje: {
+    ad: "Ad",
+    aciklama: "Açıklama",
+    kapak_renk: "Kapak rengi",
+    simge: "Simge",
+    yildiz_mi: "Yıldız",
+  },
+  Liste: {
+    ad: "Ad",
+  },
   Kart: {
     baslik: "Başlık",
     aciklama: "Açıklama",

@@ -122,19 +122,19 @@ export function YetkiliKisiEkleDialog({
     staleTime: 60_000,
   });
 
-  // İlk rol yüklendiğinde PERSONEL'i default seç (en sık davet edilen rol).
-  React.useEffect(() => {
-    if (mod !== "davet" || !roller.data || davetRolId) return;
+  const varsayilanDavetRolId = React.useMemo(() => {
+    if (mod !== "davet" || !roller.data) return null;
     const personel = roller.data.find((r) => r.kod === "PERSONEL");
-    setDavetRolId(personel?.id ?? roller.data[0]?.id ?? null);
-  }, [mod, roller.data, davetRolId]);
+    return personel?.id ?? roller.data[0]?.id ?? null;
+  }, [mod, roller.data]);
 
-  const seciliRol = (roller.data ?? []).find((r) => r.id === davetRolId);
+  const etkinDavetRolId = davetRolId ?? varsayilanDavetRolId;
+  const seciliRol = (roller.data ?? []).find((r) => r.id === etkinDavetRolId);
   const makamRolSecili = seciliRol ? makamRoluMu(seciliRol.kod) : false;
-  // Makam rolleri (KAYMAKAM/SUPER_ADMIN) birime bağlanmaz — politika gereği.
-  React.useEffect(() => {
-    if (makamRolSecili && davetBirimId !== null) setDavetBirimId(null);
-  }, [makamRolSecili, davetBirimId]);
+  const etkinDavetBirimId = makamRolSecili ? null : davetBirimId;
+  const seciliBirim = (birimler.data ?? []).find(
+    (b) => b.id === etkinDavetBirimId,
+  );
 
   const ekle = useOptimisticMutation<
     {
@@ -209,7 +209,10 @@ export function YetkiliKisiEkleDialog({
   const yukleniyor = adaylar.isLoading;
   const aramaVar = arama.trim().length > 0;
 
-  const bekleyenler = bekleyenDavetler.data ?? [];
+  const bekleyenler = React.useMemo(
+    () => bekleyenDavetler.data ?? [],
+    [bekleyenDavetler.data],
+  );
   const bekleyenEmailleri = React.useMemo(
     () => bekleyenler.map((b) => b.email),
     [bekleyenler],
@@ -241,8 +244,8 @@ export function YetkiliKisiEkleDialog({
   const davetGonderebilirMi =
     !davetGonder.isPending &&
     davetEmail.trim().length > 0 &&
-    Boolean(davetRolId) &&
-    (!birimGerekiyor || Boolean(davetBirimId)) &&
+    Boolean(etkinDavetRolId) &&
+    (!birimGerekiyor || Boolean(etkinDavetBirimId)) &&
     davetUygunlugunuHesapla({
       arama: davetEmail,
       adayEmailleri,
@@ -294,12 +297,21 @@ export function YetkiliKisiEkleDialog({
             <div className="grid gap-1.5">
               <Label htmlFor="davet-rol">Sistem rolü</Label>
               <Select
-                value={davetRolId ?? ""}
-                onValueChange={(v) => setDavetRolId(v || null)}
+                value={etkinDavetRolId ?? ""}
+                onValueChange={(v) => {
+                  const rolId = v || null;
+                  setDavetRolId(rolId);
+                  const yeniRol = (roller.data ?? []).find((r) => r.id === rolId);
+                  if (yeniRol && makamRoluMu(yeniRol.kod)) {
+                    setDavetBirimId(null);
+                  }
+                }}
                 disabled={davetGonder.isPending || roller.isLoading}
               >
                 <SelectTrigger id="davet-rol" className="h-10">
-                  <SelectValue placeholder="Rol seçin..." />
+                  <SelectValue>
+                    {() => seciliRol?.ad ?? "Rol seçin..."}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {(roller.data ?? []).map((r) => (
@@ -319,12 +331,21 @@ export function YetkiliKisiEkleDialog({
               <div className="grid gap-1.5">
                 <Label htmlFor="davet-birim">Atanacak birim</Label>
                 <Select
-                  value={davetBirimId ?? ""}
+                  value={etkinDavetBirimId ?? ""}
                   onValueChange={(v) => setDavetBirimId(v || null)}
                   disabled={davetGonder.isPending || birimler.isLoading}
                 >
                   <SelectTrigger id="davet-birim" className="h-10">
-                    <SelectValue placeholder="Birim seçin..." />
+                    <SelectValue>
+                      {() =>
+                        seciliBirim
+                          ? birimGorunenAd({
+                              ad: seciliBirim.ad,
+                              tip: seciliBirim.tip,
+                            })
+                          : "Birim seçin..."
+                      }
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {(birimler.data ?? []).map((b) => (
@@ -359,12 +380,12 @@ export function YetkiliKisiEkleDialog({
               type="button"
               size="sm"
               onClick={() => {
-                if (!davetRolId) return;
-                if (birimGerekiyor && !davetBirimId) return;
+                if (!etkinDavetRolId) return;
+                if (birimGerekiyor && !etkinDavetBirimId) return;
                 davetGonder.mutate({
                   email: davetEmail.trim(),
-                  birim_id: davetBirimId,
-                  rol_id: davetRolId,
+                  birim_id: etkinDavetBirimId,
+                  rol_id: etkinDavetRolId,
                 });
               }}
               disabled={!davetGonderebilirMi}

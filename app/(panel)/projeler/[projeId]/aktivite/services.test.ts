@@ -8,7 +8,10 @@ vi.mock("@/auth", () => ({
   handlers: {},
 }));
 
-import { kartAktiviteleriniListele } from "./services";
+import {
+  kartAktiviteleriniListele,
+  projeAktiviteleriniListele,
+} from "./services";
 import {
   ortamKur,
   projeOlusturFiks,
@@ -483,5 +486,154 @@ describe("Sıralama", () => {
     });
     expect(r[0]!.detay).toBe("İkinci");
     expect(r[1]!.detay).toBe("İlk");
+  });
+});
+
+// =====================================================================
+// Proje aktiviteleri — header modalden çağrılan kapsamlı timeline
+// =====================================================================
+
+describe("Proje aktiviteleri", () => {
+  it("Proje CREATE → 'projeyi oluşturdu'", async () => {
+    await aktiviteEkle({
+      kullaniciId: ortam.superAdmin.id,
+      islem: "CREATE",
+      kaynakTip: "Proje",
+      kaynakId: projeId,
+      yeniVeri: { id: projeId, ad: "Yeni Proje" },
+    });
+    const r = await projeAktiviteleriniListele(ortam.birim.id, {
+      proje_id: projeId,
+    });
+    const olustur = r.find((a) => a.mesaj === "projeyi oluşturdu");
+    expect(olustur?.detay).toBe("Yeni Proje");
+  });
+
+  it("Liste CREATE → 'liste ekledi' (kategori liste)", async () => {
+    const liste = await adminDb.liste.findFirst({
+      where: { proje_id: projeId },
+      select: { id: true },
+    });
+    await aktiviteEkle({
+      kullaniciId: ortam.superAdmin.id,
+      islem: "CREATE",
+      kaynakTip: "Liste",
+      kaynakId: liste!.id,
+      yeniVeri: { id: liste!.id, ad: "Yapılacaklar", proje_id: projeId },
+    });
+    const r = await projeAktiviteleriniListele(ortam.birim.id, {
+      proje_id: projeId,
+    });
+    const ekle = r.find(
+      (a) => a.kategori === "liste" && a.mesaj === "liste ekledi",
+    );
+    expect(ekle?.detay).toBe("Yapılacaklar");
+  });
+
+  it("Karta yapılan değişiklik proje timeline'ında görünür", async () => {
+    await aktiviteEkle({
+      kullaniciId: ortam.superAdmin.id,
+      islem: "UPDATE",
+      kaynakTip: "Kart",
+      kaynakId: kart.id,
+      diff: { baslik: { eski: "X", yeni: "Y" } },
+    });
+    const r = await projeAktiviteleriniListele(ortam.birim.id, {
+      proje_id: projeId,
+    });
+    const baslikDeg = r.find((a) => a.mesaj === "kartın başlığı değiştirdi");
+    expect(baslikDeg).toBeDefined();
+  });
+
+  it("Yorum CREATE proje timeline'ında görünür (kart üzerinden)", async () => {
+    await aktiviteEkle({
+      kullaniciId: ortam.superAdmin.id,
+      islem: "CREATE",
+      kaynakTip: "Yorum",
+      yeniVeri: { kart_id: kart.id, icerik: "Yorum içeriği" },
+    });
+    const r = await projeAktiviteleriniListele(ortam.birim.id, {
+      proje_id: projeId,
+    });
+    const yorum = r.find((a) => a.mesaj === "yorum yazdı");
+    expect(yorum?.detay).toBe("Yorum içeriği");
+  });
+
+  it("ProjeYetkilisi CREATE → 'projeye kullanıcı yetkilisi ekledi'", async () => {
+    await aktiviteEkle({
+      kullaniciId: ortam.superAdmin.id,
+      islem: "CREATE",
+      kaynakTip: "ProjeYetkilisi",
+      yeniVeri: {
+        proje_id: projeId,
+        kullanici_id: ortam.personel.id,
+      },
+    });
+    const r = await projeAktiviteleriniListele(ortam.birim.id, {
+      proje_id: projeId,
+    });
+    const ekle = r.find(
+      (a) =>
+        a.kategori === "yetkili" &&
+        a.mesaj === "projeye kullanıcı yetkilisi ekledi",
+    );
+    expect(ekle).toBeDefined();
+  });
+
+  it("Başka bir projedeki aktivite bu projenin timeline'ında görünmez", async () => {
+    // Yabancı proje + onun kartı
+    const baska = await sahipliProjeOlustur(
+      ortam.birim.id,
+      ortam.superAdmin.id,
+    );
+    const baskaListe = await listeOlusturFiks(adminDb, { projeId: baska.id });
+    const baskaKart = await kartOlusturFiks(adminDb, {
+      listeId: baskaListe.id,
+    });
+    await aktiviteEkle({
+      kullaniciId: ortam.superAdmin.id,
+      islem: "UPDATE",
+      kaynakTip: "Kart",
+      kaynakId: baskaKart.id,
+      diff: { baslik: { eski: "A", yeni: "B" } },
+    });
+    // Bu projeye ait yorum (görünmeli)
+    await aktiviteEkle({
+      kullaniciId: ortam.superAdmin.id,
+      islem: "CREATE",
+      kaynakTip: "Yorum",
+      yeniVeri: { kart_id: kart.id, icerik: "Bu projenin yorumu" },
+    });
+
+    const r = await projeAktiviteleriniListele(ortam.birim.id, {
+      proje_id: projeId,
+    });
+    const yabanci = r.find(
+      (a) => a.kaynak_id === baskaKart.id && a.mesaj.includes("başlığı"),
+    );
+    expect(yabanci).toBeUndefined();
+    const kendi = r.find((a) => a.detay === "Bu projenin yorumu");
+    expect(kendi).toBeDefined();
+  });
+
+  it("limit default 200 — sadece ilk batch döner", async () => {
+    // 3 aktivite ekle, limit 2 ver
+    for (const x of ["A", "B", "C"]) {
+      await aktiviteEkle({
+        kullaniciId: ortam.superAdmin.id,
+        islem: "CREATE",
+        kaynakTip: "Yorum",
+        yeniVeri: { kart_id: kart.id, icerik: x },
+      });
+      await new Promise((r) => setTimeout(r, 2));
+    }
+    const r = await projeAktiviteleriniListele(ortam.birim.id, {
+      proje_id: projeId,
+      limit: 2,
+    });
+    // En yeni 2 → C, B
+    expect(r).toHaveLength(2);
+    expect(r[0]!.detay).toBe("C");
+    expect(r[1]!.detay).toBe("B");
   });
 });

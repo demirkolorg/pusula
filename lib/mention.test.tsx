@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { mentionParcala, type KisiMap } from "./mention";
+import {
+  mentionIdleriniCikar,
+  mentionlariGorunenMetneCevir,
+} from "./mention-format";
 
 const UUID_A = "00000000-0000-0000-0000-000000000001";
 const UUID_B = "00000000-0000-0000-0000-000000000002";
@@ -45,5 +49,22 @@ describe("mentionParcala", () => {
     const r = mentionParcala(`@${UUID_A} ve @${UUID_A}`, kisiMap);
     const mentionlar = r.filter((p) => p.tip === "mention");
     expect(mentionlar).toHaveLength(2);
+  });
+});
+
+describe("mention format yardımcıları", () => {
+  it("metindeki mention UUID'lerini tekilleştirir", () => {
+    expect(mentionIdleriniCikar(`@${UUID_A} @${UUID_A} @${UUID_B}`)).toEqual([
+      UUID_A,
+      UUID_B,
+    ]);
+  });
+
+  it("UUID mention'ları kullanıcı adına çevirir", () => {
+    const metin = mentionlariGorunenMetneCevir(
+      `Selam @${UUID_A}, @99999999-9999-9999-9999-999999999999`,
+      kisiMap,
+    );
+    expect(metin).toBe("Selam @Ahmet Yılmaz, @kullanıcı");
   });
 });

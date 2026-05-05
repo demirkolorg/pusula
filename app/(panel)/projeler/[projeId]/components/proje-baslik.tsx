@@ -28,23 +28,10 @@ type Props = {
 // Mobile'da sekme stripi alt satıra düşer. Header altında border yok —
 // görsel olarak sayfa içeriğiyle akıcı geçiş.
 //
-// Cmd/Ctrl+K → Arama sheet aç. Global keyboard shortcut header mount olduğu
-// sürece aktif (proje detay sayfasında her zaman mount).
+// Cmd/Ctrl+K kısayolu genel arama paletine ait; proje içi arama yalnızca
+// header'daki buton ile açılır.
 export function ProjeBaslik({ proje, yetkiler }: Props) {
   const [aramaAcik, setAramaAcik] = React.useState(false);
-
-  // Cmd/Ctrl+K shortcut — input içinde değilken yakalanır.
-  React.useEffect(() => {
-    if (!yetkiler.arama) return;
-    const dinleyici = (e: KeyboardEvent) => {
-      const meta = e.metaKey || e.ctrlKey;
-      if (!meta || e.key.toLowerCase() !== "k") return;
-      e.preventDefault();
-      setAramaAcik((a) => !a);
-    };
-    window.addEventListener("keydown", dinleyici);
-    return () => window.removeEventListener("keydown", dinleyici);
-  }, [yetkiler.arama]);
 
   const aksiyonYetkileri: ProjeBaslikAksiyonYetkileri = React.useMemo(
     () => ({

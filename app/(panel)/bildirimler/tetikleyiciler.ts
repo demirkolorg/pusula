@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { mentionIdleriniCikar } from "@/lib/mention-format";
 import { bildirimUret } from "./services";
 
 // =====================================================================
@@ -143,18 +144,8 @@ async function kartYetkiBaglami(kartId: string): Promise<KartYetkiBaglami | null
 // =====================================================================
 
 // Yorum içinde "@uuid" formatında geçen kullanıcıları bulur.
-// Standart UUID v4 regex.
-const MENTION_REGEX =
-  /@([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi;
-
 export function mentionParse(icerik: string): string[] {
-  const set = new Set<string>();
-  let m: RegExpExecArray | null;
-  MENTION_REGEX.lastIndex = 0;
-  while ((m = MENTION_REGEX.exec(icerik)) !== null) {
-    if (m[1]) set.add(m[1].toLowerCase());
-  }
-  return Array.from(set);
+  return mentionIdleriniCikar(icerik);
 }
 
 export async function tetikleYorumMention(opt: {

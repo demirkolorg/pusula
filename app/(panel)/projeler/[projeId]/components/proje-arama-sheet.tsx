@@ -20,9 +20,9 @@ type Props = {
   setAcik: (a: boolean) => void;
 };
 
-// Proje içi kart araması — Cmd+K ile açılır. Faz 1: client-side filter
-// (ProjeDetay cache'i üzerinden başlık + açıklama LIKE). Faz 2: server-side
-// arama servisi (`projeKartArama`) eklenecek.
+// Proje içi kart araması — header'daki arama butonu ile açılır. Faz 1:
+// client-side filter (ProjeDetay cache'i üzerinden başlık + açıklama LIKE).
+// Faz 2: server-side arama servisi (`projeKartArama`) eklenecek.
 //
 // Mobile'da bottom sheet, desktop'ta üstten dikey panel — Sheet primitive'i
 // ekrana göre uyum sağlar (Kural 13).

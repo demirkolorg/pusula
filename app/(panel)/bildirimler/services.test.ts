@@ -130,6 +130,37 @@ describe("bildirimleriListele", () => {
     expect(superList[0]!.baslik).toBe("SuperAdmin bildirimi");
   });
 
+  it("mention UUID'lerini bildirim metninde kullanıcı adına çevirir", async () => {
+    const kisi = await adminDb.kullanici.findUniqueOrThrow({
+      where: { id: ortam.personel.id },
+      select: { ad: true, soyad: true },
+    });
+    const gorunenAd = `${kisi.ad} ${kisi.soyad}`.trim();
+
+    const sonuc = await bildirimUret({
+      alici_idler: [ortam.digerKullanici.id],
+      ureten_id: ortam.superAdmin.id,
+      tip: "YORUM_MENTION",
+      baslik: `@${ortam.personel.id} sizden bahsetti`,
+      ozet: `Yorum: @${ortam.personel.id}`,
+    });
+
+    const dbKaydi = await adminDb.bildirim.findUniqueOrThrow({
+      where: { id: BigInt(sonuc[0]!.id) },
+      select: { baslik: true, ozet: true },
+    });
+    expect(dbKaydi.baslik).toContain(`@${gorunenAd}`);
+    expect(dbKaydi.ozet).toContain(`@${gorunenAd}`);
+    expect(dbKaydi.baslik).not.toContain(ortam.personel.id);
+
+    const liste = await bildirimleriListele(ortam.digerKullanici.id, {
+      filtre: "hepsi",
+      limit: 20,
+    });
+    expect(liste[0]!.baslik).toContain(`@${gorunenAd}`);
+    expect(liste[0]!.ozet).toContain(`@${gorunenAd}`);
+  });
+
   it("filtre 'okunmamis' sadece okunmamışları döner", async () => {
     const r = await bildirimUret({
       alici_idler: [ortam.personel.id],

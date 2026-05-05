@@ -7,9 +7,10 @@ import {
   Building2Icon,
   CheckSquareIcon,
   FilePlus2Icon,
+  FolderKanbanIcon,
   InfoIcon,
-  LinkIcon,
   ListChecksIcon,
+  ListIcon,
   Loader2Icon,
   MessageSquareIcon,
   PaperclipIcon,
@@ -27,12 +28,12 @@ import {
 } from "@/components/ui/responsive-dialog";
 import { MentionliMetin, type KisiMap } from "@/lib/mention";
 import { KisiAvatar } from "../../yetkili/components/kisi-avatar";
-import { useProjeYetkilileri } from "../../yetkili/hooks";
-import { useKartAktiviteleri } from "../hooks";
 import type { AktiviteOzeti } from "../services";
 import { aktiviteDiff, type DiffSegment } from "../aktivite-diff";
 
 const KATEGORI_ETIKET: Record<AktiviteOzeti["kategori"], string> = {
+  proje: "Proje",
+  liste: "Liste",
   kart: "Kart",
   etiket: "Etiket",
   yetkili: "Yetkili",
@@ -62,11 +63,20 @@ function islemRozetSinifi(islem: AktiviteOzeti["islem"]): string {
   }
 }
 
-// projeId opsiyonel — verilirse yorum kategorisindeki detay alanındaki
-// `@<uuid>` mention'lar kullanıcı adlarıyla render edilir.
+// Presentational — data ve kisiMap dışarıdan gelir. Loading/empty state
+// içeride yönetilir; çağıran bileşen kendi hook'unu (kart veya proje
+// aktivitesi) seçer.
+//
+// `kartId` prop'u kaldırıldı — eski kart-only kullanım için bkz.
+// kart-modal-aktivite-listesi.tsx (wrapper).
 type Props = {
-  kartId: string;
-  projeId?: string;
+  data: AktiviteOzeti[] | undefined;
+  yukleniyor: boolean;
+  kisiMap: KisiMap;
+  // Boş hâl mesajı — kart bağlamında "kartta yapılan" / proje bağlamında
+  // "projede yapılan" şeklinde değişir.
+  bosBaslik?: string;
+  bosAciklama?: string;
 };
 
 // Kural 8: Intl.DateTimeFormat tr-TR + Europe/Istanbul + dd.MM.yyyy HH:mm
@@ -91,6 +101,8 @@ const KATEGORI_IKON: Record<
   AktiviteOzeti["kategori"],
   React.ComponentType<{ className?: string }>
 > = {
+  proje: FolderKanbanIcon,
+  liste: ListIcon,
   kart: ActivityIcon,
   etiket: TagIcon,
   yetkili: UsersIcon,
@@ -104,19 +116,14 @@ const KATEGORI_IKON: Record<
 
 // Sancak referansı: dikey timeline — sol kenarda 1px line, her olay için
 // 22x22 daire (kategori rengi), sağda kullanıcı + mesaj + detay + zaman.
-export function AktiviteListesi({ kartId, projeId }: Props) {
-  const sorgu = useKartAktiviteleri(kartId);
-  const yetkililerQ = useProjeYetkilileri(projeId ?? "");
-  const kisiMap: KisiMap = React.useMemo(() => {
-    const m: KisiMap = new Map();
-    if (!projeId) return m;
-    for (const u of yetkililerQ.data ?? []) {
-      m.set(u.kullanici_id, { ad: u.ad, soyad: u.soyad });
-    }
-    return m;
-  }, [projeId, yetkililerQ.data]);
-
-  if (sorgu.isLoading) {
+export function AktiviteListesi({
+  data,
+  yukleniyor,
+  kisiMap,
+  bosBaslik = "Henüz aktivite yok.",
+  bosAciklama = "Yapılan her değişiklik (atama, tarih, etiket, yorum, durum, kontrol maddesi, eklenti, ilişki) burada zaman çizelgesinde görünür.",
+}: Props) {
+  if (yukleniyor) {
     return (
       <p className="text-muted-foreground flex items-center gap-1.5 px-2 py-3 text-xs">
         <Loader2Icon className="size-3 animate-spin" /> Yükleniyor…
@@ -124,15 +131,14 @@ export function AktiviteListesi({ kartId, projeId }: Props) {
     );
   }
 
-  if ((sorgu.data?.length ?? 0) === 0) {
+  if ((data?.length ?? 0) === 0) {
     return (
       <div className="border-muted relative rounded-md border border-dashed py-10 text-center">
         <div className="text-muted-foreground/80 mx-auto flex flex-col items-center gap-2">
           <ActivityIcon className="size-5" />
-          <p className="text-xs">Henüz aktivite yok.</p>
+          <p className="text-xs">{bosBaslik}</p>
           <p className="text-muted-foreground/60 max-w-[240px] text-[11px] leading-snug">
-            Kartta yapılan her değişiklik (atama, tarih, etiket, yorum, durum,
-            kontrol maddesi, eklenti, ilişki) burada zaman çizelgesinde görünür.
+            {bosAciklama}
           </p>
         </div>
       </div>
@@ -147,7 +153,7 @@ export function AktiviteListesi({ kartId, projeId }: Props) {
         aria-hidden
       />
       <ul className="relative flex flex-col gap-5">
-        {sorgu.data?.map((a) => (
+        {data?.map((a) => (
           <li key={a.id}>
             <AktiviteSatiri aktivite={a} kisiMap={kisiMap} />
           </li>

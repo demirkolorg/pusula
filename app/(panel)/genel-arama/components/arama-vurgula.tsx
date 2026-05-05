@@ -7,7 +7,7 @@
 // Kontrol Kural 70 — markdown/HTML render edilmiyor; düz metin <mark> içinde,
 // XSS riski yok.
 
-import { turkceNormalize } from "@/lib/arama";
+import { turkceNormalize } from "@/lib/arama-normalize";
 
 type Props = {
   metin: string;

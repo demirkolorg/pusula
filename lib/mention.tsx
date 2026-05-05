@@ -1,4 +1,8 @@
 import * as React from "react";
+import {
+  MENTION_UUID_REGEX,
+  mentionAdi,
+} from "./mention-format";
 
 // @mention parse + render. UUID v4 formatında geçen mention'ları kullanıcı
 // adlarıyla zenginleştirir.
@@ -6,9 +10,6 @@ import * as React from "react";
 // Kullanım:
 //   const parcalar = mentionParcala("Selam @<uuid>", kisiMap);
 //   parcalar.map((p, i) => p.tip === "metin" ? p.deger : <Rozet>{p.ad}</Rozet>)
-
-const MENTION_REGEX =
-  /@([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi;
 
 export type MentionParca =
   | { tip: "metin"; deger: string }
@@ -19,9 +20,9 @@ export type KisiMap = Map<string, { ad: string; soyad: string }>;
 export function mentionParcala(metin: string, kisiMap: KisiMap): MentionParca[] {
   const sonuc: MentionParca[] = [];
   let sonIdx = 0;
-  MENTION_REGEX.lastIndex = 0;
+  MENTION_UUID_REGEX.lastIndex = 0;
   let m: RegExpExecArray | null;
-  while ((m = MENTION_REGEX.exec(metin)) !== null) {
+  while ((m = MENTION_UUID_REGEX.exec(metin)) !== null) {
     if (m.index > sonIdx) {
       sonuc.push({ tip: "metin", deger: metin.slice(sonIdx, m.index) });
     }
@@ -30,7 +31,7 @@ export function mentionParcala(metin: string, kisiMap: KisiMap): MentionParca[] 
     sonuc.push({
       tip: "mention",
       uuid,
-      ad: u ? `${u.ad} ${u.soyad}`.trim() : null,
+      ad: mentionAdi(u),
     });
     sonIdx = m.index + m[0].length;
   }

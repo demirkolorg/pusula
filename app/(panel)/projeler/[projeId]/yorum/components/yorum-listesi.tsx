@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { tempIdMi } from "@/lib/temp-id";
 import { useOturumKullanicisi } from "@/hooks/use-oturum";
+import { MentionliMetin, type KisiMap } from "@/lib/mention";
 import { KisiAvatar } from "../../yetkili/components/kisi-avatar";
 import {
   tempId,
@@ -27,6 +28,15 @@ export function YorumListesi({ kartId }: Props) {
 
   const olustur = useYorumOlustur(kartId);
   const [taslak, setTaslak] = React.useState("");
+  const kisiMap: KisiMap = React.useMemo(() => {
+    const m: KisiMap = new Map();
+    for (const yorum of sorgu.data ?? []) {
+      for (const kisi of yorum.mention_kisiler) {
+        m.set(kisi.id.toLowerCase(), { ad: kisi.ad, soyad: kisi.soyad });
+      }
+    }
+    return m;
+  }, [sorgu.data]);
 
   const gonder = (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,6 +97,7 @@ export function YorumListesi({ kartId }: Props) {
                 yorum={y}
                 kartId={kartId}
                 duzenleyebilirMi={!!oturum && y.yazan_id === oturum.id}
+                kisiMap={kisiMap}
               />
             </li>
           ))}
@@ -104,10 +115,12 @@ function YorumSatiri({
   yorum,
   kartId,
   duzenleyebilirMi,
+  kisiMap,
 }: {
   yorum: YorumOzeti;
   kartId: string;
   duzenleyebilirMi: boolean;
+  kisiMap: KisiMap;
 }) {
   const [duzenliyor, setDuzenliyor] = React.useState(false);
   const [icerik, setIcerik] = React.useState(yorum.icerik);
@@ -178,7 +191,9 @@ function YorumSatiri({
           </form>
         ) : (
           <>
-            <p className="mt-0.5 whitespace-pre-wrap text-sm">{yorum.icerik}</p>
+            <p className="mt-0.5 whitespace-pre-wrap text-sm">
+              <MentionliMetin metin={yorum.icerik} kisiMap={kisiMap} />
+            </p>
             {duzenleyebilirMi && !taslak && (
               <div className="text-muted-foreground mt-1 flex gap-3 text-[11px]">
                 <button

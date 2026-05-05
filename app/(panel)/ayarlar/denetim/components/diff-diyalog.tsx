@@ -53,11 +53,9 @@ export function DenetimDiffDiyalog({ kayit, kapat }: Props) {
           <DialogTitle className="flex items-center gap-2">
             <Badge>{kayit.islem}</Badge>
             <span>{kayit.kaynak_tip}</span>
-            {kayit.kaynak_id && (
-              <span className="text-muted-foreground font-mono text-xs">
-                {kayit.kaynak_id}
-              </span>
-            )}
+            <span className="text-muted-foreground truncate text-sm">
+              {kayit.kaynak_etiket ?? "Kayıt"}
+            </span>
           </DialogTitle>
           <DialogDescription className="space-y-1">
             <span className="block">

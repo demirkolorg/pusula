@@ -43,6 +43,7 @@ function regexEscape(s: string): string {
 export function useMentionInput(
   metin: string,
   setMetin: (s: string) => void,
+  baslangicMentionMap?: ReadonlyMap<string, string>,
 ): {
   durum: MentionDurum;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;

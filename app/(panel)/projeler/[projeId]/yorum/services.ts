@@ -6,6 +6,7 @@ import {
   tetikleYorumEklendi,
   tetikleYorumMention,
 } from "@/app/(panel)/bildirimler/tetikleyiciler";
+import { mentionIdleriniCikar } from "@/lib/mention-format";
 import { yayinla } from "@/lib/realtime";
 import { SOCKET, room } from "@/lib/socket-events";
 import type {
@@ -18,12 +19,44 @@ export type YorumOzeti = {
   kart_id: string;
   yazan_id: string;
   yazan: { ad: string; soyad: string; email: string };
+  mention_kisiler: Array<{ id: string; ad: string; soyad: string }>;
   icerik: string;
   duzenlendi_mi: boolean;
   yanit_yorum_id: string | null;
   olusturma_zamani: Date;
   guncelleme_zamani: Date;
 };
+
+async function yorumMentionKisileri(
+  metinler: ReadonlyArray<string>,
+): Promise<Map<string, { id: string; ad: string; soyad: string }>> {
+  const idler = new Set<string>();
+  for (const metin of metinler) {
+    for (const id of mentionIdleriniCikar(metin)) idler.add(id);
+  }
+  if (idler.size === 0) return new Map();
+  const kisiler = await db.kullanici.findMany({
+    where: { id: { in: Array.from(idler) } },
+    select: { id: true, ad: true, soyad: true },
+  });
+  return new Map(kisiler.map((k) => [k.id.toLowerCase(), k]));
+}
+
+function yorumMentionListele(
+  icerik: string,
+  kisiMap: ReadonlyMap<string, { id: string; ad: string; soyad: string }>,
+): Array<{ id: string; ad: string; soyad: string }> {
+  const sonuc: Array<{ id: string; ad: string; soyad: string }> = [];
+  const gorulen = new Set<string>();
+  for (const id of mentionIdleriniCikar(icerik)) {
+    if (gorulen.has(id)) continue;
+    const kisi = kisiMap.get(id);
+    if (!kisi) continue;
+    sonuc.push(kisi);
+    gorulen.add(id);
+  }
+  return sonuc;
+}
 
 // =====================================================================
 // Erişim doğrulama
@@ -96,7 +129,11 @@ export async function kartYorumlariniListele(
       yazan: { select: { ad: true, soyad: true, email: true } },
     },
   });
-  return yorumlar;
+  const kisiMap = await yorumMentionKisileri(yorumlar.map((y) => y.icerik));
+  return yorumlar.map((y) => ({
+    ...y,
+    mention_kisiler: yorumMentionListele(y.icerik, kisiMap),
+  }));
 }
 
 export async function yorumOlustur(
@@ -139,6 +176,11 @@ export async function yorumOlustur(
       yazan: { select: { ad: true, soyad: true, email: true } },
     },
   });
+  const kisiMap = await yorumMentionKisileri([girdi.icerik]);
+  const yorum: YorumOzeti = {
+    ...y,
+    mention_kisiler: yorumMentionListele(y.icerik, kisiMap),
+  };
 
   // Bildirim tetikleyicileri — fail ederse yorum yazılır, sadece bildirim
   // kaybolur (hata sessiz). Audit log her şeyi yakalar.
@@ -162,10 +204,10 @@ export async function yorumOlustur(
   // Realtime — kart room'una yorum:olustur yayınla
   yayinla(SOCKET.YORUM_OLUSTUR, room.kart(girdi.kart_id), {
     kart_id: girdi.kart_id,
-    yorum: y,
+    yorum,
   }).catch(() => {});
 
-  return y;
+  return yorum;
 }
 
 export async function yorumGuncelle(

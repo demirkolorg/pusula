@@ -91,6 +91,28 @@ const METIN_SINIFLARI: Record<KapakRenk, string> = {
   kahve: "text-palet-kahve",
 };
 
+// Kapak rengi arkaplan üzerine binen metin/ikonlar için kontrastlı foreground.
+// Token başına `--<token>-foreground` CSS değişkeni globals.css'te tanımlı;
+// Tailwind v4 otomatik `text-...-foreground` class'ı üretir. Light + dark
+// temada kontrast WCAG AA seviyesinde tutulacak şekilde palette ayarlanmıştır.
+const ARKAPLAN_USTU_METIN_SINIFLARI: Record<KapakRenk, string> = {
+  primary: "text-primary-foreground",
+  secondary: "text-secondary-foreground",
+  tertiary: "text-tertiary-foreground",
+  kirmizi: "text-palet-kirmizi-foreground",
+  turuncu: "text-palet-turuncu-foreground",
+  amber: "text-palet-amber-foreground",
+  sari: "text-palet-sari-foreground",
+  yesil: "text-palet-yesil-foreground",
+  zumrut: "text-palet-zumrut-foreground",
+  camgobegi: "text-palet-camgobegi-foreground",
+  mavi: "text-palet-mavi-foreground",
+  lacivert: "text-palet-lacivert-foreground",
+  mor: "text-palet-mor-foreground",
+  pembe: "text-palet-pembe-foreground",
+  kahve: "text-palet-kahve-foreground",
+};
+
 const KENAR_SINIFLARI: Record<KapakRenk, string> = {
   primary: "border-primary",
   secondary: "border-secondary",
@@ -128,6 +150,17 @@ export function kapakMetinSinifi(
   deger: string | null | undefined,
 ): string | null {
   return tokenMi(deger) ? METIN_SINIFLARI[deger] : null;
+}
+
+/**
+ * Kapak rengi arkaplan üzerine binen metin/ikon için kontrastlı foreground
+ * className'i (`text-...-foreground`). Açık arkaplanlarda koyu, koyu
+ * arkaplanlarda açık tonu döndürür. Token değilse `null`.
+ */
+export function kapakUstuMetinSinifi(
+  deger: string | null | undefined,
+): string | null {
+  return tokenMi(deger) ? ARKAPLAN_USTU_METIN_SINIFLARI[deger] : null;
 }
 
 /** Token'dan `border-...` className üretir. Token değilse `null`. */

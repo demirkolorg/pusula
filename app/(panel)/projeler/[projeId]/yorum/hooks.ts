@@ -63,6 +63,7 @@ export function useYorumOlustur(kartId: string) {
         kart_id: vars.kart_id,
         yazan_id: vars.yazan_id,
         yazan: vars.yazan,
+        mention_kisiler: [],
         icerik: vars.icerik,
         duzenlendi_mi: false,
         yanit_yorum_id: vars.yanit_yorum_id ?? null,

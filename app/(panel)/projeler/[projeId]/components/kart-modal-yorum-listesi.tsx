@@ -24,8 +24,7 @@ const TARIH_BICIM = new Intl.DateTimeFormat("tr-TR", {
   timeZone: "Europe/Istanbul",
 });
 
-// projeId opsiyonel — verilirse mention rozetleri proje yetkilisi adlarıyla
-// zenginleşir. Yoksa UUID ham görünür (geriye uyumlu).
+// projeId opsiyonel — proje yetkilisi ve yorum içi mention kişi map'leri birleşir.
 type Props = { kartId: string; projeId?: string };
 
 // Sancak referansı: yeni → eski sırasıyla, avatar + bubble (white bg + line border).
@@ -38,12 +37,18 @@ export function KartModalYorumListesi({ kartId, projeId }: Props) {
 
   const kisiMap: KisiMap = React.useMemo(() => {
     const m: KisiMap = new Map();
-    if (!projeId) return m;
-    for (const u of yetkililerQ.data ?? []) {
-      m.set(u.kullanici_id, { ad: u.ad, soyad: u.soyad });
+    if (projeId) {
+      for (const u of yetkililerQ.data ?? []) {
+        m.set(u.kullanici_id.toLowerCase(), { ad: u.ad, soyad: u.soyad });
+      }
+    }
+    for (const yorum of sorgu.data ?? []) {
+      for (const kisi of yorum.mention_kisiler) {
+        m.set(kisi.id.toLowerCase(), { ad: kisi.ad, soyad: kisi.soyad });
+      }
     }
     return m;
-  }, [projeId, yetkililerQ.data]);
+  }, [projeId, sorgu.data, yetkililerQ.data]);
 
   if (sorgu.isLoading) {
     return (

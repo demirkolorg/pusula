@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import {
+  ActivityIcon,
   ArchiveIcon,
   BellIcon,
   BellOffIcon,
@@ -22,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
+import { ProjeAktiviteModal } from "../aktivite/components/proje-aktivite-modal";
 import { YetkililerPaneliPopover } from "../yetkili/components/yetkililer-paneli";
 import {
   useProjeSusturmaDurumu,
@@ -57,6 +59,7 @@ export function ProjeBaslikAksiyonlar({
   className,
 }: Props) {
   const [dialogModu, setDialogModu] = React.useState<DialogModu>(null);
+  const [aktiviteAcik, setAktiviteAcik] = React.useState(false);
 
   const disaAktar = () => {
     try {
@@ -130,13 +133,27 @@ export function ProjeBaslikAksiyonlar({
           variant="ghost"
           size="icon-sm"
           onClick={onAramaAc}
-          aria-label="Kart ara (Ctrl+K)"
-          title="Kart ara — Ctrl+K"
+          aria-label="Kart ara"
+          title="Kart ara"
           className="min-h-9 min-w-9"
         >
           <SearchIcon className="size-4" />
         </Button>
       )}
+
+      {/* Aktivite logu — proje altındaki tüm hareketleri timeline modalde göster.
+          Yetki kontrolü server-side (proje:read) action içinde. */}
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        onClick={() => setAktiviteAcik(true)}
+        aria-label="Proje aktivitesi"
+        title="Proje aktivitesi"
+        className="min-h-9 min-w-9"
+      >
+        <ActivityIcon className="size-4" />
+      </Button>
 
       {menudeAksiyonVar && (
         <DropdownMenu>
@@ -200,6 +217,12 @@ export function ProjeBaslikAksiyonlar({
         proje={proje}
         mod={dialogModu}
         setMod={setDialogModu}
+      />
+
+      <ProjeAktiviteModal
+        projeId={proje.id}
+        acik={aktiviteAcik}
+        onAcikDegisti={setAktiviteAcik}
       />
     </div>
   );

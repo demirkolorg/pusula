@@ -8,3 +8,9 @@ export const KART_AKTIVITELERI_KEY = "kart-aktiviteleri";
 export function kartAktiviteleriKey(kartId: string) {
   return [KART_AKTIVITELERI_KEY, kartId] as const;
 }
+
+export const PROJE_AKTIVITELERI_KEY = "proje-aktiviteleri";
+
+export function projeAktiviteleriKey(projeId: string) {
+  return [PROJE_AKTIVITELERI_KEY, projeId] as const;
+}

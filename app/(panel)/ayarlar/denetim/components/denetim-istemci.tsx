@@ -126,11 +126,11 @@ export function DenetimIstemci() {
         ),
       },
       {
-        accessorKey: "kaynak_id",
+        accessorKey: "kaynak_etiket",
         header: "Kayıt",
         cell: ({ row }) => (
-          <span className="text-muted-foreground font-mono text-xs">
-            {row.original.kaynak_id?.slice(0, 8) ?? "—"}
+          <span className="text-sm">
+            {row.original.kaynak_etiket ?? "—"}
           </span>
         ),
       },
@@ -187,7 +187,7 @@ export function DenetimIstemci() {
           <Input
             value={aramaInput}
             onChange={(e) => setAramaInput(e.target.value)}
-            placeholder="Kaynak ID, yol, request ID ara..."
+            placeholder="Kaynak, yol veya istek ara..."
             className="pl-9"
           />
         </div>
@@ -267,8 +267,7 @@ export function DenetimIstemci() {
               </span>
             </div>
             <span className="text-sm">
-              {s.kaynak_tip}
-              {s.kaynak_id ? ` · ${s.kaynak_id.slice(0, 8)}` : ""}
+              {s.kaynak_etiket ?? s.kaynak_tip}
             </span>
             <span className="text-muted-foreground text-xs">
               {s.kullanici_ad ?? "Sistem"} · {s.ip ?? "—"}

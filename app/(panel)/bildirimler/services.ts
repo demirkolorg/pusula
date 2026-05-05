@@ -7,6 +7,11 @@ import { tercihAliciFiltresi } from "@/lib/bildirim-tercih";
 import { susturmaSuzgeci } from "@/lib/bildirim-susturma";
 import { metrikArttir } from "@/lib/bildirim-metrikler";
 import { logger } from "@/lib/logger";
+import {
+  mentionIdleriniCikar,
+  mentionlariGorunenMetneCevir,
+  type MentionKisiMap,
+} from "@/lib/mention-format";
 import type {
   BildirimleriListele,
   BildirimOkuduIsaretle,
@@ -27,6 +32,54 @@ export type BildirimOzeti = {
   okundu_mu: boolean;
   olusturma_zamani: Date;
 };
+
+type BildirimMetinleri = {
+  baslik: string;
+  ozet: string | null;
+};
+
+function bildirimMentionIdleri(
+  metinler: ReadonlyArray<string | null | undefined>,
+): string[] {
+  const idler = new Set<string>();
+  for (const metin of metinler) {
+    for (const id of mentionIdleriniCikar(metin)) idler.add(id);
+  }
+  return Array.from(idler);
+}
+
+async function bildirimMentionKisiMap(
+  idler: ReadonlyArray<string>,
+): Promise<MentionKisiMap> {
+  if (idler.length === 0) return new Map();
+  const kisiler = await db.kullanici.findMany({
+    where: { id: { in: Array.from(idler) } },
+    select: { id: true, ad: true, soyad: true },
+  });
+  return new Map(
+    kisiler.map((k) => [k.id.toLowerCase(), { ad: k.ad, soyad: k.soyad }]),
+  );
+}
+
+function bildirimMetniniGorunurYap(
+  metin: string | null,
+  kisiMap: MentionKisiMap,
+): string | null {
+  if (metin === null) return null;
+  return mentionlariGorunenMetneCevir(metin, kisiMap);
+}
+
+async function bildirimMetinleriniGorunurYap(
+  metinler: BildirimMetinleri,
+): Promise<BildirimMetinleri> {
+  const kisiMap = await bildirimMentionKisiMap(
+    bildirimMentionIdleri([metinler.baslik, metinler.ozet]),
+  );
+  return {
+    baslik: bildirimMetniniGorunurYap(metinler.baslik, kisiMap) ?? metinler.baslik,
+    ozet: bildirimMetniniGorunurYap(metinler.ozet, kisiMap),
+  };
+}
 
 // =====================================================================
 // Listele + sayım
@@ -66,11 +119,15 @@ export async function bildirimleriListele(
     },
   });
 
+  const mentionKisiMap = await bildirimMentionKisiMap(
+    bildirimMentionIdleri(ham.flatMap((b) => [b.baslik, b.ozet])),
+  );
+
   return ham.map((b) => ({
     id: b.id.toString(),
     tip: b.tip,
-    baslik: b.baslik,
-    ozet: b.ozet,
+    baslik: bildirimMetniniGorunurYap(b.baslik, mentionKisiMap) ?? b.baslik,
+    ozet: bildirimMetniniGorunurYap(b.ozet, mentionKisiMap),
     ureten: b.ureten,
     kart_id: b.kart_id,
     proje_id: b.proje_id,
@@ -202,12 +259,17 @@ export async function bildirimUret(
   }
   if (inAppAlicilari.length === 0) return [];
 
+  const metinler = await bildirimMetinleriniGorunurYap({
+    baslik: girdi.baslik,
+    ozet: girdi.ozet ?? null,
+  });
+
   const data = inAppAlicilari.map((aliciId) => ({
     alici_id: aliciId,
     ureten_id: girdi.ureten_id,
     tip: girdi.tip,
-    baslik: girdi.baslik,
-    ozet: girdi.ozet ?? null,
+    baslik: metinler.baslik,
+    ozet: metinler.ozet,
     kart_id: girdi.kart_id ?? null,
     proje_id: girdi.proje_id ?? null,
     kaynak_tip: girdi.kaynak_tip ?? null,
@@ -233,8 +295,8 @@ export async function bildirimUret(
     yayinla(SOCKET.BILDIRIM_YENI, room.kullanici(r.alici_id), {
       id: r.id,
       tip: girdi.tip,
-      baslik: girdi.baslik,
-      ozet: girdi.ozet ?? null,
+      baslik: metinler.baslik,
+      ozet: metinler.ozet,
       kart_id: girdi.kart_id ?? null,
       proje_id: girdi.proje_id ?? null,
     }).catch(() => {});
@@ -244,7 +306,7 @@ export async function bildirimUret(
   // tercih `email_acik=true` olan alıcılar için fire-and-forget mailGonder.
   // Email aktif alıcı listesi in-app'tan farklı olabilir (ikisi bağımsız).
   // Hata yutulur (logger üzerinden gözlemlenebilir) — ana akış bozulmaz.
-  void emailKanaliYayinla(girdi).catch((err: unknown) => {
+  void emailKanaliYayinla({ ...girdi, ...metinler }).catch((err: unknown) => {
     logger.error(
       { tip: girdi.tip, hata: String(err) },
       "[bildirim-email] gönderim hatası (yutuldu)",
