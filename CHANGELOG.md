@@ -5,6 +5,15 @@
 ## [Yayınlanmamış]
 
 ### Eklenen
+- **Genel Arama / Komut Paleti (ADR-0017)** — Cmd/Ctrl+K + Cmd/Ctrl+Space ile açılan global arama. 9 tipte aranabilir: kart, yorum, kontrol maddesi, eklenti, kullanıcı, birim, etiket, proje, liste. Postgres `tsvector` + custom `pusula_turkish` config (Snowball Türkçe stemmer + unaccent + stop-word) + `pg_trgm` fuzzy fallback. UNION ALL sorgu, app-level yetki filtresi (Makam — SUPER_ADMIN/KAYMAKAM — bypass).
+- `app/(panel)/genel-arama/` — feature folder (5 katman: schemas, services, actions, hooks, components + saf logic helper + 16 unit test).
+- `app/(panel)/genel-arama/components/komut-paleti.tsx` — geniş modal (90vw × 86vh), 4 sekmeli tab bar (Hepsi / İçerik / Yapı / Kişi-Yer), Ctrl+1..4 sekme kısayolu, sayaç pill, durationMs.
+- `app/(panel)/genel-arama/components/arama-vurgula.tsx` — Türkçe-duyarsız `<mark>` highlight (çoklu kelime, overlap birleştirme).
+- `app/(panel)/genel-arama/components/arama-sonuc-item.tsx` — renkli kategori ikonu (h-12 w-12), tip badge, ChevronRight, tip-spesifik meta.
+- `prisma/migrations/20260507000000_global_arama_tsvector_altyapisi` — 9 tabloya `arama_vektoru tsvector` kolonu, 9 trigger fonksiyonu, GIN + trgm index'leri, backfill.
+- `components/ui/command.tsx` — shadcn cmdk wrapper (CommandDialog, Input, List, Group, Item, Empty, Separator).
+- `cmdk` paketi.
+- `lib/rate-limit.ts:aramaLimiter` — 30 sorgu/dk/kullanıcı throttle.
 - **Birim paylaşım modeli (ADR-0008)** — `Kurum` → `Birim` rename; `ProjeBirimi`, `ListeBirimi`, `ListeUyesi`, `KartBirimi` join tabloları. Bir kaynak birden çok birime/kişiye paylaşılabilir.
 - `app/(panel)/projeler/[projeId]/paylasim.ts` — proje + liste için birim ve üye CRUD servis.
 - `app/(panel)/projeler/[projeId]/components/{proje-paylasim-popover,liste-paylasim-popover,birim-paylasim-listesi}.tsx` — paylaşım UI bileşenleri.
