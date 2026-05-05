@@ -4,6 +4,7 @@ import * as React from "react";
 
 import Link from "next/link";
 
+import { PusulaLogo } from "@/components/branding";
 import { NavMain, type NavGroup } from "@/components/nav-main";
 import { NavProjects } from "@/components/nav-projects";
 import {
@@ -15,8 +16,8 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
+import { useKurumAyariStore } from "@/lib/stores/kurum-ayari-store";
 import {
-  BuildingIcon,
   ListChecksIcon,
   ShieldCheckIcon,
   Building2Icon,
@@ -26,6 +27,7 @@ import {
   TagsIcon,
   ScrollTextIcon,
   AlertTriangleIcon,
+  SettingsIcon,
 } from "lucide-react";
 
 const navGroups: NavGroup[] = [
@@ -38,6 +40,7 @@ const navGroups: NavGroup[] = [
   {
     label: "Ayarlar",
     items: [
+      { title: "Genel", url: "/ayarlar/genel", icon: <SettingsIcon /> },
       { title: "Birimler", url: "/ayarlar/birimler", icon: <Building2Icon /> },
       {
         title: "Kullanıcılar",
@@ -79,24 +82,23 @@ const projects = [
 ];
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const kurumAdi = useKurumAyariStore((s) => s.kurumAdi);
+  const uygulamaAdi = useKurumAyariStore((s) => s.uygulamaAdi);
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<Link href="/ana-sayfa" />}>
-              <BuildingIcon
-                className="shrink-0 text-sidebar-primary"
-                style={{ width: 36, height: 36 }}
+              <PusulaLogo
+                boyut="lg"
+                tip="tam"
+                baslik={kurumAdi}
+                altBaslik={uygulamaAdi}
+                className="flex-1"
+                ikonClassName="size-9! text-sidebar-primary"
               />
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">
-                  Tekman Kaymakamlığı
-                </span>
-                <span className="truncate text-xs">
-                  Pusula İş Takip Yönetimi
-                </span>
-              </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
