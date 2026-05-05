@@ -507,7 +507,70 @@ export async function tetikleKartTamamlandi(opt: {
 }
 
 // =====================================================================
-// 12. Bitiş tarihi yaklaşıyor / geçti — cron ile çağrılır
+// 12. Liste silindi — liste yetkililerine bildirim (silen hariç)
+// =====================================================================
+
+// Liste silinmeden ÖNCE çağrılmalı: silindikten sonra ListeYetkilisi cascade
+// ile temizlenir, alıcı listesi boşalır. Action'da sıralama: önce tetikle,
+// sonra delete.
+export async function tetikleListeSilindi(opt: {
+  listeId: string;
+  silenId: string;
+}): Promise<void> {
+  const liste = await db.liste.findUnique({
+    where: { id: opt.listeId },
+    select: {
+      ad: true,
+      proje_id: true,
+      yetkililer: { select: { kullanici_id: true } },
+    },
+  });
+  if (!liste) return;
+  const aliciIdler = liste.yetkililer
+    .map((y) => y.kullanici_id)
+    .filter((id) => id !== opt.silenId);
+  if (aliciIdler.length === 0) return;
+  const silenAdi = await adSoyad(opt.silenId);
+  await bildirimUret({
+    alici_idler: aliciIdler,
+    ureten_id: opt.silenId,
+    tip: "LISTE_SILINDI",
+    baslik: `${silenAdi} yetkili olduğunuz bir listeyi sildi`,
+    ozet: liste.ad,
+    proje_id: liste.proje_id,
+    kaynak_tip: "Liste",
+    kaynak_id: opt.listeId,
+  });
+}
+
+// =====================================================================
+// 13. Davet kabul edildi — davet edene bildirim
+// =====================================================================
+
+export async function tetikleDavetKabulEdildi(opt: {
+  davetEdenId: string;
+  kabulEdenAd: string;
+  kabulEdenSoyad: string;
+  kabulEdenEmail: string;
+}): Promise<void> {
+  const adSoyadMetni = `${opt.kabulEdenAd} ${opt.kabulEdenSoyad}`.trim();
+  await bildirimUret({
+    alici_idler: [opt.davetEdenId],
+    // Sistem tetikledi (davet eden kullanıcı zaten kendisi alıyor) — ureten=null
+    // bildirimUret içinde ureten==alici elenmiyor; kabul eden ≠ davet eden
+    // garanti.
+    ureten_id: null,
+    tip: "DAVET_KABUL_EDILDI",
+    baslik: "Gönderdiğiniz davet kabul edildi",
+    ozet: `${adSoyadMetni} (${opt.kabulEdenEmail})`,
+    kaynak_tip: "Davet",
+    kaynak_id: null,
+    meta: { kabul_eden_email: opt.kabulEdenEmail },
+  });
+}
+
+// =====================================================================
+// 14. Bitiş tarihi yaklaşıyor / geçti — cron ile çağrılır
 // =====================================================================
 
 // Cron gibi periyodik bir scheduler'dan çağrılır. MVP'de manuel; production'da

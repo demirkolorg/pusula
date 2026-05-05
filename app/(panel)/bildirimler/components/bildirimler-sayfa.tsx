@@ -9,6 +9,8 @@ import {
   CheckCheckIcon,
   CheckCircle2Icon,
   CheckSquareIcon,
+  ListXIcon,
+  MailCheckIcon,
   MessageSquareIcon,
   MoveIcon,
   PaperclipIcon,
@@ -53,6 +55,8 @@ const TIP_IKON: Record<
   KART_BITIS_DEGISTI: CalendarClockIcon,
   KART_SILINDI: Trash2Icon,
   KART_TAMAMLANDI: CheckCircle2Icon,
+  LISTE_SILINDI: ListXIcon,
+  DAVET_KABUL_EDILDI: MailCheckIcon,
 };
 
 const TIP_RENK: Record<BildirimTipi, string> = {
@@ -69,6 +73,8 @@ const TIP_RENK: Record<BildirimTipi, string> = {
   KART_BITIS_DEGISTI: "bg-amber-100 text-amber-700",
   KART_SILINDI: "bg-red-100 text-red-700",
   KART_TAMAMLANDI: "bg-emerald-100 text-emerald-700",
+  LISTE_SILINDI: "bg-slate-100 text-slate-700",
+  DAVET_KABUL_EDILDI: "bg-emerald-100 text-emerald-700",
 };
 
 export function BildirimlerSayfaIcerik() {

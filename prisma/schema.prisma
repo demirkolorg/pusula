@@ -883,6 +883,10 @@ enum BildirimTipi {
   KART_SILINDI
   // Atandığın kart tamamlandı işaretlendi
   KART_TAMAMLANDI
+  // Yetkilisi olduğun bir liste silindi
+  LISTE_SILINDI
+  // Gönderdiğin davet kabul edildi (davet edene)
+  DAVET_KABUL_EDILDI
 }
 
 model Bildirim {

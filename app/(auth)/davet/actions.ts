@@ -6,6 +6,7 @@ import { eylem, EylemHatasi } from "@/lib/action-wrapper";
 import { HATA_KODU } from "@/lib/sonuc";
 import { rolAtamaPolitikasiniDogrula } from "@/lib/kullanici-rol-politikasi";
 import { makamRoluMu } from "@/lib/roller";
+import { tetikleDavetKabulEdildi } from "@/app/(panel)/bildirimler/tetikleyiciler";
 import { davetiKabulSemasi } from "./schemas";
 
 export const daveriKabul = eylem({
@@ -179,6 +180,16 @@ export const daveriKabul = eylem({
       });
 
       return kullanici;
+    });
+
+    // Davet edene "kabul edildi" bildirimi (transaction sonrası, fire-and-forget)
+    tetikleDavetKabulEdildi({
+      davetEdenId: davet.davet_eden_id,
+      kabulEdenAd: yeni.ad,
+      kabulEdenSoyad: yeni.soyad,
+      kabulEdenEmail: yeni.email,
+    }).catch(() => {
+      /* Bildirim hatası işlemi bozmaz */
     });
 
     return { kullaniciId: yeni.id, email: yeni.email };

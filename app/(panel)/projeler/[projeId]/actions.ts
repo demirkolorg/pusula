@@ -16,6 +16,7 @@ import {
   tetikleKartDurumDegisti,
   tetikleKartSilindi,
   tetikleKartTamamlandi,
+  tetikleListeSilindi,
 } from "@/app/(panel)/bildirimler/tetikleyiciler";
 import {
   kartArsivSemasi,
@@ -128,6 +129,12 @@ export const listeSilEylem = eylem({
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.LISTE_SIL);
     await yetkiZorunluListe(ctx.oturum?.kullaniciId, "liste:delete", girdi.id);
+    const silenId = ctx.oturum?.kullaniciId ?? null;
+    // Tetikleyici silme öncesi yetki bağlamını okumalı (cascade ile yetkililer
+    // silinince alıcı listesi boşalır).
+    if (silenId) {
+      await tetikleListeSilindi({ listeId: girdi.id, silenId }).catch(() => {});
+    }
     await listeSil(kullaniciIdAl(ctx), girdi.id);
     return { id: girdi.id };
   },
