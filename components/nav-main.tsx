@@ -16,6 +16,10 @@ export type NavGroup = {
     title: string
     url: string
     icon?: React.ReactNode
+    // Opsiyonel sağa yaslı slot — sayım rozeti, "yeni" işareti vs. (ADR-0019).
+    // Reactive bir component (örn. <BekleyenOneriBadge />) verilebilir; o
+    // component kendi içinde TanStack Query ile sayımı çeker.
+    badge?: React.ReactNode
   }[]
 }
 
@@ -33,7 +37,8 @@ export function NavMain({ groups }: { groups: NavGroup[] }) {
                   render={<Link href={item.url} />}
                 >
                   {item.icon}
-                  <span>{item.title}</span>
+                  <span className="flex-1">{item.title}</span>
+                  {item.badge}
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ))}

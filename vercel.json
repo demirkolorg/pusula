@@ -8,6 +8,10 @@
     {
       "path": "/api/cron/bildirim-mail-digest",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/oneri-retention",
+      "schedule": "0 0 * * *"
     }
   ]
 }

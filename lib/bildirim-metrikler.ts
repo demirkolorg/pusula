@@ -23,7 +23,10 @@ type SayacAnahtari =
   | "bildirim.cron.tetiklendi"
   | "bildirim.cron.basarisiz"
   | "socket.broadcast.basarili"
-  | "socket.broadcast.basarisiz";
+  | "socket.broadcast.basarisiz"
+  // ADR-0020 — öneri retention cron'u
+  | "oneri.retention.tetiklendi"
+  | "oneri.retention.basarisiz";
 
 // Prometheus best practice: snake_case + base unit. Anahtarları
 // `bildirim_uretildi_toplam` formatına çevirme yardımcısı.

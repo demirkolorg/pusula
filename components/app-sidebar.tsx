@@ -21,6 +21,7 @@ import {
   ListChecksIcon,
   ShieldCheckIcon,
   Building2Icon,
+  ClipboardCheckIcon,
   Layers3Icon,
   UsersIcon,
   KeyRoundIcon,
@@ -31,12 +32,22 @@ import {
   SettingsIcon,
   Trash2Icon,
 } from "lucide-react";
+import { BekleyenOneriRozeti } from "@/app/(panel)/onaylar/components/bekleyen-oneri-rozeti";
 
 const navGroups: NavGroup[] = [
   {
     label: "Projeler",
     items: [
       { title: "Projeler", url: "/projeler", icon: <ListChecksIcon /> },
+      // ADR-0019/PR-3 — Tamamlama Onayları sayfası KART_TAMAMLA izinli
+      // kullanıcılara açık. Yetki yoksa rozet boş döner ve görünmez kalır;
+      // sayfa server-side redirect ile koruyor.
+      {
+        title: "Tamamlama Onayları",
+        url: "/onaylar",
+        icon: <ClipboardCheckIcon />,
+        badge: <BekleyenOneriRozeti />,
+      },
       { title: "Çöp Kutusu", url: "/cop-kutusu", icon: <Trash2Icon /> },
     ],
   },
