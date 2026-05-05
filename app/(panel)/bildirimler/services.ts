@@ -5,8 +5,6 @@ import { yayinla } from "@/lib/realtime";
 import { SOCKET, room } from "@/lib/socket-events";
 import { tercihAliciFiltresi } from "@/lib/bildirim-tercih";
 import { susturmaSuzgeci } from "@/lib/bildirim-susturma";
-import { mailGonder, mailHtmlRender } from "@/lib/mail";
-import { BildirimMail } from "@/lib/mail-templates/bildirim";
 import { metrikArttir } from "@/lib/bildirim-metrikler";
 import { logger } from "@/lib/logger";
 import type {
@@ -256,13 +254,14 @@ export async function bildirimUret(
   return map;
 }
 
-// E-mail kanal süzgeci + gönderim. bildirimUret sonrası asenkron çalışır.
+// E-mail kanal süzgeci + KUYRUK YAZIMI (Adım 4 / Faz 5.5).
+// Önceki: doğrudan mailGonder; şimdiki: BildirimMailKuyrugu BEKLIYOR.
+// Cron her 5dk alıcı bazında grupla + tek mail (digest) gönderir.
 async function emailKanaliYayinla(girdi: BildirimUretGirdi): Promise<void> {
   const benzersiz = Array.from(new Set(girdi.alici_idler)).filter(
     (id) => id !== girdi.ureten_id,
   );
   if (benzersiz.length === 0) return;
-  // Susturma süzgeci email için de geçerli (Faz 5.3 kart + Adım 2 proje).
   const susturmadanGecen = await susturmaSuzgeci(
     benzersiz,
     girdi.kart_id,
@@ -275,68 +274,22 @@ async function emailKanaliYayinla(girdi: BildirimUretGirdi): Promise<void> {
     "email",
   );
   if (emailAlicilari.length === 0) return;
-
-  const kullanicilar = await db.kullanici.findMany({
-    where: { id: { in: emailAlicilari }, aktif: true, silindi_mi: false },
-    select: { id: true, email: true },
-  });
-  if (kullanicilar.length === 0) return;
-  if (susturmadanGecen.length < benzersiz.length) {
+  if (emailAlicilari.length < benzersiz.length) {
     metrikArttir(
       "bildirim.uretildi.email_dustu",
       benzersiz.length - emailAlicilari.length,
     );
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:2500";
-  const url = bildirimDeepLink(appUrl, girdi);
-  const tercihUrl = `${appUrl}/ayarlar/bildirimler`;
-
-  const html = await mailHtmlRender(
-    BildirimMail({
+  // Kuyruğa yaz — cron tarafından 5dk pencerede gruplanıp gönderilecek.
+  await db.bildirimMailKuyrugu.createMany({
+    data: emailAlicilari.map((aliciId) => ({
+      alici_id: aliciId,
+      tip: girdi.tip,
       baslik: girdi.baslik,
       ozet: girdi.ozet ?? null,
-      url,
-      tercihUrl,
-    }) as React.ReactElement,
-  );
-  const govde =
-    `${girdi.baslik}\n\n${girdi.ozet ?? ""}\n\nAç: ${url}\n\n` +
-    `Bu bildirimi almak istemiyorsanız: ${tercihUrl}`;
-
-  // Tek tek gönderim — paralel ama hatalar izole. Promise.all bekler ama
-  // dış katman zaten void ile fire-and-forget.
-  await Promise.all(
-    kullanicilar.map((u) =>
-      mailGonder({
-        alici: u.email,
-        konu: girdi.baslik,
-        govde,
-        html,
-      })
-        .then(() => {
-          metrikArttir("bildirim.email.gonderildi", 1, { tip: girdi.tip });
-        })
-        .catch((err: unknown) => {
-          metrikArttir("bildirim.email.basarisiz", 1, { tip: girdi.tip });
-          logger.warn(
-            { alici: u.email, tip: girdi.tip, hata: String(err) },
-            "[bildirim-email] tek alıcıda hata",
-          );
-        }),
-    ),
-  );
-}
-
-function bildirimDeepLink(
-  appUrl: string,
-  girdi: BildirimUretGirdi,
-): string {
-  if (girdi.kart_id && girdi.proje_id) {
-    return `${appUrl}/projeler/${girdi.proje_id}?kart=${girdi.kart_id}`;
-  }
-  if (girdi.proje_id) {
-    return `${appUrl}/projeler/${girdi.proje_id}`;
-  }
-  return `${appUrl}/bildirimler`;
+      kart_id: girdi.kart_id ?? null,
+      proje_id: girdi.proje_id ?? null,
+    })),
+  });
 }

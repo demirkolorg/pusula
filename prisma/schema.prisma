@@ -302,6 +302,7 @@ model Kullanici {
   bildirim_tercihleri          BildirimTercih[]
   kart_susturmalari            KartSusturma[]
   proje_susturmalari           ProjeSusturma[]
+  bildirim_mail_kuyrugu        BildirimMailKuyrugu[]
   proje_ziyaretleri            ProjeZiyareti[]
 
   // ADR-0017: global arama (tsvector + GIN) — trigger ile otomatik güncellenir.
@@ -1067,6 +1068,39 @@ model KartSusturma {
 
   @@id([kullanici_id, kart_id])
   @@index([kart_id])
+}
+
+// Adım 4 / Faz 5.5 — E-mail digest kuyruğu.
+// bildirimUret in-app'i hemen yazar, e-mail'i ise (tercih açıksa) doğrudan
+// göndermek yerine bu kuyruğa BEKLIYOR olarak ekler. /api/cron/bildirim-
+// mail-digest her 5dk BEKLIYOR'ları alıcı bazında gruplayıp tek mail atar.
+// Bu sayede aynı kart × aynı tip 10 olay → tek mail (spam önler).
+//
+// Cron sonrası tüm satırlar GONDERILDI (veya BASARISIZ). Geçmiş, gözlem
+// için kalır; eski kayıtlar manuel/cron ile temizlenebilir (TTL).
+enum MailKuyruguDurumu {
+  BEKLIYOR
+  GONDERILDI
+  BASARISIZ
+}
+
+model BildirimMailKuyrugu {
+  id               BigInt            @id @default(autoincrement())
+  alici_id         String            @db.Uuid
+  tip              BildirimTipi
+  baslik           String
+  ozet             String?
+  kart_id          String?           @db.Uuid
+  proje_id         String?           @db.Uuid
+  durum            MailKuyruguDurumu @default(BEKLIYOR)
+  olusturma_zamani DateTime          @default(now())
+  gonderim_zamani  DateTime?
+  hata             String?
+
+  alici Kullanici @relation(fields: [alici_id], references: [id], onDelete: Cascade)
+
+  @@index([durum, olusturma_zamani])
+  @@index([alici_id, durum])
 }
 
 // Faz 5.3 paraleli — Proje susturma (per-resource mute, geniş kapsam).
