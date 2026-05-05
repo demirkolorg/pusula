@@ -46,6 +46,7 @@ import { useProjeDetayRealtime } from "../hooks/use-detay-realtime";
 import { KartModal } from "./kart-modal";
 import { useQueryClient } from "@tanstack/react-query";
 import { ListeTipi } from "@prisma/client";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "@/lib/toast";
 import {
   arsivGecisiBelirle,
@@ -67,6 +68,9 @@ export type KanbanYetkileri = {
   kartDuzenle: boolean;
   // Kart silme — destructive aksiyon ayrı kontrol (Kural 138).
   kartSil: boolean;
+  // ADR-0018 — kart bütünü tamamlama. Düzenleyebilen herkes kapatamaz; ayrı
+  // KART_TAMAMLA izni gerektirir.
+  kartTamamla: boolean;
   yetkiliYonet: boolean;
 };
 
@@ -78,6 +82,7 @@ const DEVRE_DISI_BAGLAM = {
   yetkiliYonet: false,
   arsivle: false,
   sil: false,
+  tamamla: false,
 } as const;
 
 type Props = {
@@ -153,6 +158,30 @@ export function KanbanPano({ projeId, ilkVeri, yetkiler }: Props) {
   React.useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Faz 5.2 — Deep link: bildirim → /projeler/{id}?kart={kart_id} formatında
+  // gelir. Pano açılırken URL'deki ?kart= parametresini okuyup modal'ı
+  // otomatik aç. Modal kapatıldığında URL parametresini temizle ki F5'te
+  // tekrar açılmasın. router.replace history'ye yeni kayıt yazmaz.
+  const aramaParametreleri = useSearchParams();
+  const router = useRouter();
+  const yolu = usePathname();
+  React.useEffect(() => {
+    const kartParam = aramaParametreleri.get("kart");
+    if (kartParam && kartParam !== acikKartId) {
+      setAcikKartId(kartParam);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- yalnız param değişince
+  }, [aramaParametreleri]);
+  const kartModalKapat = React.useCallback(() => {
+    setAcikKartId(null);
+    if (aramaParametreleri.has("kart")) {
+      const yeni = new URLSearchParams(aramaParametreleri);
+      yeni.delete("kart");
+      const qs = yeni.toString();
+      router.replace(qs ? `${yolu}?${qs}` : yolu);
+    }
+  }, [aramaParametreleri, router, yolu]);
 
   // ADR-0009 — Arşiv sistem listesi boşken kanban'da gizlenir; ilk kart
   // arşivlenince görünür hale gelir. Drag-drop ile arşivleme sadece liste
@@ -665,9 +694,10 @@ export function KanbanPano({ projeId, ilkVeri, yetkiler }: Props) {
 
       <KartModal
         kartId={acikKartId}
-        kapat={() => setAcikKartId(null)}
+        kapat={kartModalKapat}
         projeId={projeId}
         yetkiliYonet={yetkiler.yetkiliYonet}
+        kartTamamla={yetkiler.kartTamamla}
       />
     </>
   );
