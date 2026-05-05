@@ -47,6 +47,7 @@ export default async function ProjeListeGorunumu({ params }: SayfaProps) {
           yildizla: projeDuzenle,
           yetkililerYonet,
           arama: true,
+          duzenle: projeDuzenle,
           arsivle: projeDuzenle,
         }}
       />

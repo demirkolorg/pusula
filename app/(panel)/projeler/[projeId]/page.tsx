@@ -61,6 +61,7 @@ export default async function ProjeDetaySayfasi({ params }: SayfaProps) {
           yildizla: projeDuzenle,
           yetkililerYonet,
           arama: true,
+          duzenle: projeDuzenle,
           arsivle: projeDuzenle,
         }}
       />

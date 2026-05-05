@@ -106,11 +106,7 @@ export function MentionDropdown({
                   {u.email}
                 </p>
               </div>
-              {u.seviye === "ADMIN" && (
-                <span className="text-muted-foreground text-[10px] uppercase">
-                  Admin
-                </span>
-              )}
+              {/* ADR-0012: proje-içi seviye yok, admin rozeti kaldırıldı. */}
             </button>
           </li>
         ))}

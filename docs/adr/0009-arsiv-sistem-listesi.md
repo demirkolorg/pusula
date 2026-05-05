@@ -48,6 +48,7 @@ model Kart {
    - Kart bir NORMAL listeden Arşiv listesine sürüklenirse → arşivle (yukarıdaki kural 2)
    - Arşiv listesinden NORMAL listeye sürüklenirse → arşivden çıkar (yukarıdaki kural 3 ama hedef = sürüklenen liste)
 5. **Liste sırası:** Arşiv listesi `sira="ZZZZ"` (LexoRank "Z" prefix'i sona ekleme garantisi). NORMAL listeler arasındaki `siraSonuna` çağrısı Arşiv'in **bir önceki** komşusunu döndürür → Arşiv hep en sağda kalır.
+5a. **Boşken gizleme (UX):** Kanban'da Arşiv listesi `kartlar.length === 0` ise render edilmez (görsel gürültü); ilk kart arşivlenince görünür olur. `detay.listeler` server tarafında canonical kalır (cache/optimistic mutation `arsivListesi`'ni hala bulabilsin), sadece render filtrelenir. Yan etki: arşiv listesi gizliyken drag-drop ile arşivleme yapılamaz; bu durumda sağ tık menüsü → "Arşivle" tek yoldur. Liste 1+ karta ulaşınca drag-drop yolu da geri gelir.
 6. **Sistem listesi koruması:**
    - `listeSil(arsiv_listesi_id)` → reddedilir (`HATA_KODU.YETKISIZ`)
    - `listeGuncelle(arsiv_listesi_id, {ad})` → reddedilir

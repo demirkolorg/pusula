@@ -13,10 +13,12 @@ import {
   AlertTriangleIcon,
   RotateCcwIcon,
 } from "lucide-react";
+import { DynamicIcon } from "lucide-react/dynamic";
 import { Button } from "@/components/ui/button";
 import { tempIdMi } from "@/lib/temp-id";
 import { cn } from "@/lib/utils";
 import { kapakArkaplanSinifi } from "@/lib/kapak-renk";
+import { ikonMu } from "@/lib/kapak-ikon";
 import type { ProjeKart as ProjeKartTipi } from "../services";
 
 type Props = {
@@ -42,6 +44,7 @@ export function ProjeKart({
   const baglanti = taslakMi ? "#" : `/projeler/${proje.id}`;
 
   const kapakSinifi = kapakArkaplanSinifi(proje.kapak_renk);
+  const ikon = ikonMu(proje.kapak_ikon) ? proje.kapak_ikon : null;
 
   return (
     <div
@@ -56,9 +59,22 @@ export function ProjeKart({
         className="block"
       >
         <div
-          className={cn("h-20 w-full", kapakSinifi ?? "bg-muted")}
+          className={cn(
+            "flex h-20 w-full items-center justify-center",
+            kapakSinifi ?? "bg-muted",
+          )}
           aria-hidden="true"
-        />
+        >
+          {ikon && (
+            <DynamicIcon
+              name={ikon}
+              className={cn(
+                "size-8",
+                kapakSinifi ? "text-white/90" : "text-muted-foreground",
+              )}
+            />
+          )}
+        </div>
         <div className="flex flex-col gap-1 p-4">
           <div className="flex items-start justify-between gap-2">
             <h3 className="line-clamp-2 text-base font-medium leading-tight">

@@ -3,30 +3,32 @@
 import * as React from "react";
 import { StarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { kapakArkaplanSinifi } from "@/lib/kapak-renk";
 import { toast } from "@/lib/toast";
 import {
   projeDetayKey,
   useProjeDetayGuncelle,
 } from "../hooks/detay-sorgulari";
 import type { ProjeDetayOzeti } from "../services";
+import { ProjeBaslikAdInline } from "./proje-baslik-ad-inline";
+import { ProjeBaslikIkonPopover } from "./proje-baslik-ikon-popover";
 
 type Props = {
   proje: ProjeDetayOzeti;
   yildizlayabilir: boolean;
+  duzenleyebilir: boolean;
   className?: string;
 };
 
-// Header sol bloğu — proje ikonu + kategori (breadcrumb) + başlık + yıldız.
+// Header sol bloğu — kapak (renk + ikon, popover) + kategori + ad (inline edit) + yıldız.
 // Açıklama tooltip'e taşındı (header'ı şişirmesin); kart modal'da tam metin var.
 export function ProjeBaslikKimlik({
   proje,
   yildizlayabilir,
+  duzenleyebilir,
   className,
 }: Props) {
   const anahtar = React.useMemo(() => projeDetayKey(proje.id), [proje.id]);
   const guncelle = useProjeDetayGuncelle(anahtar);
-  const kapakSinifi = kapakArkaplanSinifi(proje.kapak_renk);
 
   const yildizToggle = () => {
     if (!yildizlayabilir) return;
@@ -37,22 +39,24 @@ export function ProjeBaslikKimlik({
 
   return (
     <div className={cn("flex min-w-0 items-center gap-2.5", className)}>
-      <div
-        className={cn(
-          "size-9 shrink-0 rounded-md sm:size-10",
-          kapakSinifi ?? "bg-muted",
-        )}
-        aria-hidden="true"
+      <ProjeBaslikIkonPopover
+        projeId={proje.id}
+        ad={proje.ad}
+        kapakRenk={proje.kapak_renk}
+        kapakIkon={proje.kapak_ikon}
+        duzenleyebilir={duzenleyebilir}
       />
       <div className="flex min-w-0 flex-col leading-tight">
         <span className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
           Proje
         </span>
-        <h1
-          className="flex min-w-0 items-center gap-1.5 text-sm font-semibold sm:text-base"
-          title={proje.aciklama ?? proje.ad}
-        >
-          <span className="truncate">{proje.ad}</span>
+        <h1 className="flex min-w-0 items-center gap-1.5 text-sm font-semibold sm:text-base">
+          <ProjeBaslikAdInline
+            projeId={proje.id}
+            ad={proje.ad}
+            duzenleyebilir={duzenleyebilir}
+            className="min-w-0"
+          />
           {yildizlayabilir ? (
             <button
               type="button"

@@ -148,9 +148,22 @@ export function KanbanPano({ projeId, ilkVeri, yetkiler }: Props) {
     setMounted(true);
   }, []);
 
-  const listeIdleri = React.useMemo(
-    () => detay.listeler.map((l) => l.id),
+  // ADR-0009 — Arşiv sistem listesi boşken kanban'da gizlenir; ilk kart
+  // arşivlenince görünür hale gelir. Drag-drop ile arşivleme sadece liste
+  // görünürken (1+ kart) mümkün; sağ tık menüsünden her zaman çalışır.
+  // detay.listeler canonical kalır (drag-drop sırası ve cache mutation için);
+  // sadece render edilen liste kümesi filtrelenir.
+  const gorunurListeler = React.useMemo(
+    () =>
+      detay.listeler.filter(
+        (l) => l.tip !== ListeTipi.ARSIV || l.kartlar.length > 0,
+      ),
     [detay.listeler],
+  );
+
+  const listeIdleri = React.useMemo(
+    () => gorunurListeler.map((l) => l.id),
+    [gorunurListeler],
   );
 
   // Sürüklenen kartın "şu an" hangi listede / hangi pozisyonda olduğunu izlemek için.
@@ -553,7 +566,7 @@ export function KanbanPano({ projeId, ilkVeri, yetkiler }: Props) {
             items={listeIdleri}
             strategy={horizontalListSortingStrategy}
           >
-            {detay.listeler.map((l) => (
+            {gorunurListeler.map((l) => (
               <KanbanListe
                 key={l.id}
                 liste={l}

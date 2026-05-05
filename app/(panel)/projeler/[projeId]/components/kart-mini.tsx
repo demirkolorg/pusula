@@ -157,54 +157,54 @@ export function KartMini({
             kart.yorum_sayisi > 0 ||
             kart.ek_sayisi > 0 ||
             kart.madde_toplam > 0) && (
-            <div className="text-muted-foreground mt-1 flex items-center gap-2 text-xs">
+            <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px]">
               {tarih && (
-                <span className="inline-flex items-center gap-1">
-                  <CalendarIcon className="size-3" />
+                <span className="inline-flex shrink-0 items-center gap-0.5">
+                  <CalendarIcon className="size-2.5" />
                   {tarih}
                 </span>
               )}
               {kart.etiket_sayisi > 0 && (
-                <span className="inline-flex items-center gap-1">
-                  <TagIcon className="size-3" />
+                <span className="inline-flex shrink-0 items-center gap-0.5">
+                  <TagIcon className="size-2.5" />
                   {kart.etiket_sayisi}
                 </span>
               )}
               {kart.yetkili_sayisi > 0 && (
-                <span className="inline-flex items-center gap-1">
-                  <UsersIcon className="size-3" />
+                <span className="inline-flex shrink-0 items-center gap-0.5">
+                  <UsersIcon className="size-2.5" />
                   {kart.yetkili_sayisi}
                 </span>
               )}
               {kart.madde_toplam > 0 && (
                 <span
                   className={cn(
-                    "inline-flex items-center gap-1",
+                    "inline-flex shrink-0 items-center gap-0.5",
                     // Why: tüm maddeler bittiyse vurgu — Trello davranışı.
                     kart.madde_tamamlanan === kart.madde_toplam &&
                       "text-emerald-600 dark:text-emerald-400",
                   )}
                   aria-label={`${kart.madde_tamamlanan}/${kart.madde_toplam} madde tamamlandı`}
                 >
-                  <ListChecksIcon className="size-3" />
+                  <ListChecksIcon className="size-2.5" />
                   {kart.madde_tamamlanan}/{kart.madde_toplam}
                 </span>
               )}
               {kart.yorum_sayisi > 0 && (
                 <span
-                  className="inline-flex items-center gap-1"
+                  className="inline-flex shrink-0 items-center gap-0.5"
                   aria-label={`${kart.yorum_sayisi} yorum`}
                 >
-                  <MessageSquareIcon className="size-3" />
+                  <MessageSquareIcon className="size-2.5" />
                   {kart.yorum_sayisi}
                 </span>
               )}
               {kart.ek_sayisi > 0 && (
                 <span
-                  className="inline-flex items-center gap-1"
+                  className="inline-flex shrink-0 items-center gap-0.5"
                   aria-label={`${kart.ek_sayisi} ek`}
                 >
-                  <PaperclipIcon className="size-3" />
+                  <PaperclipIcon className="size-2.5" />
                   {kart.ek_sayisi}
                 </span>
               )}

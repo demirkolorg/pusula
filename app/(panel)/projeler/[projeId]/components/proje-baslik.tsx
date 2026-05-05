@@ -15,6 +15,7 @@ export type ProjeBaslikYetkileri = {
   yildizla: boolean;
   yetkililerYonet: boolean;
   arama: boolean;
+  duzenle: boolean;
   arsivle: boolean;
 };
 
@@ -49,9 +50,15 @@ export function ProjeBaslik({ proje, yetkiler }: Props) {
     () => ({
       arama: yetkiler.arama,
       yetkililerYonet: yetkiler.yetkililerYonet,
+      duzenle: yetkiler.duzenle,
       arsivle: yetkiler.arsivle,
     }),
-    [yetkiler.arama, yetkiler.yetkililerYonet, yetkiler.arsivle],
+    [
+      yetkiler.arama,
+      yetkiler.yetkililerYonet,
+      yetkiler.duzenle,
+      yetkiler.arsivle,
+    ],
   );
 
   return (
@@ -66,6 +73,7 @@ export function ProjeBaslik({ proje, yetkiler }: Props) {
         <ProjeBaslikKimlik
           proje={proje}
           yildizlayabilir={yetkiler.yildizla}
+          duzenleyebilir={yetkiler.duzenle}
           className="min-w-0 flex-1"
         />
 
@@ -75,7 +83,7 @@ export function ProjeBaslik({ proje, yetkiler }: Props) {
         />
 
         <ProjeBaslikAksiyonlar
-          projeId={proje.id}
+          proje={proje}
           yetkiler={aksiyonYetkileri}
           onAramaAc={() => setAramaAcik(true)}
         />

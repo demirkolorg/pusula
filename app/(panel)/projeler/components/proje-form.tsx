@@ -21,11 +21,12 @@ import { tempId } from "@/lib/temp-id";
 import { cn } from "@/lib/utils";
 import {
   KAPAK_RENK_TOKENLERI,
-  PALET_RENKLERI,
   kapakArkaplanSinifi,
-  kapakEtiketi,
   type KapakRenk,
 } from "@/lib/kapak-renk";
+import { ikonMu } from "@/lib/kapak-ikon";
+import { ProjeFormIkonBolumu } from "./proje-form-ikon-bolumu";
+import { ProjeFormRenkBolumu } from "./proje-form-renk-bolumu";
 import { useProjeGuncelle, useProjeOlustur, projelerKey } from "../hooks/proje-sorgulari";
 import type { ProjeKart } from "../services";
 
@@ -36,6 +37,9 @@ const formSemasi = z.object({
     .enum(KAPAK_RENK_TOKENLERI)
     .optional()
     .or(z.literal("")),
+  // Lucide ikon ismi — boş string = seçilmedi.
+  // Geçerlilik runtime'da `ikonMu` ile zorunlu (server-side schema kati).
+  kapak_ikon: z.string().max(64).optional().or(z.literal("")),
 });
 
 type FormVeri = z.infer<typeof formSemasi>;
@@ -60,12 +64,15 @@ export function ProjeFormSheet({ acik, kapat, baslangic, filtre, arama }: Props)
       : ""
   );
 
+  const baslangicIkon = ikonMu(baslangic?.kapak_ikon) ? baslangic.kapak_ikon : "";
+
   const form = useForm<FormVeri>({
     resolver: zodResolver(formSemasi),
     defaultValues: {
       ad: baslangic?.ad ?? "",
       aciklama: baslangic?.aciklama ?? "",
       kapak_renk: baslangicRenk,
+      kapak_ikon: baslangicIkon,
     },
   });
 
@@ -74,12 +81,15 @@ export function ProjeFormSheet({ acik, kapat, baslangic, filtre, arama }: Props)
       ad: baslangic?.ad ?? "",
       aciklama: baslangic?.aciklama ?? "",
       kapak_renk: baslangicRenk,
+      kapak_ikon: baslangicIkon,
     });
-  }, [baslangic, baslangicRenk, form]);
+  }, [baslangic, baslangicRenk, baslangicIkon, form]);
 
   const seciliRenk = form.watch("kapak_renk");
+  const seciliIkon = form.watch("kapak_ikon") ?? "";
 
   const gonder = form.handleSubmit((veri) => {
+    const ikonGonder = ikonMu(veri.kapak_ikon) ? veri.kapak_ikon : null;
     if (baslangic) {
       guncelle.mutate(
         {
@@ -87,6 +97,7 @@ export function ProjeFormSheet({ acik, kapat, baslangic, filtre, arama }: Props)
           ad: veri.ad,
           aciklama: veri.aciklama || null,
           kapak_renk: veri.kapak_renk || null,
+          kapak_ikon: ikonGonder,
         },
         {
           onSuccess: () => {
@@ -102,6 +113,7 @@ export function ProjeFormSheet({ acik, kapat, baslangic, filtre, arama }: Props)
           ad: veri.ad,
           aciklama: veri.aciklama || null,
           kapak_renk: veri.kapak_renk || null,
+          kapak_ikon: ikonGonder,
         },
         {
           onSuccess: () => {
@@ -155,40 +167,16 @@ export function ProjeFormSheet({ acik, kapat, baslangic, filtre, arama }: Props)
             />
           </div>
 
-          <div className="grid gap-2">
-            <Label>Kapak Rengi</Label>
-            <div className="grid grid-cols-7 gap-2 sm:grid-cols-7">
-              <button
-                type="button"
-                onClick={() => form.setValue("kapak_renk", "")}
-                className={cn(
-                  "border-input hover:border-foreground inline-flex size-9 items-center justify-center rounded-md border bg-transparent text-xs",
-                  !seciliRenk && "border-foreground",
-                )}
-                aria-label="Renk yok"
-                aria-pressed={!seciliRenk}
-              >
-                —
-              </button>
-              {PALET_RENKLERI.map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => form.setValue("kapak_renk", r)}
-                  className={cn(
-                    "hover:ring-foreground inline-flex size-9 items-center justify-center rounded-md text-white ring-2 ring-transparent transition",
-                    kapakArkaplanSinifi(r),
-                    seciliRenk === r && "ring-foreground",
-                  )}
-                  aria-label={`Renk: ${kapakEtiketi(r) ?? r}`}
-                  aria-pressed={seciliRenk === r}
-                  title={kapakEtiketi(r) ?? r}
-                >
-                  {seciliRenk === r ? "✓" : ""}
-                </button>
-              ))}
-            </div>
-          </div>
+          <ProjeFormRenkBolumu
+            deger={seciliRenk ?? ""}
+            onSec={(yeni) => form.setValue("kapak_renk", yeni)}
+          />
+
+          <ProjeFormIkonBolumu
+            deger={seciliIkon}
+            onSec={(yeni) => form.setValue("kapak_ikon", yeni ?? "")}
+            zeminRenkSinifi={kapakArkaplanSinifi(seciliRenk || null)}
+          />
         </form>
 
         <ResponsiveDialogFooter>

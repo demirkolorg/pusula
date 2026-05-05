@@ -8,11 +8,19 @@
  * `iconNames` lucide-react/dynamic alt entry'sinden gelir; runtime tarafında
  * `<DynamicIcon name=...>` lazy fetch eder. Statik `import { Star }` yapmaz.
  */
-import { iconNames } from "lucide-react/dynamic";
+import dynamicIconImports from "lucide-react/dynamicIconImports";
+import type { IconName } from "lucide-react/dynamic";
 
-const GECERLI_IKONLAR: ReadonlySet<string> = new Set(iconNames);
+// Next.js / Turbopack bazen `iconNames` named export'unu function olarak
+// resolve ediyor (live-binding sorunu). Aynı listeyi `dynamicIconImports`
+// objesinin key'lerinden türetmek hem Bun hem Next'te güvenli.
+const ISIM_LISTESI: readonly IconName[] = Object.keys(
+  dynamicIconImports,
+) as IconName[];
 
-export type KapakIkonu = string;
+const GECERLI_IKONLAR: ReadonlySet<string> = new Set(ISIM_LISTESI);
+
+export type KapakIkonu = IconName;
 
 /** Verilen değer geçerli bir lucide ikon ismi mi? */
 export function ikonMu(deger: unknown): deger is KapakIkonu {
@@ -30,5 +38,5 @@ export function ikonNormalize(deger: unknown): KapakIkonu | null {
 /** Whitelist setinin boyutu — UI debug ve test için. */
 export const IKON_SAYISI = GECERLI_IKONLAR.size;
 
-/** Tüm geçerli ikon isimleri (sıralanmış). UI picker için. */
-export const TUM_IKONLAR: readonly string[] = iconNames;
+/** Tüm geçerli ikon isimleri. UI picker için. */
+export const TUM_IKONLAR: readonly KapakIkonu[] = ISIM_LISTESI;
