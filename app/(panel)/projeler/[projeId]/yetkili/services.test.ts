@@ -9,6 +9,7 @@ vi.mock("@/auth", () => ({
 }));
 
 import {
+  kartaErisenKullanicilariAra,
   kartaYetkiliEkle,
   kartaYetkiliKaldir,
   kartinYetkilileri,
@@ -245,5 +246,136 @@ describe("kartaYetkiliKaldir", () => {
 
     const yetkililer = await kartinYetkilileri(ortam.birim.id, kart.id);
     expect(yetkililer).toEqual([]);
+  });
+});
+
+// =====================================================================
+// Karta erişen kullanıcılar — yorum mention dropdown'u + kontrol listesi
+// madde sorumlu picker'ı için ortak veri kaynağı
+// =====================================================================
+
+describe("kartaErisenKullanicilariAra", () => {
+  let liste: { id: string };
+  let kart: { id: string };
+
+  beforeEach(async () => {
+    liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
+    kart = await kartOlusturFiks(adminDb, { listeId: liste.id });
+  });
+
+  it("makam (SUPER_ADMIN) ve proje birimi personeli aday; bağlantısız dışta", async () => {
+    // Proje varsayılanda ortam.birim'e bağlı; superAdmin makam, personel aynı
+    // birimde → ikisi de aday. digerKullanici farklı birim + hiçbir yetkili
+    // ilişkisi yok → dışta.
+    const adaylar = await kartaErisenKullanicilariAra(ortam.birim.id, {
+      kart_id: kart.id,
+    });
+    const idler = adaylar.map((a) => a.id);
+    expect(idler).toContain(ortam.superAdmin.id);
+    expect(idler).toContain(ortam.personel.id);
+    expect(idler).not.toContain(ortam.digerKullanici.id);
+  });
+
+  it("doğrudan kart yetkilisi olan kullanıcı aday gelir", async () => {
+    await kartaYetkiliEkle(ortam.birim.id, kart.id, ortam.digerKullanici.id);
+    const adaylar = await kartaErisenKullanicilariAra(ortam.birim.id, {
+      kart_id: kart.id,
+    });
+    expect(adaylar.map((a) => a.id)).toContain(ortam.digerKullanici.id);
+  });
+
+  it("liste yetkilisi olan kullanıcı aday gelir", async () => {
+    await adminDb.listeYetkilisi.create({
+      data: { liste_id: liste.id, kullanici_id: ortam.digerKullanici.id },
+    });
+    const adaylar = await kartaErisenKullanicilariAra(ortam.birim.id, {
+      kart_id: kart.id,
+    });
+    expect(adaylar.map((a) => a.id)).toContain(ortam.digerKullanici.id);
+  });
+
+  it("proje yetkilisi olan kullanıcı aday gelir", async () => {
+    await projeyeYetkiliEkle(ortam.birim.id, {
+      proje_id: proje.id,
+      kullanici_id: ortam.digerKullanici.id,
+    });
+    const adaylar = await kartaErisenKullanicilariAra(ortam.birim.id, {
+      kart_id: kart.id,
+    });
+    expect(adaylar.map((a) => a.id)).toContain(ortam.digerKullanici.id);
+  });
+
+  it("kart birimine eklenen birimin personeli aday gelir", async () => {
+    // digerKullanici, digerBirim'de. digerBirim'i karta yetkili birim olarak
+    // eklersek personeli karta erişebilir → aday.
+    await adminDb.kartBirimi.create({
+      data: { kart_id: kart.id, birim_id: ortam.digerBirim.id },
+    });
+    const adaylar = await kartaErisenKullanicilariAra(ortam.birim.id, {
+      kart_id: kart.id,
+    });
+    expect(adaylar.map((a) => a.id)).toContain(ortam.digerKullanici.id);
+  });
+
+  it("liste birimine eklenen birimin personeli aday gelir", async () => {
+    await adminDb.listeBirimi.create({
+      data: { liste_id: liste.id, birim_id: ortam.digerBirim.id },
+    });
+    const adaylar = await kartaErisenKullanicilariAra(ortam.birim.id, {
+      kart_id: kart.id,
+    });
+    expect(adaylar.map((a) => a.id)).toContain(ortam.digerKullanici.id);
+  });
+
+  it("aktif olmayan kullanıcı (silinmiş/pasif) aday listesine girmez", async () => {
+    await projeyeYetkiliEkle(ortam.birim.id, {
+      proje_id: proje.id,
+      kullanici_id: ortam.digerKullanici.id,
+    });
+    await adminDb.kullanici.update({
+      where: { id: ortam.digerKullanici.id },
+      data: { aktif: false },
+    });
+    const adaylar = await kartaErisenKullanicilariAra(ortam.birim.id, {
+      kart_id: kart.id,
+    });
+    expect(adaylar.map((a) => a.id)).not.toContain(ortam.digerKullanici.id);
+  });
+
+  it("q ile ad araması karta erişen kullanıcılar arasında filtre uygular", async () => {
+    const personel = await adminDb.kullanici.findUnique({
+      where: { id: ortam.personel.id },
+      select: { ad: true, email: true },
+    });
+    if (!personel) throw new Error("personel bulunamadı");
+
+    const adAramasi = await kartaErisenKullanicilariAra(ortam.birim.id, {
+      kart_id: kart.id,
+      q: personel.ad.slice(0, 3),
+    });
+    expect(adAramasi.map((a) => a.id)).toContain(ortam.personel.id);
+
+    const emailAramasi = await kartaErisenKullanicilariAra(ortam.birim.id, {
+      kart_id: kart.id,
+      q: personel.email.split("@")[0]!,
+    });
+    expect(emailAramasi.map((a) => a.id)).toContain(ortam.personel.id);
+  });
+
+  it("var olmayan kart için BULUNAMADI hatası", async () => {
+    await expect(
+      kartaErisenKullanicilariAra(ortam.birim.id, {
+        kart_id: "00000000-0000-0000-0000-000000000000",
+      }),
+    ).rejects.toMatchObject({ kod: "BULUNAMADI" });
+  });
+
+  it("dönen aday satırında birim_ad bilgisi var", async () => {
+    const adaylar = await kartaErisenKullanicilariAra(ortam.birim.id, {
+      kart_id: kart.id,
+    });
+    const personel = adaylar.find((a) => a.id === ortam.personel.id);
+    expect(personel).toBeDefined();
+    expect(typeof personel?.birim_ad).toBe("string");
   });
 });

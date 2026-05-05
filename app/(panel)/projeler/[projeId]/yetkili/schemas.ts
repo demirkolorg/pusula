@@ -35,6 +35,13 @@ export const kartAdayKullanicilarSemasi = z.object({
   q: z.string().trim().max(100).optional(),
 });
 
+// Karta erişimi olan kullanıcılar — yorum mention dropdown'u ve kontrol listesi
+// madde sorumlu picker'ı bu listeyi kullanır. Birim personeli + makam dahil.
+export const kartaErisenKullanicilarSemasi = z.object({
+  kart_id: z.string().uuid(),
+  q: z.string().trim().max(100).optional(),
+});
+
 export const kartinYetkilileriSemasi = z.object({
   kart_id: z.string().uuid(),
 });
@@ -129,6 +136,9 @@ export type ProjeyeYetkiliEkle = z.infer<typeof projeyeYetkiliEkleSemasi>;
 export type ProjeyeYetkiliKaldir = z.infer<typeof projeyeYetkiliKaldirSemasi>;
 export type ProjeAdayKullanicilar = z.infer<typeof projeAdayKullanicilarSemasi>;
 export type KartAdayKullanicilar = z.infer<typeof kartAdayKullanicilarSemasi>;
+export type KartaErisenKullanicilar = z.infer<
+  typeof kartaErisenKullanicilarSemasi
+>;
 export type KartinYetkilileri = z.infer<typeof kartinYetkilileriSemasi>;
 export type KartaYetkiliEkle = z.infer<typeof kartaYetkiliEkleSemasi>;
 export type KartaYetkiliKaldir = z.infer<typeof kartaYetkiliKaldirSemasi>;

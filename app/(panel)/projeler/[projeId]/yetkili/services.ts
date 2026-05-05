@@ -3,7 +3,9 @@ import { EylemHatasi } from "@/lib/action-wrapper";
 import { HATA_KODU } from "@/lib/sonuc";
 import { yayinla } from "@/lib/realtime";
 import { SOCKET, room } from "@/lib/socket-events";
+import { MAKAM_ROL_KODLARI } from "@/lib/roller";
 import type {
+  KartaErisenKullanicilar,
   KartAdayKullanicilar,
   ProjeAdayKullanicilar,
   ProjeyeYetkiliEkle,
@@ -296,6 +298,126 @@ export async function kartAdayKullanicilariniAra(
       birim: { select: { ad: true, kisa_ad: true } },
     },
   });
+  return sonuc.map((k) => ({
+    id: k.id,
+    ad: k.ad,
+    soyad: k.soyad,
+    email: k.email,
+    birim_ad: k.birim?.kisa_ad ?? k.birim?.ad ?? null,
+  }));
+}
+
+// =====================================================================
+// Karta erişimi olan kullanıcılar (mention + kontrol-maddesi sorumlu)
+// =====================================================================
+// Karta erişen herkes:
+//   - Doğrudan kart yetkilisi
+//   - Doğrudan kart birimi personeli
+//   - Liste yetkilisi
+//   - Liste birimi personeli
+//   - Proje yetkilisi
+//   - Proje birimi personeli
+//   - Sistem makamı (SUPER_ADMIN/KAYMAKAM — Kural 50a)
+//
+// Why: Yorum mention dropdown ve kontrol listesi madde sorumlu picker'ı aynı
+// soruyu sorar — "kim bu karta erişebilir?". Tek bir kaynak, iki UI noktası.
+export async function kartaErisenKullanicilariAra(
+  _birimId: string,
+  girdi: KartaErisenKullanicilar,
+): Promise<AdayKullanici[]> {
+  const kart = await db.kart.findUnique({
+    where: { id: girdi.kart_id },
+    select: {
+      yetkililer: { select: { kullanici_id: true } },
+      birimler: { select: { birim_id: true } },
+      liste: {
+        select: {
+          yetkililer: { select: { kullanici_id: true } },
+          birimler: { select: { birim_id: true } },
+          proje: {
+            select: {
+              yetkililer: { select: { kullanici_id: true } },
+              birimler: { select: { birim_id: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!kart) {
+    throw new EylemHatasi("Kart bulunamadı.", HATA_KODU.BULUNAMADI);
+  }
+
+  const dogrudanIdler = Array.from(
+    new Set([
+      ...kart.yetkililer.map((y) => y.kullanici_id),
+      ...kart.liste.yetkililer.map((y) => y.kullanici_id),
+      ...kart.liste.proje.yetkililer.map((y) => y.kullanici_id),
+    ]),
+  );
+  const birimIdler = Array.from(
+    new Set([
+      ...kart.birimler.map((b) => b.birim_id),
+      ...kart.liste.birimler.map((b) => b.birim_id),
+      ...kart.liste.proje.birimler.map((b) => b.birim_id),
+    ]),
+  );
+
+  const erisimYollari: Array<Record<string, unknown>> = [];
+  if (dogrudanIdler.length > 0) {
+    erisimYollari.push({ id: { in: dogrudanIdler } });
+  }
+  if (birimIdler.length > 0) {
+    erisimYollari.push({ birim_id: { in: birimIdler } });
+  }
+  // Makam (SUPER_ADMIN/KAYMAKAM) her zaman aday — proje üyesi olmasa bile.
+  erisimYollari.push({
+    roller: { some: { rol: { kod: { in: MAKAM_ROL_KODLARI } } } },
+  });
+
+  const aramaQ = girdi.q?.trim() ?? "";
+  const sonuc = await db.kullanici.findMany({
+    where: {
+      AND: [
+        { silindi_mi: false, aktif: true, onay_durumu: "ONAYLANDI" },
+        { OR: erisimYollari },
+        ...(aramaQ
+          ? [
+              {
+                OR: [
+                  { ad: { contains: aramaQ, mode: "insensitive" as const } },
+                  { soyad: { contains: aramaQ, mode: "insensitive" as const } },
+                  { email: { contains: aramaQ, mode: "insensitive" as const } },
+                  {
+                    birim: {
+                      ad: { contains: aramaQ, mode: "insensitive" as const },
+                    },
+                  },
+                  {
+                    birim: {
+                      kisa_ad: {
+                        contains: aramaQ,
+                        mode: "insensitive" as const,
+                      },
+                    },
+                  },
+                ],
+              },
+            ]
+          : []),
+      ],
+    },
+    orderBy: [{ ad: "asc" }, { soyad: "asc" }],
+    take: 20,
+    select: {
+      id: true,
+      ad: true,
+      soyad: true,
+      email: true,
+      birim: { select: { ad: true, kisa_ad: true } },
+    },
+  });
+
   return sonuc.map((k) => ({
     id: k.id,
     ad: k.ad,

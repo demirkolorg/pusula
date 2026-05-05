@@ -20,6 +20,7 @@ import {
 import { db } from "@/lib/db";
 import {
   kartAdayKullanicilarSemasi,
+  kartaErisenKullanicilarSemasi,
   kartaYetkiliEkleSemasi,
   kartaYetkiliKaldirSemasi,
   kartinYetkilileriSemasi,
@@ -34,6 +35,7 @@ import {
 } from "./schemas";
 import {
   kartAdayKullanicilariniAra,
+  kartaErisenKullanicilariAra,
   kartProjeIdGetir,
   kartaYetkiliEkle as kartaYetkiliEkleSrv,
   kartaYetkiliKaldir as kartaYetkiliKaldirSrv,
@@ -141,6 +143,19 @@ export const kartAdayKullanicilarEylem = eylem({
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_YETKILI_YONET);
     await yetkiZorunluProje(ctx.oturum?.kullaniciId, "proje:authorize", projeId);
     return kartAdayKullanicilariniAra(birimIdAl(ctx), girdi);
+  },
+});
+
+// Karta erişimi olan kullanıcıları döndürür — yorum mention dropdown'u
+// ve kontrol listesi madde sorumlu picker'ı için. Yetki: yorum yazma izni
+// olan kullanıcı + kart okuma resource-yetkisi (Kural V.2/146).
+export const kartaErisenKullanicilarEylem = eylem({
+  ad: "kart:erisen-kullanicilar",
+  girdi: kartaErisenKullanicilarSemasi,
+  calistir: async (girdi, ctx) => {
+    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_YORUM_YAZ);
+    await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:read", girdi.kart_id);
+    return kartaErisenKullanicilariAra(birimIdAl(ctx), girdi);
   },
 });
 

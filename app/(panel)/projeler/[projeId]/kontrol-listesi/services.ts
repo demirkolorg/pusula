@@ -5,7 +5,10 @@ import { siraSonuna } from "@/lib/sira";
 import { yayinla } from "@/lib/realtime";
 import { SOCKET, room } from "@/lib/socket-events";
 import { canKart } from "@/lib/yetki";
-import { MAKAM_ROL_KODLARI } from "@/lib/roller";
+import {
+  kartaErisenKullanicilariAra,
+  type AdayKullanici,
+} from "../yetkili/services";
 import type {
   KontrolListesiGuncelle,
   KontrolListesiOlustur,
@@ -147,109 +150,16 @@ async function maddeAtanacakKullaniciDogrula(
 // Aday kullanıcı arama (madde sorumlu picker'ı)
 // =====================================================================
 
-export type MaddeAdayKullanici = {
-  id: string;
-  ad: string;
-  soyad: string;
-  email: string;
-  birim_ad: string | null;
-};
+export type MaddeAdayKullanici = AdayKullanici;
 
+// Why: Madde sorumlu picker'ı ile yorum mention dropdown'u aynı soruyu sorar
+// ("kim bu karta erişebilir?"). Tek kaynak — yetkili modülündeki
+// `kartaErisenKullanicilariAra` fonksiyonu.
 export async function kartMaddeAdayKullanicilariniAra(
-  _birimId: string,
+  birimId: string,
   girdi: MaddeAdayKullanicilar,
 ): Promise<MaddeAdayKullanici[]> {
-  // Karta erişebilen herkes: doğrudan kart yetkilisi, kart birimi,
-  // liste yetkilisi, liste birimi, proje yetkilisi, proje birimi
-  // veya sistem makamı (SUPER_ADMIN/KAYMAKAM — Kural 50a).
-  const kart = await db.kart.findUnique({
-    where: { id: girdi.kart_id },
-    select: {
-      yetkililer: { select: { kullanici_id: true } },
-      birimler: { select: { birim_id: true } },
-      liste: {
-        select: {
-          yetkililer: { select: { kullanici_id: true } },
-          birimler: { select: { birim_id: true } },
-          proje: {
-            select: {
-              yetkililer: { select: { kullanici_id: true } },
-              birimler: { select: { birim_id: true } },
-            },
-          },
-        },
-      },
-    },
-  });
-  if (!kart) {
-    throw new EylemHatasi("Kart bulunamadı.", HATA_KODU.BULUNAMADI);
-  }
-
-  const dogrudanIdler = Array.from(
-    new Set([
-      ...kart.yetkililer.map((y) => y.kullanici_id),
-      ...kart.liste.yetkililer.map((y) => y.kullanici_id),
-      ...kart.liste.proje.yetkililer.map((y) => y.kullanici_id),
-    ]),
-  );
-  const birimIdler = Array.from(
-    new Set([
-      ...kart.birimler.map((b) => b.birim_id),
-      ...kart.liste.birimler.map((b) => b.birim_id),
-      ...kart.liste.proje.birimler.map((b) => b.birim_id),
-    ]),
-  );
-
-  const erisimYollari = [];
-  if (dogrudanIdler.length > 0) erisimYollari.push({ id: { in: dogrudanIdler } });
-  if (birimIdler.length > 0) erisimYollari.push({ birim_id: { in: birimIdler } });
-  // Makam (SUPER_ADMIN/KAYMAKAM) her zaman aday — proje üyesi olmasalar bile.
-  erisimYollari.push({
-    roller: { some: { rol: { kod: { in: MAKAM_ROL_KODLARI } } } },
-  });
-
-  const aramaQ = girdi.q?.trim() ?? "";
-  const sonuc = await db.kullanici.findMany({
-    where: {
-      AND: [
-        { silindi_mi: false, aktif: true, onay_durumu: "ONAYLANDI" },
-        { OR: erisimYollari },
-        ...(aramaQ
-          ? [
-              {
-                OR: [
-                  { ad: { contains: aramaQ, mode: "insensitive" as const } },
-                  { soyad: { contains: aramaQ, mode: "insensitive" as const } },
-                  { email: { contains: aramaQ, mode: "insensitive" as const } },
-                  {
-                    birim: {
-                      ad: { contains: aramaQ, mode: "insensitive" as const },
-                    },
-                  },
-                ],
-              },
-            ]
-          : []),
-      ],
-    },
-    orderBy: [{ ad: "asc" }, { soyad: "asc" }],
-    take: 20,
-    select: {
-      id: true,
-      ad: true,
-      soyad: true,
-      email: true,
-      birim: { select: { ad: true, kisa_ad: true } },
-    },
-  });
-
-  return sonuc.map((k) => ({
-    id: k.id,
-    ad: k.ad,
-    soyad: k.soyad,
-    email: k.email,
-    birim_ad: k.birim?.kisa_ad ?? k.birim?.ad ?? null,
-  }));
+  return kartaErisenKullanicilariAra(birimId, girdi);
 }
 
 // =====================================================================

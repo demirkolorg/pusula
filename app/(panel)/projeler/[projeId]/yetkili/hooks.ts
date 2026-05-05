@@ -7,6 +7,7 @@ import { kartAktiviteleriKey } from "../aktivite/keys";
 import type { ProjeDetayOzeti } from "../services";
 import {
   kartAdayKullanicilarEylem,
+  kartaErisenKullanicilarEylem,
   kartaYetkiliEkleEylem,
   kartaYetkiliKaldirEylem,
   kartinYetkilileriEylem,
@@ -27,6 +28,7 @@ export const PROJE_YETKILILERI_KEY = "proje-yetkilileri";
 export const KART_YETKILILERI_KEY = "kart-yetkilileri";
 export const KART_ADAY_KEY = "kart-aday-kullanicilar";
 export const PROJE_ADAY_KEY = "proje-aday-kullanicilar";
+export const KART_ERISEN_KEY = "kart-erisen-kullanicilar";
 
 export function projeYetkilileriKey(projeId: string) {
   return [PROJE_YETKILILERI_KEY, projeId] as const;
@@ -39,6 +41,9 @@ export function projeAdayKey(projeId: string, q: string) {
 }
 export function kartAdayKey(kartId: string, q: string) {
   return [KART_ADAY_KEY, kartId, q] as const;
+}
+export function kartErisenKey(kartId: string, q: string) {
+  return [KART_ERISEN_KEY, kartId, q] as const;
 }
 
 // =====================================================================
@@ -98,6 +103,26 @@ export function useKartAdayKullanicilar(
     enabled,
     queryFn: async () => {
       const r = await kartAdayKullanicilarEylem({ kart_id: kartId, q });
+      if (!r.basarili) throw new Error(r.hata);
+      return r.veri;
+    },
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+  });
+}
+
+// Karta erişen kullanıcılar — yorum mention dropdown ve kontrol-listesi
+// madde sorumlu picker'ı için ortak veri kaynağı.
+export function useKartaErisenKullanicilar(
+  kartId: string,
+  q: string,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: kartErisenKey(kartId, q),
+    enabled,
+    queryFn: async () => {
+      const r = await kartaErisenKullanicilarEylem({ kart_id: kartId, q });
       if (!r.basarili) throw new Error(r.hata);
       return r.veri;
     },

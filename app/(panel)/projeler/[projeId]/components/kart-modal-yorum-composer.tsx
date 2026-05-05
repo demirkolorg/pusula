@@ -9,14 +9,13 @@ import { KisiAvatar } from "../yetkili/components/kisi-avatar";
 import { tempId, useYorumOlustur } from "../yorum/hooks";
 import { MentionDropdown } from "./mention-dropdown";
 
-// projeId opsiyonel — verilirse @mention autocomplete dropdown aktif olur.
-type Props = { kartId: string; projeId?: string };
+type Props = { kartId: string };
 
 // Sancak referansı: avatar (sm) + bordered kart (input + format toolbar + Gönder).
 // Bold/Italic/Paperclip ikonları yer tutucu — backend zenginleştirme S5+ ile
 // gelecek (rich text + ek). Şimdilik UI parçaları görünür ama tıklayınca
 // yalnızca focus alınır.
-export function KartModalYorumComposer({ kartId, projeId }: Props) {
+export function KartModalYorumComposer({ kartId }: Props) {
   const oturumQ = useOturumKullanicisi();
   const oturum = oturumQ.data;
   const olustur = useYorumOlustur(kartId);
@@ -58,15 +57,13 @@ export function KartModalYorumComposer({ kartId, projeId }: Props) {
     >
       <KisiAvatar ad={oturum.ad} soyad={oturum.soyad} />
       <div className="border-input bg-background relative flex-1 overflow-visible rounded-md border">
-        {projeId && (
-          <MentionDropdown
-            projeId={projeId}
-            query={mentionDurum.query}
-            acik={mentionDurum.acik}
-            onSec={secimYap}
-            onIptal={iptal}
-          />
-        )}
+        <MentionDropdown
+          kartId={kartId}
+          query={mentionDurum.query}
+          acik={mentionDurum.acik}
+          onSec={secimYap}
+          onIptal={iptal}
+        />
         <textarea
           ref={textareaRef}
           value={taslak}
