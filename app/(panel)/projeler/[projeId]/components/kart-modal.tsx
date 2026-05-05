@@ -21,6 +21,10 @@ import {
 } from "../hooks/detay-sorgulari";
 import { useKartRealtime } from "../hooks/use-kart-realtime";
 import { useKartAcilisindaOkuduIsaretle } from "@/app/(panel)/bildirimler/hooks";
+import {
+  useKartSusturmaDurumu,
+  useKartSusturmaToggle,
+} from "../susturma/hooks";
 import type { ListeKartOzeti, ProjeDetayOzeti } from "../services";
 import { KartModalHeader } from "./kart-modal-header";
 import { KartModalAksiyonMenusu } from "./kart-modal-aksiyon-menusu";
@@ -126,6 +130,11 @@ function KartModalIcerik({
   const geriYukle = useKartGeriYukle(anahtar);
   const arsivToggleMut = useKartArsivToggle(anahtar);
 
+  // Faz 5.3 — Kart susturma durumu + toggle. Hook'lar Rules of Hooks gereği
+  // her renderda aynı sırada çağrılmalı; bulunan kart kontrolünden ÖNCE.
+  const susturmaSorgu = useKartSusturmaDurumu(kartId);
+  const susturmaMut = useKartSusturmaToggle(kartId);
+
   const [baslik, setBaslik] = React.useState(bulunan?.kart.baslik ?? "");
   const [aciklama, setAciklama] = React.useState(
     bulunan?.kart.aciklama ?? "",
@@ -227,6 +236,24 @@ function KartModalIcerik({
     kapat();
   };
 
+  const susturuluyor: boolean | null = susturmaSorgu.data?.susturuluyor ?? null;
+  const susturmaToggle = () => {
+    if (susturuluyor === null) return;
+    const sonraki = !susturuluyor;
+    susturmaMut.mutate(
+      { sustur: sonraki },
+      {
+        onSuccess: () => {
+          toast.bilgi(
+            sonraki
+              ? "Bu kart için bildirimler susturuldu"
+              : "Bu kart için bildirimler tekrar açıldı",
+          );
+        },
+      },
+    );
+  };
+
   return (
     <>
       {/* Erişilebilirlik: KartModalBaslik görsel başlığı; aria gereksinimleri
@@ -251,6 +278,8 @@ function KartModalIcerik({
             kodKopyala={kodKopyala}
             arsivToggle={arsivToggle}
             sileBas={sileBas}
+            susturuluyor={susturuluyor}
+            susturmaToggle={susturmaToggle}
           />
         }
       />

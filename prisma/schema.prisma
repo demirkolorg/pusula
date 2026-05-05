@@ -292,10 +292,15 @@ model Kullanici {
   eklentiler          Eklenti[]        @relation("EklentiYukleyen")
   tamamlanan_maddeler KontrolMaddesi[] @relation("KontrolTamamlayan")
   atanan_maddeler     KontrolMaddesi[] @relation("KontrolAtanan")
+  onerdigi_madde_tamamlamalari KontrolMaddesi[] @relation("KontrolMaddeTamamlamaOneren")
   tamamladigi_kartlar Kart[]           @relation("KartTamamlayan")
+  onerdigi_kart_tamamlamalari  Kart[]   @relation("KartTamamlamaOneren")
   bildirimler         Bildirim[]       @relation("BildirimAlici")
   ureten_bildirimler  Bildirim[]       @relation("BildirimUreten")
+  // ADR-0019 — kullanıcı şablonları
+  sablonlari          ProjeSablonu[]   @relation("SablonOlusturan")
   bildirim_tercihleri BildirimTercih[]
+  kart_susturmalari   KartSusturma[]
   proje_ziyaretleri   ProjeZiyareti[]
 
   // ADR-0017: global arama (tsvector + GIN) — trigger ile otomatik güncellenir.
@@ -610,6 +615,17 @@ enum ListeTipi {
   ARSIV
 }
 
+// ADR-0019 — Kart ve madde tamamlama öneri akışı state machine'i.
+// YOK: standart durum (yetkili doğrudan tamamlar veya zaten tamamlanmış).
+// BEKLIYOR: yetkisiz kullanıcı önerdi, yetkili onay/red kararı bekliyor.
+// REDDEDILDI: yetkili reddetti; sebep `tamamlanma_red_sebebi`'nde.
+// (ONAYLI durumu YOK: onay = tamamlandi_mi=true + durum=YOK; tek transaction.)
+enum TamamlanmaOneriDurumu {
+  YOK
+  BEKLIYOR
+  REDDEDILDI
+}
+
 model Liste {
   id                String    @id @default(uuid()) @db.Uuid
   proje_id          String    @db.Uuid
@@ -679,6 +695,14 @@ model Kart {
   tamamlandi_mi         Boolean   @default(false)
   tamamlanma_zamani     DateTime?
   tamamlayan_id         String?   @db.Uuid
+  // ADR-0019 — Yetkisiz kullanıcı için "tamamlandığını bildir" akışı.
+  // BEKLIYOR durumunda yetkili Onayla/Reddet eder. Onay = tamamlandi_mi=true
+  // + durum=YOK (atomic). Reddet = REDDEDILDI + red_sebebi. Yeniden öneri
+  // → BEKLIYOR'a sıfırlama.
+  tamamlanma_oneri_durumu TamamlanmaOneriDurumu @default(YOK)
+  tamamlanma_oneren_id    String?               @db.Uuid
+  tamamlanma_oneri_zamani DateTime?
+  tamamlanma_red_sebebi   String?
   arsiv_mi              Boolean   @default(false)
   // ADR-0009 — kart arşivlenmeden önceki listenin id'si; geri yükleme için.
   arsiv_oncesi_liste_id String?   @db.Uuid
@@ -691,6 +715,7 @@ model Kart {
 
   liste             Liste              @relation(fields: [liste_id], references: [id], onDelete: Cascade)
   tamamlayan        Kullanici?         @relation("KartTamamlayan", fields: [tamamlayan_id], references: [id])
+  oneren            Kullanici?         @relation("KartTamamlamaOneren", fields: [tamamlanma_oneren_id], references: [id])
   yetkililer        KartYetkilisi[]
   etiketler         KartEtiket[]
   birimler          KartBirimi[]
@@ -698,6 +723,7 @@ model Kart {
   eklentiler        Eklenti[]
   kontrol_listeleri KontrolListesi[]
   bekleyen_davetler DavetKartBaglami[]
+  susturanlar       KartSusturma[]
 
   // ADR-0017: global arama (tsvector + GIN) — trigger ile otomatik güncellenir.
   arama_vektoru Unsupported("tsvector")?
@@ -705,6 +731,8 @@ model Kart {
   @@index([liste_id, sira])
   @@index([liste_id, silindi_mi, arsiv_mi])
   @@index([liste_id, tamamlandi_mi])
+  // ADR-0019: yetkililerin "bekleyen onaylar" listesini hızlı sorgulayabilmesi
+  @@index([liste_id, tamamlanma_oneri_durumu])
   @@index([bitis])
   @@index([arama_vektoru], type: Gin)
   // ADR-0017: pg_trgm fuzzy fallback
@@ -849,6 +877,11 @@ model KontrolMaddesi {
   tamamlandi_mi      Boolean   @default(false)
   tamamlama_zamani   DateTime?
   tamamlayan_id      String?   @db.Uuid
+  // ADR-0019 — Madde için öneri/onay flow (kart ile aynı pattern, Karar 8B).
+  tamamlanma_oneri_durumu TamamlanmaOneriDurumu @default(YOK)
+  tamamlanma_oneren_id    String?               @db.Uuid
+  tamamlanma_oneri_zamani DateTime?
+  tamamlanma_red_sebebi   String?
   atanan_id          String?   @db.Uuid
   bitis              DateTime?
   sira               String // LexoRank — liste içi madde sırası
@@ -857,12 +890,15 @@ model KontrolMaddesi {
 
   kontrol_listesi KontrolListesi @relation(fields: [kontrol_listesi_id], references: [id], onDelete: Cascade)
   tamamlayan      Kullanici?     @relation("KontrolTamamlayan", fields: [tamamlayan_id], references: [id])
+  oneren          Kullanici?     @relation("KontrolMaddeTamamlamaOneren", fields: [tamamlanma_oneren_id], references: [id])
   atanan          Kullanici?     @relation("KontrolAtanan", fields: [atanan_id], references: [id])
 
   // ADR-0017: global arama (tsvector + GIN) — trigger ile otomatik güncellenir.
   arama_vektoru Unsupported("tsvector")?
 
   @@index([kontrol_listesi_id, sira])
+  // ADR-0019: yetkililerin "bekleyen onaylar" listesi
+  @@index([kontrol_listesi_id, tamamlanma_oneri_durumu])
   @@index([atanan_id])
   @@index([arama_vektoru], type: Gin)
   // ADR-0017: pg_trgm fuzzy fallback
@@ -901,6 +937,17 @@ enum BildirimTipi {
   KART_SILINDI
   // Atandığın kart tamamlandı işaretlendi
   KART_TAMAMLANDI
+  // ADR-0019 — Kart tamamlama öneri akışı
+  // Yetkisiz kullanıcı kart tamamlandığını bildirdi (yetkililere)
+  KART_TAMAMLAMA_ONERILDI
+  // Önerin yetkili tarafından onaylandı (önerene)
+  KART_TAMAMLAMA_ONAYLANDI
+  // Önerin yetkili tarafından reddedildi (önerene, sebep aciklama'da)
+  KART_TAMAMLAMA_REDDEDILDI
+  // Madde için aynı 3
+  MADDE_TAMAMLAMA_ONERILDI
+  MADDE_TAMAMLAMA_ONAYLANDI
+  MADDE_TAMAMLAMA_REDDEDILDI
   // Yetkilisi olduğun bir liste silindi
   LISTE_SILINDI
   // Gönderdiğin davet kabul edildi (davet edene)
@@ -952,4 +999,22 @@ model BildirimTercih {
 
   @@unique([kullanici_id, tip])
   @@index([kullanici_id])
+}
+
+// Faz 5.3 — Kart susturma (per-resource mute).
+// Kullanıcı bir karta yönelik tüm bildirimleri (in_app + email) durdurmak
+// isterse, (kullanici_id, kart_id) çifti bu tabloya yazılır. bildirimUret
+// alıcı süzgecinde bu kayıtlı kullanıcıları çıkarır.
+// Cascade: kullanıcı silinince susturmaları, kart silinince ilgili
+// satırlar otomatik düşer.
+model KartSusturma {
+  kullanici_id     String   @db.Uuid
+  kart_id          String   @db.Uuid
+  olusturma_zamani DateTime @default(now())
+
+  kullanici Kullanici @relation(fields: [kullanici_id], references: [id], onDelete: Cascade)
+  kart      Kart      @relation(fields: [kart_id], references: [id], onDelete: Cascade)
+
+  @@id([kullanici_id, kart_id])
+  @@index([kart_id])
 }

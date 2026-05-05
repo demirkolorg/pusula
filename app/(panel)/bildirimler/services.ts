@@ -4,6 +4,7 @@ import { HATA_KODU } from "@/lib/sonuc";
 import { yayinla } from "@/lib/realtime";
 import { SOCKET, room } from "@/lib/socket-events";
 import { tercihAliciFiltresi } from "@/lib/bildirim-tercih";
+import { susturmaSuzgeci } from "@/lib/bildirim-susturma";
 import { mailGonder, mailHtmlRender } from "@/lib/mail";
 import { BildirimMail } from "@/lib/mail-templates/bildirim";
 import { logger } from "@/lib/logger";
@@ -169,10 +170,16 @@ export async function bildirimUret(
   );
   if (benzersiz.length === 0) return [];
 
+  // Faz 5.3 — Kart susturma (per-resource mute): bu kartı susturanlar
+  // hem in-app hem email kanalından çıkarılır. kart_id yoksa (proje/davet
+  // bağlamı) süzgeç no-op.
+  const susturmadanGecen = await susturmaSuzgeci(benzersiz, girdi.kart_id);
+  if (susturmadanGecen.length === 0) return [];
+
   // Faz 3.1 — Kullanıcı tercihi: in-app kapalıysa hem DB kaydı hem realtime
   // broadcast atlanır. Email kanalı Faz 4'te ayrıca kontrol edilir.
   const inAppAlicilari = await tercihAliciFiltresi(
-    benzersiz,
+    susturmadanGecen,
     girdi.tip,
     "in_app",
   );
@@ -236,8 +243,11 @@ async function emailKanaliYayinla(girdi: BildirimUretGirdi): Promise<void> {
     (id) => id !== girdi.ureten_id,
   );
   if (benzersiz.length === 0) return;
+  // Susturma süzgeci email için de geçerli (Faz 5.3).
+  const susturmadanGecen = await susturmaSuzgeci(benzersiz, girdi.kart_id);
+  if (susturmadanGecen.length === 0) return;
   const emailAlicilari = await tercihAliciFiltresi(
-    benzersiz,
+    susturmadanGecen,
     girdi.tip,
     "email",
   );

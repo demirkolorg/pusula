@@ -9,6 +9,7 @@ import {
   CheckCheckIcon,
   CheckCircle2Icon,
   CheckSquareIcon,
+  ClipboardCheckIcon,
   ListXIcon,
   MailCheckIcon,
   MessageSquareIcon,
@@ -18,6 +19,7 @@ import {
   UserMinusIcon,
   UserPlusIcon,
   UsersIcon,
+  XCircleIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -55,6 +57,12 @@ const TIP_IKON: Record<
   KART_BITIS_DEGISTI: CalendarClockIcon,
   KART_SILINDI: Trash2Icon,
   KART_TAMAMLANDI: CheckCircle2Icon,
+  KART_TAMAMLAMA_ONERILDI: ClipboardCheckIcon,
+  KART_TAMAMLAMA_ONAYLANDI: CheckCircle2Icon,
+  KART_TAMAMLAMA_REDDEDILDI: XCircleIcon,
+  MADDE_TAMAMLAMA_ONERILDI: ClipboardCheckIcon,
+  MADDE_TAMAMLAMA_ONAYLANDI: CheckCircle2Icon,
+  MADDE_TAMAMLAMA_REDDEDILDI: XCircleIcon,
   LISTE_SILINDI: ListXIcon,
   DAVET_KABUL_EDILDI: MailCheckIcon,
 };
@@ -73,6 +81,12 @@ const TIP_RENK: Record<BildirimTipi, string> = {
   KART_BITIS_DEGISTI: "bg-amber-100 text-amber-700",
   KART_SILINDI: "bg-red-100 text-red-700",
   KART_TAMAMLANDI: "bg-emerald-100 text-emerald-700",
+  KART_TAMAMLAMA_ONERILDI: "bg-amber-100 text-amber-700",
+  KART_TAMAMLAMA_ONAYLANDI: "bg-emerald-100 text-emerald-700",
+  KART_TAMAMLAMA_REDDEDILDI: "bg-red-100 text-red-700",
+  MADDE_TAMAMLAMA_ONERILDI: "bg-amber-100 text-amber-700",
+  MADDE_TAMAMLAMA_ONAYLANDI: "bg-emerald-100 text-emerald-700",
+  MADDE_TAMAMLAMA_REDDEDILDI: "bg-red-100 text-red-700",
   LISTE_SILINDI: "bg-slate-100 text-slate-700",
   DAVET_KABUL_EDILDI: "bg-emerald-100 text-emerald-700",
 };

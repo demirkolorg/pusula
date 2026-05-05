@@ -75,6 +75,30 @@ export const TIP_METNI: Record<BildirimTipi, TipMetni> = {
     baslik: "Davet kabul edildi",
     aciklama: "Gönderdiğiniz davet kabul edildiğinde",
   },
+  KART_TAMAMLAMA_ONERILDI: {
+    baslik: "Kart tamamlama önerildi",
+    aciklama: "Birisi yetkili olduğunuz bir kartı tamamlandı önerdiğinde",
+  },
+  KART_TAMAMLAMA_ONAYLANDI: {
+    baslik: "Kart tamamlama onaylandı",
+    aciklama: "Önerdiğiniz kart tamamlama onaylandığında",
+  },
+  KART_TAMAMLAMA_REDDEDILDI: {
+    baslik: "Kart tamamlama reddedildi",
+    aciklama: "Önerdiğiniz kart tamamlama reddedildiğinde",
+  },
+  MADDE_TAMAMLAMA_ONERILDI: {
+    baslik: "Madde tamamlama önerildi",
+    aciklama: "Birisi sizin sorumlu olduğunuz maddeyi tamamlandı önerdiğinde",
+  },
+  MADDE_TAMAMLAMA_ONAYLANDI: {
+    baslik: "Madde tamamlama onaylandı",
+    aciklama: "Önerdiğiniz madde tamamlama onaylandığında",
+  },
+  MADDE_TAMAMLAMA_REDDEDILDI: {
+    baslik: "Madde tamamlama reddedildi",
+    aciklama: "Önerdiğiniz madde tamamlama reddedildiğinde",
+  },
 };
 
 export const TERCIH_GRUPLARI: ReadonlyArray<TercihGrubu> = [
@@ -102,6 +126,18 @@ export const TERCIH_GRUPLARI: ReadonlyArray<TercihGrubu> = [
     baslik: "Proje yönetimi",
     aciklama: "Proje üyeliği değişiklikleri",
     tipler: ["PROJE_UYE_EKLENDI", "PROJE_UYE_CIKARILDI"],
+  },
+  {
+    baslik: "Tamamlama önerileri (ADR-0019)",
+    aciklama: "Yetkisiz kullanıcı tamamlandı önerileri ve onay/red sonuçları",
+    tipler: [
+      "KART_TAMAMLAMA_ONERILDI",
+      "KART_TAMAMLAMA_ONAYLANDI",
+      "KART_TAMAMLAMA_REDDEDILDI",
+      "MADDE_TAMAMLAMA_ONERILDI",
+      "MADDE_TAMAMLAMA_ONAYLANDI",
+      "MADDE_TAMAMLAMA_REDDEDILDI",
+    ],
   },
   {
     baslik: "Diğer",

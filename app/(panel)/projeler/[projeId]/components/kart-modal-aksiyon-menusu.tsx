@@ -4,6 +4,8 @@ import * as React from "react";
 import {
   ArchiveIcon,
   ArchiveRestoreIcon,
+  BellIcon,
+  BellOffIcon,
   ClockIcon,
   CopyIcon,
   HashIcon,
@@ -28,6 +30,9 @@ type Props = {
   kodKopyala: () => void;
   arsivToggle: () => void;
   sileBas: () => void;
+  // Faz 5.3 — kart susturma. null = durum henüz yüklenmedi (öğe gizlenir).
+  susturuluyor: boolean | null;
+  susturmaToggle: () => void;
 };
 
 // Sancak referansı: top-bar "more" menüsü — Bağlantı, Kod, Çoğalt, Şablon,
@@ -40,6 +45,8 @@ export function KartModalAksiyonMenusu({
   kodKopyala,
   arsivToggle,
   sileBas,
+  susturuluyor,
+  susturmaToggle,
 }: Props) {
   const yakinda = (etiket: string) => () =>
     toast.bilgi(`${etiket} yakında eklenecek`);
@@ -81,6 +88,20 @@ export function KartModalAksiyonMenusu({
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
+
+        {susturuluyor !== null ? (
+          <DropdownMenuItem onClick={susturmaToggle}>
+            {susturuluyor ? (
+              <>
+                <BellIcon className="size-4" /> Bildirimleri tekrar aç
+              </>
+            ) : (
+              <>
+                <BellOffIcon className="size-4" /> Bu kartı sustur
+              </>
+            )}
+          </DropdownMenuItem>
+        ) : null}
 
         <DropdownMenuItem onClick={arsivToggle}>
           {arsivMi ? (
