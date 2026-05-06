@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { KanbanIcon, ListIcon } from "lucide-react";
+import { KanbanIcon, ListIcon, TagIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -11,11 +11,13 @@ type Props = {
   className?: string;
 };
 
-// Görünüm tipi seçici — Pano · Liste. Yetkililer ayrı bir görünüm değil
-// (popover olarak sağ blokta yer alır), sekme şeridinde yer almaz.
+// Görünüm tipi seçici — Pano · Liste · Etiketler. Yetkililer ayrı bir görünüm
+// değil (popover olarak sağ blokta yer alır), sekme şeridinde yer almaz.
 export function ProjeBaslikSekmeler({ projeId, className }: Props) {
-  const yol = usePathname();
-  const listedeMi = yol?.endsWith("/liste") ?? false;
+  const yol = usePathname() ?? "";
+  const listedeMi = yol.endsWith("/liste");
+  const etikettedeMi = yol.includes("/etiket");
+  const panoda = !listedeMi && !etikettedeMi;
 
   return (
     <div
@@ -28,7 +30,7 @@ export function ProjeBaslikSekmeler({ projeId, className }: Props) {
     >
       <SekmeBaglanti
         href={`/projeler/${projeId}`}
-        aktif={!listedeMi}
+        aktif={panoda}
         ikon={<KanbanIcon className="size-3.5" />}
         etiket="Pano"
       />
@@ -37,6 +39,12 @@ export function ProjeBaslikSekmeler({ projeId, className }: Props) {
         aktif={listedeMi}
         ikon={<ListIcon className="size-3.5" />}
         etiket="Liste"
+      />
+      <SekmeBaglanti
+        href={`/projeler/${projeId}/etiket`}
+        aktif={etikettedeMi}
+        ikon={<TagIcon className="size-3.5" />}
+        etiket="Etiketler"
       />
     </div>
   );

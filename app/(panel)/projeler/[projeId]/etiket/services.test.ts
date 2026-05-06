@@ -9,6 +9,8 @@ vi.mock("@/auth", () => ({
 }));
 
 import {
+  etiketDetayGetir,
+  etiketKartlariniListele,
   etiketleriListele,
   etiketOlustur,
   etiketGuncelle,
@@ -211,5 +213,125 @@ describe("kartaEtiketKaldir", () => {
 
     const ids = await kartinEtiketleri(ortam.birim.id, kart.id);
     expect(ids).toEqual([]);
+  });
+});
+
+// =====================================================================
+// Etiket detay & kartlari listeleme
+// =====================================================================
+
+describe("etiketDetayGetir", () => {
+  it("etiket bilgisi + kart_sayisi doner", async () => {
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+    const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
+    const k1 = await kartOlusturFiks(adminDb, { listeId: liste.id });
+    const k2 = await kartOlusturFiks(adminDb, { listeId: liste.id });
+    const e = await etiketOlustur(ortam.birim.id, {
+      proje_id: proje.id,
+      ad: "Acil",
+      renk: "#ef4444",
+    });
+    await kartaEtiketEkle(ortam.birim.id, k1.id, e.id);
+    await kartaEtiketEkle(ortam.birim.id, k2.id, e.id);
+
+    const detay = await etiketDetayGetir(ortam.birim.id, e.id);
+
+    expect(detay).toMatchObject({
+      id: e.id,
+      ad: "Acil",
+      renk: "#ef4444",
+      proje_id: proje.id,
+      kart_sayisi: 2,
+    });
+    expect(detay.olusturma_zamani).toBeInstanceOf(Date);
+  });
+
+  it("var olmayan etiket icin BULUNAMADI atar", async () => {
+    await expect(
+      etiketDetayGetir(
+        ortam.birim.id,
+        "00000000-0000-0000-0000-000000000000",
+      ),
+    ).rejects.toMatchObject({ kod: "BULUNAMADI" });
+  });
+});
+
+describe("etiketKartlariniListele", () => {
+  it("etikete bagli kartlari sayfalayarak doner", async () => {
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+    const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
+    const k1 = await kartOlusturFiks(adminDb, { listeId: liste.id });
+    const k2 = await kartOlusturFiks(adminDb, { listeId: liste.id });
+    const k3 = await kartOlusturFiks(adminDb, { listeId: liste.id });
+    const e = await etiketOlustur(ortam.birim.id, {
+      proje_id: proje.id,
+      ad: "Acil",
+      renk: "#ef4444",
+    });
+    await kartaEtiketEkle(ortam.birim.id, k1.id, e.id);
+    await kartaEtiketEkle(ortam.birim.id, k2.id, e.id);
+    // k3 etikete BAĞLI DEĞİL — listede gözükmemeli
+
+    const sayfa = await etiketKartlariniListele(ortam.birim.id, e.id, 1, 50);
+
+    expect(sayfa.toplam).toBe(2);
+    expect(sayfa.kayitlar).toHaveLength(2);
+    const idler = sayfa.kayitlar.map((k) => k.id);
+    expect(idler).toContain(k1.id);
+    expect(idler).toContain(k2.id);
+    expect(idler).not.toContain(k3.id);
+    // Liste adi geliyor
+    expect(sayfa.kayitlar[0]!.liste_adi).toBe(liste.ad);
+  });
+
+  it("silinmis kartlari haric tutar", async () => {
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+    const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
+    const k = await kartOlusturFiks(adminDb, { listeId: liste.id });
+    const e = await etiketOlustur(ortam.birim.id, {
+      proje_id: proje.id,
+      ad: "X",
+      renk: "#22c55e",
+    });
+    await kartaEtiketEkle(ortam.birim.id, k.id, e.id);
+    await adminDb.kart.update({
+      where: { id: k.id },
+      data: { silindi_mi: true, silinme_zamani: new Date() },
+    });
+
+    const sayfa = await etiketKartlariniListele(ortam.birim.id, e.id, 1, 50);
+    expect(sayfa.toplam).toBe(0);
+    expect(sayfa.kayitlar).toEqual([]);
+  });
+
+  it("sayfalama dogru calisir (sayfa=2 ile sonraki dilim)", async () => {
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+    const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
+    const e = await etiketOlustur(ortam.birim.id, {
+      proje_id: proje.id,
+      ad: "X",
+      renk: "#22c55e",
+    });
+    // 5 kart oluştur ve hepsini etikete bağla
+    for (let i = 0; i < 5; i++) {
+      const k = await kartOlusturFiks(adminDb, { listeId: liste.id });
+      await kartaEtiketEkle(ortam.birim.id, k.id, e.id);
+    }
+
+    const sayfa1 = await etiketKartlariniListele(ortam.birim.id, e.id, 1, 2);
+    const sayfa2 = await etiketKartlariniListele(ortam.birim.id, e.id, 2, 2);
+    const sayfa3 = await etiketKartlariniListele(ortam.birim.id, e.id, 3, 2);
+
+    expect(sayfa1.toplam).toBe(5);
+    expect(sayfa1.kayitlar).toHaveLength(2);
+    expect(sayfa2.kayitlar).toHaveLength(2);
+    expect(sayfa3.kayitlar).toHaveLength(1);
+    // Aynı kayıt iki sayfada gözükmemeli
+    const tum = [
+      ...sayfa1.kayitlar,
+      ...sayfa2.kayitlar,
+      ...sayfa3.kayitlar,
+    ].map((k) => k.id);
+    expect(new Set(tum).size).toBe(5);
   });
 });

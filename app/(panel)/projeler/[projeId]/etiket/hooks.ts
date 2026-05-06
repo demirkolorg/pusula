@@ -1,13 +1,18 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import * as React from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { eylemMutasyonu, useOptimisticMutation } from "@/lib/optimistic";
 import { tempId } from "@/lib/temp-id";
+import { useProjeRoom, useSocketEvents } from "@/hooks/use-socket";
+import { SOCKET } from "@/lib/socket-events";
 import { projeDetayKey } from "../hooks/detay-sorgulari";
 import { kartAktiviteleriKey } from "../aktivite/keys";
 import type { ProjeDetayOzeti } from "../services";
 import {
+  etiketDetayEylem,
   etiketGuncelleEylem,
+  etiketKartlariEylem,
   etiketleriListeleEylem,
   etiketOlusturEylem,
   etiketSilEylem,
@@ -22,10 +27,16 @@ import type {
   KartaEtiketEkle,
   KartaEtiketKaldir,
 } from "./schemas";
-import type { EtiketOzeti } from "./services";
+import type {
+  EtiketDetay,
+  EtiketKartlariSayfasi,
+  EtiketOzeti,
+} from "./services";
 
 export const ETIKETLER_KEY = "etiketler";
 export const KART_ETIKETLERI_KEY = "kart-etiketleri";
+export const ETIKET_DETAY_KEY = "etiket-detay";
+export const ETIKET_KARTLARI_KEY = "etiket-kartlari";
 
 export function etiketlerKey(projeId: string) {
   return [ETIKETLER_KEY, projeId] as const;
@@ -33,6 +44,18 @@ export function etiketlerKey(projeId: string) {
 
 export function kartEtiketleriKey(kartId: string) {
   return [KART_ETIKETLERI_KEY, kartId] as const;
+}
+
+export function etiketDetayKey(etiketId: string) {
+  return [ETIKET_DETAY_KEY, etiketId] as const;
+}
+
+export function etiketKartlariKey(
+  etiketId: string,
+  sayfa: number,
+  sayfaBoyutu: number,
+) {
+  return [ETIKET_KARTLARI_KEY, etiketId, { sayfa, sayfaBoyutu }] as const;
 }
 
 // =====================================================================
@@ -210,6 +233,98 @@ function bumpEtiketSayisi(
       ),
     })),
   };
+}
+
+// =====================================================================
+// Etiket detay + kartları (yönetim & detay sayfaları için)
+// =====================================================================
+
+export function useEtiketDetay(etiketId: string) {
+  return useQuery({
+    queryKey: etiketDetayKey(etiketId),
+    queryFn: async () => {
+      const r = await etiketDetayEylem({ id: etiketId });
+      if (!r.basarili) throw new Error(r.hata);
+      return r.veri as EtiketDetay;
+    },
+    staleTime: 30_000,
+  });
+}
+
+export function useEtiketKartlari(
+  etiketId: string,
+  sayfa: number,
+  sayfaBoyutu: number,
+) {
+  return useQuery({
+    queryKey: etiketKartlariKey(etiketId, sayfa, sayfaBoyutu),
+    queryFn: async () => {
+      const r = await etiketKartlariEylem({
+        etiket_id: etiketId,
+        sayfa,
+        sayfa_boyutu: sayfaBoyutu,
+      });
+      if (!r.basarili) throw new Error(r.hata);
+      return r.veri as EtiketKartlariSayfasi;
+    },
+    staleTime: 30_000,
+  });
+}
+
+// =====================================================================
+// Realtime — proje room'unda etiket CRUD eventleri (Kural 56, 114)
+// =====================================================================
+
+const ETIKET_EVENTLERI = [
+  SOCKET.ETIKET_OLUSTU,
+  SOCKET.ETIKET_GUNCELLENDI,
+  SOCKET.ETIKET_SILINDI,
+] as const;
+
+type EtiketOlusmaPayload = EtiketOzeti;
+type EtiketGuncellemePayload = { id: string; ad?: string; renk?: string };
+type EtiketSilmePayload = { id: string };
+
+export function useEtiketRealtime(projeId: string): void {
+  useProjeRoom(projeId);
+  const istemci = useQueryClient();
+
+  useSocketEvents<
+    EtiketOlusmaPayload | EtiketGuncellemePayload | EtiketSilmePayload
+  >(
+    ETIKET_EVENTLERI,
+    (event, zarf) => {
+      if (event === SOCKET.ETIKET_OLUSTU) {
+        const yeni = zarf.veri as EtiketOlusmaPayload;
+        istemci.setQueryData<EtiketOzeti[]>(etiketlerKey(projeId), (eski) => {
+          const liste = eski ?? [];
+          if (liste.some((e) => e.id === yeni.id)) return liste;
+          return [...liste, yeni];
+        });
+      } else if (event === SOCKET.ETIKET_GUNCELLENDI) {
+        const v = zarf.veri as EtiketGuncellemePayload;
+        istemci.setQueryData<EtiketOzeti[]>(etiketlerKey(projeId), (eski) => {
+          const liste = eski ?? [];
+          return liste.map((e) =>
+            e.id === v.id
+              ? { ...e, ad: v.ad ?? e.ad, renk: v.renk ?? e.renk }
+              : e,
+          );
+        });
+        void istemci.invalidateQueries({ queryKey: etiketDetayKey(v.id) });
+      } else if (event === SOCKET.ETIKET_SILINDI) {
+        const v = zarf.veri as EtiketSilmePayload;
+        istemci.setQueryData<EtiketOzeti[]>(etiketlerKey(projeId), (eski) => {
+          const liste = eski ?? [];
+          return liste.filter((e) => e.id !== v.id);
+        });
+      }
+    },
+    { selfFilter: true },
+  );
+
+  // Modül seviyesi sabit dizi referans için (Kural 134) — eslint deps
+  React.useDebugValue(projeId);
 }
 
 export { tempId };

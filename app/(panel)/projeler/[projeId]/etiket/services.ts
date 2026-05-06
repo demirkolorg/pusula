@@ -15,6 +15,27 @@ export type EtiketOzeti = {
   renk: string;
 };
 
+export type EtiketDetay = EtiketOzeti & {
+  kart_sayisi: number;
+  olusturma_zamani: Date;
+};
+
+export type EtiketKartOzeti = {
+  id: string;
+  baslik: string;
+  liste_id: string;
+  liste_adi: string;
+  tamamlandi_mi: boolean;
+  bitis: Date | null;
+  guncelleme_zamani: Date;
+  yetkili_sayisi: number;
+};
+
+export type EtiketKartlariSayfasi = {
+  kayitlar: EtiketKartOzeti[];
+  toplam: number;
+};
+
 // =====================================================================
 // Erişim doğrulama (birim izolasyonu — yetki kontrolü actions katmanında)
 // =====================================================================
@@ -86,8 +107,9 @@ export async function etiketOlustur(
   girdi: EtiketOlustur,
 ): Promise<EtiketOzeti> {
   await projeyeErisimDogrula(birimId, girdi.proje_id);
+  let kayit: EtiketOzeti;
   try {
-    return await db.etiket.create({
+    kayit = await db.etiket.create({
       data: {
         proje_id: girdi.proje_id,
         ad: girdi.ad,
@@ -110,13 +132,17 @@ export async function etiketOlustur(
     }
     throw err;
   }
+  yayinla(SOCKET.ETIKET_OLUSTU, room.proje(girdi.proje_id), kayit).catch(
+    () => {},
+  );
+  return kayit;
 }
 
 export async function etiketGuncelle(
   birimId: string,
   girdi: EtiketGuncelle,
 ): Promise<void> {
-  await etiketiBulVeProjeAl(birimId, girdi.id);
+  const { proje_id } = await etiketiBulVeProjeAl(birimId, girdi.id);
   const veri: Record<string, unknown> = {};
   if (girdi.ad !== undefined) veri.ad = girdi.ad;
   if (girdi.renk !== undefined) veri.renk = girdi.renk;
@@ -137,13 +163,19 @@ export async function etiketGuncelle(
     }
     throw err;
   }
+  yayinla(SOCKET.ETIKET_GUNCELLENDI, room.proje(proje_id), {
+    id: girdi.id,
+    ad: girdi.ad,
+    renk: girdi.renk,
+  }).catch(() => {});
 }
 
 export async function etiketSil(birimId: string, id: string): Promise<void> {
-  await etiketiBulVeProjeAl(birimId, id);
+  const { proje_id } = await etiketiBulVeProjeAl(birimId, id);
   // KartEtiket join onDelete: Cascade ile birlikte gider — hard delete.
   // Soft delete burada gereksiz; tekrar olusturulabilen domain.
   await db.etiket.delete({ where: { id } });
+  yayinla(SOCKET.ETIKET_SILINDI, room.proje(proje_id), { id }).catch(() => {});
 }
 
 // =====================================================================
@@ -205,4 +237,82 @@ export async function kartinEtiketleri(
     select: { etiket_id: true },
   });
   return baglar.map((b) => b.etiket_id);
+}
+
+// =====================================================================
+// Etiket detay + bağlı kartlar
+// =====================================================================
+
+export async function etiketDetayGetir(
+  birimId: string,
+  etiketId: string,
+): Promise<EtiketDetay> {
+  await etiketiBulVeProjeAl(birimId, etiketId);
+  const e = await db.etiket.findUnique({
+    where: { id: etiketId },
+    select: {
+      id: true,
+      proje_id: true,
+      ad: true,
+      renk: true,
+      olusturma_zamani: true,
+      _count: { select: { kart_baglar: true } },
+    },
+  });
+  if (!e) {
+    throw new EylemHatasi("Etiket bulunamadı.", HATA_KODU.BULUNAMADI);
+  }
+  return {
+    id: e.id,
+    proje_id: e.proje_id,
+    ad: e.ad,
+    renk: e.renk,
+    olusturma_zamani: e.olusturma_zamani,
+    kart_sayisi: e._count.kart_baglar,
+  };
+}
+
+export async function etiketKartlariniListele(
+  birimId: string,
+  etiketId: string,
+  sayfa: number,
+  sayfaBoyutu: number,
+): Promise<EtiketKartlariSayfasi> {
+  await etiketiBulVeProjeAl(birimId, etiketId);
+  const where = {
+    silindi_mi: false,
+    etiketler: { some: { etiket_id: etiketId } },
+  } as const;
+  const [kayitlar, toplam] = await Promise.all([
+    db.kart.findMany({
+      where,
+      orderBy: { guncelleme_zamani: "desc" },
+      skip: (sayfa - 1) * sayfaBoyutu,
+      take: sayfaBoyutu,
+      select: {
+        id: true,
+        baslik: true,
+        liste_id: true,
+        tamamlandi_mi: true,
+        bitis: true,
+        guncelleme_zamani: true,
+        liste: { select: { ad: true } },
+        _count: { select: { yetkililer: true } },
+      },
+    }),
+    db.kart.count({ where }),
+  ]);
+  return {
+    kayitlar: kayitlar.map((k) => ({
+      id: k.id,
+      baslik: k.baslik,
+      liste_id: k.liste_id,
+      liste_adi: k.liste.ad,
+      tamamlandi_mi: k.tamamlandi_mi,
+      bitis: k.bitis,
+      guncelleme_zamani: k.guncelleme_zamani,
+      yetkili_sayisi: k._count.yetkililer,
+    })),
+    toplam,
+  };
 }

@@ -46,9 +46,21 @@ export const kartaEtiketEkleSemasi = z.object({
 
 export const kartaEtiketKaldirSemasi = kartaEtiketEkleSemasi;
 
+export const etiketDetayGetirSemasi = z.object({
+  id: z.string().uuid(),
+});
+
+export const etiketKartlariSemasi = z.object({
+  etiket_id: z.string().uuid(),
+  sayfa: z.number().int().min(1).default(1),
+  sayfa_boyutu: z.number().int().min(1).max(50).default(20),
+});
+
 export type EtiketOlustur = z.infer<typeof etiketOlusturSemasi>;
 export type EtiketGuncelle = z.infer<typeof etiketGuncelleSemasi>;
 export type EtiketSil = z.infer<typeof etiketSilSemasi>;
 export type EtiketListele = z.infer<typeof etiketListeleSemasi>;
 export type KartaEtiketEkle = z.infer<typeof kartaEtiketEkleSemasi>;
 export type KartaEtiketKaldir = z.infer<typeof kartaEtiketKaldirSemasi>;
+export type EtiketDetayGetir = z.infer<typeof etiketDetayGetirSemasi>;
+export type EtiketKartlari = z.infer<typeof etiketKartlariSemasi>;

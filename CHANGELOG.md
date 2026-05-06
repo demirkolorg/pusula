@@ -5,6 +5,27 @@
 ## [Yayınlanmamış]
 
 ### Eklenen
+- **Ana sayfa "Son Aktiviteler" zenginleştirme** — Her satır artık kullanıcı + işlem badge (CREATE/UPDATE/DELETE renkli) + kaynak tipi Türkçe etiketi (örn. "Kart oluşturdu", "Proje güncelledi") + kaynak başlığı/adı (örn. "Asfalt Projesi", "Sokak temizliği") + relatif zaman gösterir. Tüm satır tıklanabilir (44px hit target — Kural 11), tıklanınca detay diyalog açılır: değişen alanlar (eski → yeni renkli diff kartları), tam veri (eski/yeni/meta JSON detayları), zaman/kullanıcı/IP/HTTP meta bilgisi. Mobilde bottom sheet, desktop'ta center modal (Kural 13).
+- `lib/audit-kaynak-etiket.ts` — Denetim sayfasındaki ~280 satırlık `kaynakEtiketleriOlustur` helper'ı paylaşılan `lib/`'e taşındı (DRY, Kural 131). 16 tablo paralel batch çözümleme. Hem denetim hem ana sayfa kullanır.
+- `lib/audit-kaynak-etiket.test.ts` — helper için 10 unit/entegrasyon testi (Kural 139).
+- `lib/constants/log.ts` — `KAYNAK_TIP_LABEL` + `kaynakTipEtiketi` (saf TS, client-safe; client componentlerden import edilir).
+- `app/(panel)/ana-sayfa/components/aktivite-detay-diyalog.tsx` — Denetim diff diyaloğunun ana sayfa varyantı, `ResponsiveDialog` ile mobil/desktop ayrımı.
+
+### Değişen
+- `app/(panel)/ana-sayfa/schemas.ts:sonAktiviteSatiriSemasi` — `kaynak_etiket`, `eski_veri`, `yeni_veri`, `diff`, `meta`, `ip`, `http_metod`, `http_yol`, `request_id` alanları eklendi.
+- `app/(panel)/ana-sayfa/services.ts:sonAktiviteleriGetir` — Detay alanları çekilir, `kaynakEtiketleriOlustur` paralel çağrısıyla kaynak etiketi çözülür.
+- `app/(panel)/ayarlar/denetim/actions.ts` — Helper kaldırıldı, `lib/audit-kaynak-etiket.ts`'ten import edilir (~280 satır azaltıldı; davranış aynı).
+- `app/(panel)/ana-sayfa/services.test.ts` — 4 yeni test eklendi (kaynak etiket çözümleme + detay alanları + null kullanıcı senaryoları).
+
+- **Etiket modülü tam kapsam** — Proje altında `/projeler/[projeId]/etiket` (yönetim) ve `/projeler/[projeId]/etiket/[etiketId]` (detay) sayfaları. Yönetim sayfası proje etiketlerini liste halinde gösterir; satır içi düzenle/sil + yeni oluştur. Detay sayfası etikete bağlı kartları paginated listeler (kart başlığı, liste, bitiş, üye sayısı, son güncelleme; tıklayınca kart modal). Granüler RBAC (Kural 146): `KART_ETIKET_OLUSTUR/DUZENLE/SIL/ATA/CIKAR` izinleri her aksiyona resource-level `proje:edit` ile birlikte uygulanır. CRUD eventleri proje room'una realtime yayınlanır (`SOCKET.ETIKET_OLUSTU/GUNCELLENDI/SILINDI`); başka sekmelerde anlık senkron. Proje başlık sekmelerine "Etiketler" linki eklendi.
+- `app/(panel)/projeler/[projeId]/etiket/page.tsx` — yönetim sayfası (server component).
+- `app/(panel)/projeler/[projeId]/etiket/[etiketId]/page.tsx` — detay sayfası (etikete bağlı kartlar).
+- `app/(panel)/projeler/[projeId]/etiket/components/{etiket-form-dialog,etiket-sil-diyalog,etiket-listesi-istemci,etiket-detay-baslik,etiket-kartlari-listesi}.tsx` — yeni UI bileşenleri.
+- `app/(panel)/projeler/[projeId]/etiket/services.ts` — `etiketDetayGetir`, `etiketKartlariniListele` + CRUD'a realtime yayın.
+- `app/(panel)/projeler/[projeId]/etiket/actions.ts` — `etiketDetayEylem`, `etiketKartlariEylem` + tüm aksiyonlar granüler izine geçti.
+- `app/(panel)/projeler/[projeId]/etiket/hooks.ts` — `useEtiketDetay`, `useEtiketKartlari`, `useEtiketRealtime`.
+- `app/(panel)/projeler/[projeId]/etiket/services.test.ts` — yeni 2 fonksiyon için 5 test (toplam 13).
+- **Sidebar RBAC görünürlük filtresi (ADR-0024)** — Yan menü artık kullanıcının izinlerine göre filtrelenir. Sayfa erişim güvenliği zaten her sayfada `izinVarMi` + redirect/notFound ile sağlanıyordu (değişmedi); bu katman yalnızca menü görünürlüğünü hizalar. Yetkisiz kullanıcılar artık "Roller", "Hata Logları", "Onay Bekleyenler", "Birimler", "Denetim" gibi yönetim öğelerinin başlıklarını dahi görmez. Boş kalan grup başlığı (`SidebarGroupLabel`) da gizlenir. `lib/sidebar-yetki.ts` saf modül (12 menü kodu, izin haritası, `menuGorunurMu` + `gorunurMenuKodlari`); 14 unit test (`lib/sidebar-yetki.test.ts`). Layout server-side `kullaniciIzinleriniAl` (cache'li) çağrısıyla `AppSidebar`'a `gorunurKodlar` prop'unu iletir.
 - **Kart açıklamasında zengin metin (ADR-0023)** — Tiptap (ProseMirror) editör; bold, italik, üstü çizili, satır içi kod, başlık (H1-H3), madde işaretli & numaralı liste, link. shadcn primitive'leri (Tooltip + Popover + Separator) ile özel toolbar; mobil 360px'te yatay scroll. `Kart.aciklama` (String) → `Kart.aciklama_dokuman` (Json) + `Kart.aciklama_metin` (denormalize plaintext, tsvector trigger'ı + line-clamp listesi + audit diff bunu okur). Server-side Zod doc validation (max 1000 düğüm, 10 derinlik, 10K karakter/text). Optimistic mutation `useKartGuncelle` 1500ms onBlur debounce ile çalışır.
 - `lib/tiptap/` — server-safe helper kütüphanesi (TiptapDokuman Zod şeması, plaintext serialize, mention çıkarma + 33 unit test).
 - `components/tiptap/` — istemci editor + toolbar + link popover.
@@ -52,6 +73,8 @@
 - `README.md` — Pusula'ya özgü yeniden yazıldı (Bun, port 2500).
 
 ### Kaldırılan
+- `components/nav-projects.tsx` — sidebar'da redundant ("Yönetim", "Denetim" linkleri "Ayarlar" grubunda zaten var). ADR-0024.
+- `/ayarlar/etiketler` sidebar linki — sayfa hiç oluşturulmamıştı, ölü link. ADR-0024.
 - `lib/constants/kurum.ts`, `app/(panel)/ayarlar/kurumlar/`, `tests/e2e/kurum-crud.e2e.ts`.
 - `app/(panel)/projeler/[projeId]/components/kart-hedef-kurumlar.tsx`, `kart-kurum-popover.tsx`, `kart-hedef.ts` (yerine `kart-birim.ts`).
 - `Proje.kurum_id` (tekil FK) — yerine çoklu `ProjeBirimi`.

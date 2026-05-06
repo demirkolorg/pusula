@@ -43,6 +43,10 @@ export const SOCKET = {
 
   ETIKET_KART_EKLE: "etiket:kart-ekle",
   ETIKET_KART_KALDIR: "etiket:kart-kaldir",
+  // Proje room'una yayınlanır — etiket tanımı (CRUD) değişti.
+  ETIKET_OLUSTU: "etiket:olustu",
+  ETIKET_GUNCELLENDI: "etiket:guncellendi",
+  ETIKET_SILINDI: "etiket:silindi",
 
   YETKILI_KART_EKLE: "yetkili:kart-ekle",
   YETKILI_KART_KALDIR: "yetkili:kart-kaldir",
