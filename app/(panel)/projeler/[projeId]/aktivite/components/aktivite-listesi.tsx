@@ -427,8 +427,8 @@ export function AktiviteDetayIcerik({
   const kullanici = aktiviteKullaniciAdi(aktivite);
 
   return (
-    <div className="space-y-4">
-      {/* Olay özeti */}
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(260px,0.85fr)_minmax(0,1.35fr)]">
+      <div className="space-y-3 lg:sticky lg:top-0 lg:self-start">
           <div className="border-border/70 bg-muted/40 rounded-lg border p-3">
             <div className="text-muted-foreground/80 mb-1 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide">
               <Ikon
@@ -461,7 +461,7 @@ export function AktiviteDetayIcerik({
           {/* Meta bilgi grid — sadece kullanıcıya anlamlı alanlar.
               ID alanları (Kullanıcı/Aktivite/Kaynak ID) UI'da gerekli
               değil; sistem aksiyonu için tek-satır net açıklama. */}
-          <dl className="border-border/70 grid grid-cols-1 gap-x-4 gap-y-2.5 rounded-lg border p-3 sm:grid-cols-2">
+          <dl className="border-border/70 grid grid-cols-1 gap-x-4 gap-y-2.5 rounded-lg border p-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
             {sistemAksiyonu ? (
               <div className="flex flex-col gap-0.5 sm:col-span-2">
                 <dt className="text-muted-foreground/70 text-[10.5px] font-medium uppercase tracking-wide">
@@ -553,7 +553,9 @@ export function AktiviteDetayIcerik({
               />
             )}
           </dl>
+      </div>
 
+      <div className="min-w-0 space-y-2">
           {/* Değişiklikler — KIRPMA YOK */}
           {aktivite.degisiklikler && aktivite.degisiklikler.length > 0 ? (
             <div className="space-y-2">
@@ -610,6 +612,7 @@ export function AktiviteDetayIcerik({
               .
             </div>
           )}
+      </div>
     </div>
   );
 }

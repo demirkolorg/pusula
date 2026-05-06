@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { kullaniciErisimBilgisi } from "@/lib/yetki";
 import { kapsamBaglamiHazirla, kapsamWhere, zenginlestirVeOzetle } from "@/lib/aktivite";
+import { aktiviteAkisiGorunurKaynakWhere } from "@/lib/aktivite/gizli-kaynaklar";
 import type {
   AnaSayfaMetrik,
   BenimKartSatirim,
@@ -286,13 +287,13 @@ export async function sonAktiviteleriGetir(
   limit = 20,
 ): Promise<SonAktiviteSatiri[]> {
   const baglam = await kapsamBaglamiHazirla(kullaniciId);
-  const kosul = kapsamWhere(baglam);
+  const kosullar = [kapsamWhere(baglam), aktiviteAkisiGorunurKaynakWhere()];
 
   // Ham audit kayıtlarını çek — `zenginlestirVeOzetle` user-friendly
   // `AktiviteOzeti[]` üretir (mesaj + alan diff'leri + proje/liste/kart bağlamı).
   // Proje aktivite modülüyle aynı tip/UI = tutarlılık.
   const kayitlar = await db.aktiviteLogu.findMany({
-    where: kosul,
+    where: { AND: kosullar },
     orderBy: { zaman: "desc" },
     take: limit,
     select: {

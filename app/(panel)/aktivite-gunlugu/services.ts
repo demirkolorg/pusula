@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { aramaBigIntIdleri } from "@/lib/arama";
+import { aktiviteAkisiGorunurKaynakWhere } from "@/lib/aktivite/gizli-kaynaklar";
 import {
   aktiviteAnlati,
   kapsamBaglamiHazirla,
@@ -109,6 +110,7 @@ export async function aktiviteGunluguListele(
 
   const kosullar = temizKosullar([
     kapsamWhere(baglam),
+    aktiviteAkisiGorunurKaynakWhere(),
     filtre.cursor ? { id: { lt: BigInt(filtre.cursor) } } : null,
     filtre.kapsam === "benim" ? { kullanici_id: kullaniciId } : null,
     filtre.islem ? { islem: filtre.islem } : null,
@@ -153,7 +155,7 @@ export async function aktiviteKaynakTipleriGetir(
 ): Promise<string[]> {
   const baglam = await kapsamBaglamiHazirla(kullaniciId);
   const tipler = await db.aktiviteLogu.findMany({
-    where: kapsamWhere(baglam),
+    where: { AND: [kapsamWhere(baglam), aktiviteAkisiGorunurKaynakWhere()] },
     distinct: ["kaynak_tip"],
     select: { kaynak_tip: true },
     orderBy: { kaynak_tip: "asc" },

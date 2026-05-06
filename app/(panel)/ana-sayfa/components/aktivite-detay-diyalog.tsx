@@ -34,28 +34,32 @@ export function AktiviteDetayDiyalog({
   return (
     <ResponsiveDialog open onOpenChange={(o) => (o ? null : kapat())}>
       <ResponsiveDialogContent
-        className="flex max-h-[90vh] w-[calc(100vw-2rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:w-full"
+        className="flex max-h-[92vh] w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden p-0 sm:w-full sm:max-w-5xl xl:max-w-6xl"
         mobilTaraf="bottom"
       >
-        <ResponsiveDialogHeader className="flex-shrink-0 space-y-1 border-b px-6 py-4">
-          <ResponsiveDialogTitle className="flex items-center gap-2 text-base">
+        <ResponsiveDialogHeader className="bg-muted/20 flex-shrink-0 space-y-2 border-b px-5 py-4 sm:px-6">
+          <div className="flex items-start gap-3 pr-8">
             <span
               className={cn(
-                "inline-flex size-7 items-center justify-center rounded-full",
+                "mt-0.5 inline-flex size-9 shrink-0 items-center justify-center rounded-full",
                 kategoriArkaplan(kayit.kategori),
               )}
               aria-hidden
             >
-              <Ikon className="size-3.5" />
+              <Ikon className="size-4" />
             </span>
-            Aktivite detayı
-          </ResponsiveDialogTitle>
-          <ResponsiveDialogDescription className="text-muted-foreground text-[12px]">
-            Olayın tam dökümü — kim, ne, ne zaman ve hangi alanlar değişti.
-          </ResponsiveDialogDescription>
+            <div className="min-w-0">
+              <ResponsiveDialogTitle className="text-base">
+                Aktivite detayı
+              </ResponsiveDialogTitle>
+              <ResponsiveDialogDescription className="text-muted-foreground mt-1 text-[12px]">
+                Olayın tam dökümü, bağlamı ve alan bazlı değişiklikleri.
+              </ResponsiveDialogDescription>
+            </div>
+          </div>
         </ResponsiveDialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-6 py-4">
+        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
           <AktiviteDetayIcerik aktivite={kayit} kisiMap={BOS_KISI_MAP} />
         </div>
       </ResponsiveDialogContent>

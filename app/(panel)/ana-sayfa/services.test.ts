@@ -418,6 +418,35 @@ describe("sonAktiviteleriGetir", () => {
     expect(sonuc).toHaveLength(2);
   });
 
+  it("bildirim altyapısı kayıtlarını varsayılan akıştan gizler", async () => {
+    await adminDb.aktiviteLogu.createMany({
+      data: [
+        {
+          kullanici_id: ortam.personel.id,
+          islem: "UPDATE",
+          kaynak_tip: "Bildirim",
+          kaynak_id: null,
+        },
+        {
+          kullanici_id: ortam.personel.id,
+          islem: "CREATE",
+          kaynak_tip: "BildirimMailKuyrugu",
+          kaynak_id: null,
+        },
+        {
+          kullanici_id: ortam.personel.id,
+          islem: "CREATE",
+          kaynak_tip: "Proje",
+          kaynak_id: null,
+        },
+      ],
+    });
+
+    const sonuc = await sonAktiviteleriGetir(ortam.superAdmin.id);
+    expect(sonuc).toHaveLength(1);
+    expect(sonuc[0]!.kategori).toBe("proje");
+  });
+
   it("zaman'a göre azalan sıralar (en yeni önce)", async () => {
     const eski = new Date();
     eski.setHours(eski.getHours() - 2);

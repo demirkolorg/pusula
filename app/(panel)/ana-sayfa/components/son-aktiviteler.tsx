@@ -59,6 +59,56 @@ const ISLEM_ETIKETI: Record<SonAktiviteSatiri["islem"], string> = {
   DELETE: "Silme",
 };
 
+type MetinParcasi = {
+  metin: string;
+  vurgulu: boolean;
+};
+
+function vurguHedefleri(aktivite: SonAktiviteSatiri): string[] {
+  return [
+    aktivite.baglam?.proje?.ad,
+    aktivite.baglam?.liste?.ad,
+    aktivite.baglam?.kart?.baslik,
+  ]
+    .filter((deger): deger is string => Boolean(deger?.trim()))
+    .flatMap((deger) => [`'${deger}'`, deger])
+    .sort((a, b) => b.length - a.length);
+}
+
+function vurguluParcalaraAyir(
+  metin: string,
+  hedefler: readonly string[],
+): MetinParcasi[] {
+  if (hedefler.length === 0) return [{ metin, vurgulu: false }];
+  const parcalar: MetinParcasi[] = [];
+  let konum = 0;
+
+  while (konum < metin.length) {
+    let bulunan: { hedef: string; indeks: number } | null = null;
+    for (const hedef of hedefler) {
+      const indeks = metin.indexOf(hedef, konum);
+      if (indeks === -1) continue;
+      if (!bulunan || indeks < bulunan.indeks) bulunan = { hedef, indeks };
+    }
+
+    if (!bulunan) {
+      parcalar.push({ metin: metin.slice(konum), vurgulu: false });
+      break;
+    }
+
+    if (bulunan.indeks > konum) {
+      parcalar.push({
+        metin: metin.slice(konum, bulunan.indeks),
+        vurgulu: false,
+      });
+    }
+    parcalar.push({ metin: bulunan.hedef, vurgulu: true });
+    konum = bulunan.indeks + bulunan.hedef.length;
+  }
+
+  return parcalar;
+}
+
 export function SonAktiviteler({
   aktiviteler,
   denetimErisimi = false,
@@ -134,6 +184,10 @@ function AktiviteSatir({
   const Ikon = KATEGORI_IKON[aktivite.kategori];
   const kim = aktiviteKullaniciAdi(aktivite);
   const anlati = aktiviteAnlati(aktivite);
+  const anlatiParcalari = vurguluParcalaraAyir(
+    anlati.metin,
+    vurguHedefleri(aktivite),
+  );
 
   return (
     <li>
@@ -160,7 +214,15 @@ function AktiviteSatir({
 
         <div className="min-w-0 flex-1 space-y-1">
           <div className="text-foreground line-clamp-2 text-sm font-medium leading-5">
-            {anlati.metin}
+            {anlatiParcalari.map((parca, index) =>
+              parca.vurgulu ? (
+                <strong key={`${parca.metin}-${index}`} className="font-bold">
+                  {parca.metin}
+                </strong>
+              ) : (
+                <span key={`${parca.metin}-${index}`}>{parca.metin}</span>
+              ),
+            )}
           </div>
 
           {(aktivite.baglam?.proje || aktivite.baglam?.liste) && (
@@ -176,7 +238,9 @@ function AktiviteSatir({
             >
               {ISLEM_ETIKETI[aktivite.islem]}
             </span>
-            {aktivite.detay && <span className="line-clamp-1">{aktivite.detay}</span>}
+            {aktivite.detay && (
+              <span className="line-clamp-1">{aktivite.detay}</span>
+            )}
           </div>
         </div>
 
