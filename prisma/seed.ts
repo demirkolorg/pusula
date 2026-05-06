@@ -220,6 +220,7 @@ async function kartOlustur(args: {
   const aciklamaMetin = seed.aciklamaDokuman
     ? tiptapDokumaniMetne(seed.aciklamaDokuman)
     : seed.aciklama;
+  const tamamlandi = seed.tamamlandi === true;
   const kart = await db.kart.create({
     data: {
       liste_id: listeId,
@@ -230,8 +231,13 @@ async function kartOlustur(args: {
       sira,
       bitis: seed.bitis ?? null,
       baslangic: seed.baslangic ?? null,
-      kapak_renk: seed.tamamlandi ? "secondary" : "primary",
+      kapak_renk: tamamlandi ? "secondary" : "primary",
       olusturan_id: olusturanId,
+      // Kart bütün-tamamlandı işareti (Trello pattern). UI'da yetkili
+      // toggle'lar; seed'de örnek dağılım için doğrudan set ediyoruz.
+      tamamlandi_mi: tamamlandi,
+      tamamlanma_zamani: tamamlandi ? gunEkle(-2, 16) : null,
+      tamamlayan_id: tamamlandi ? olusturanId : null,
       arsiv_mi: seed.arsiv ?? false,
       arsiv_zamani: seed.arsiv ? gunEkle(-3, 17) : null,
     },
