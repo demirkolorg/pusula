@@ -4,10 +4,29 @@ import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { eylem, EylemHatasi } from "@/lib/action-wrapper";
-import { yetkiZorunlu, IZIN_KODLARI } from "@/lib/permissions";
+import { superAdminMi } from "@/lib/permissions";
 import { HATA_KODU } from "@/lib/sonuc";
 import { aramaBigIntIdleri } from "@/lib/arama";
 import { hataCozumSemasi, hataListeSemasi } from "./schemas";
+
+// ADR-0029: Hata logu RBAC sadece SUPER_ADMIN'e açıktır. `yetkiZorunlu`
+// makam wildcard'ı (`*`) üzerinden KAYMAKAM'ı da geçirdiği için doğrudan
+// rol kontrolü kullanılır (denetim/actions.ts ile aynı şablon).
+async function superAdminZorunlu(
+  kullaniciId: string | null | undefined,
+): Promise<void> {
+  if (!kullaniciId) {
+    throw new EylemHatasi("Oturum yok.", HATA_KODU.GIRIS_YOK);
+  }
+  if (!(await superAdminMi(kullaniciId))) {
+    throw new EylemHatasi(
+      "Bu işlem yalnızca süper yöneticiler içindir.",
+      HATA_KODU.YETKISIZ,
+      undefined,
+      "WARN",
+    );
+  }
+}
 
 export type HataSatiri = {
   id: string;
@@ -36,7 +55,7 @@ export const hataListele = eylem({
   ad: "hata-logu:liste",
   girdi: hataListeSemasi,
   calistir: async (girdi, ctx) => {
-    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.HATA_LOGU_OKU);
+    await superAdminZorunlu(ctx.oturum?.kullaniciId);
 
     const where: Prisma.HataLoguWhereInput = {};
     if (girdi.seviye) where.seviye = girdi.seviye;
@@ -115,10 +134,7 @@ export const hataCozumIsaretle = eylem({
   ad: "hata-logu:cozum",
   girdi: hataCozumSemasi,
   calistir: async (girdi, ctx) => {
-    await yetkiZorunlu(
-      ctx.oturum?.kullaniciId,
-      IZIN_KODLARI.HATA_LOGU_COZULDU_ISARETLE,
-    );
+    await superAdminZorunlu(ctx.oturum?.kullaniciId);
     const idBig = BigInt(girdi.id);
     if (Number.isNaN(Number(idBig))) {
       throw new EylemHatasi("Geçersiz kayıt.", HATA_KODU.GECERSIZ_GIRDI);

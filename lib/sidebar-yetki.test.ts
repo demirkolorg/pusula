@@ -11,7 +11,7 @@ import {
 const bosSet = new Set<string>();
 
 describe("sidebar-yetki — menuGorunurMu", () => {
-  it("makam (*) her menüyü görür", () => {
+  it("makam (*) — rol verilmediğinde tüm menüler görünür (geri uyumluluk)", () => {
     const izinler = new Set(["*"]);
     for (const kod of Object.values(MENU_KODLARI)) {
       expect(menuGorunurMu(kod, izinler)).toBe(true);
@@ -46,10 +46,17 @@ describe("sidebar-yetki — menuGorunurMu", () => {
     expect(menuGorunurMu(MENU_KODLARI.AYAR_DENETIM, izinler)).toBe(true);
   });
 
-  it("kaymakam wildcard ile aktiviteyi görür ama forensik denetimi görmez", () => {
+  it("kaymakam wildcard ile aktiviteyi görür ama forensik denetim ve hata logunu görmez (ADR-0027/0029)", () => {
     const sonuc = gorunurMenuKodlari(new Set(["*"]), ["KAYMAKAM"]);
     expect(sonuc).toContain(MENU_KODLARI.AKTIVITE_GUNLUGU);
     expect(sonuc).not.toContain(MENU_KODLARI.AYAR_DENETIM);
+    expect(sonuc).not.toContain(MENU_KODLARI.AYAR_HATA_LOGLARI);
+  });
+
+  it("super admin wildcard ile forensik denetim ve hata logunu da görür", () => {
+    const sonuc = gorunurMenuKodlari(new Set(["*"]), ["SUPER_ADMIN"]);
+    expect(sonuc).toContain(MENU_KODLARI.AYAR_DENETIM);
+    expect(sonuc).toContain(MENU_KODLARI.AYAR_HATA_LOGLARI);
   });
 
   it("Kullanıcılar menüsü 4 izinden herhangi biriyle görünür (OR)", () => {

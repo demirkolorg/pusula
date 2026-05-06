@@ -58,12 +58,40 @@ K1 sayfa görünürlüğünü ve action'ları RBAC üzerinden kapatır. Hata log
 
 Seed'in `RolIzni` upsert davranışı VARSAYILAN_ROL_IZINLERI değişiminde kaldırılan izinleri silip silmediği kontrol edilmeli; silmiyorsa manuel cleanup migration script'i gerekir. (Bu ADR sadece kararı kayıt altına alır; uygulama detayı tekrar yayın aşamasında doğrulanır.)
 
+## Düzeltme — 2026-05-06 (post-deploy hotfix)
+
+K3'ün varsayımı **yanlış çıktı**: `lib/permissions.ts#kullaniciIzinleriniAl` `makamRoluMu(rol)` koşulunda izin set'ine `"*"` ekliyor (Kural 50a — makam tüm birim verisine erişir). `izinVarMi` ve `menuGorunurMu` `"*"` varsa kısa devre `true` döndürdüğü için K1 sonrası KAYMAKAM rolü `HATA_LOGU_OKU` `RolIzni` satırı taşımıyor olsa bile sayfa, action'lar ve sidebar menüsü hâlâ ona görünüyordu. Bu, ADR-0027'nin `/ayarlar/denetim` için yaşadığı sorunla aynı.
+
+K3 ve K2 yerine geçen kararlar:
+
+### K3' — Sayfa rol kontrolüne geçer
+
+`app/(panel)/ayarlar/hata-loglari/page.tsx` `izinVarMi(kullaniciId, HATA_LOGU_OKU)` yerine `superAdminMi(kullaniciId)` kullanır. Yetkisiz mesajı "süper yönetici rolü gerekli" olarak güncellenir (denetim sayfasıyla tutarlı).
+
+### K2' — Action'lar `superAdminZorunlu` helper'ıyla korunur
+
+`actions.ts` içinde yerel `superAdminZorunlu(kullaniciId)` helper'ı eklenir (denetim/actions.ts şablonu): kullanıcı yoksa `GIRIS_YOK`, super-admin değilse `YETKISIZ` `EylemHatasi` fırlatılır. `hataListele` ve `hataCozumIsaretle` action'ları `yetkiZorunlu(...IZIN_KODLARI...)` çağrıları yerine bu helper'ı çağırır. K2'nin "doğru izinle koruma" bug fix'i artık konu dışı — iki action da aynı SUPER_ADMIN guard'ından geçer.
+
+### K3'' — Sidebar wildcard istisna listesi
+
+`lib/sidebar-yetki.ts` `menuGorunurMu` içinde `SADECE_SUPER_ADMIN_MENULERI = [AYAR_DENETIM, AYAR_HATA_LOGLARI]` listesi tanımlanır. `izinSeti.has("*")` durumunda bu liste içindeki menüler için `rolKodlari.includes(SUPER_ADMIN)` ek kontrolü uygulanır; aksi halde KAYMAKAM `*` üzerinden menüyü görüyor. `MENU_IZIN_HARITASI[AYAR_HATA_LOGLARI] = [HATA_LOGU_OKU]` haritası **korunur** — `"*"` taşımayan custom rol senaryoları için izin kataloğu tetiği geçerli kalır.
+
+### Korunmuş kararlar
+
+- K1 (varsayılan rol kataloğu temizliği) ve K4 (kaynak güvenliği) değişmez.
+- K5 (seed davranışı) gereği `bun run prisma/seed.ts` çalıştırıldığında `RolIzni` temizliği yine yapılır; ancak yeni kontrol katmanı seed çalıştırılmasa bile koruma sağlar (defansif RBAC, Kural 50/146).
+
+### Test güncellemesi
+
+`lib/sidebar-yetki.test.ts`:
+- "kaymakam wildcard ile aktiviteyi görür ama forensik denetimi görmez" testi `AYAR_HATA_LOGLARI` için de assertion ekledi.
+- Yeni test: "super admin wildcard ile forensik denetim ve hata logunu da görür" — kapsam farkını doğrular.
+
 ## Sonuç
 
-- KAYMAKAM rolü hata logu sayfasını ve action'larını artık görmez/çağıramaz.
+- KAYMAKAM rolü hata logu sayfasını, action'larını ve sidebar menüsünü artık görmez/çağıramaz — `*` wildcard'ı taşıyor olsa bile.
 - SUPER_ADMIN rolünde değişiklik yok — tüm CRUD (oku + çözüldü işaretle) erişimi devam eder.
-- `hataCozumIsaretle` doğru izinle korunur (RBAC tutarlılığı).
-- Sidebar menüsü otomatik gizlenir (ADR-0024 katmanı).
+- Koruma katmanları çoğaltıldı (page rol kontrolü + action helper + sidebar istisna listesi) — tek katmanın atlanması durumunda diğerleri yakalar.
 
 ## Alternatifler (reddedildi)
 

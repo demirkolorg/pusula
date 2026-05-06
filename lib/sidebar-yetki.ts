@@ -62,10 +62,20 @@ export const MENU_IZIN_HARITASI: Readonly<Record<MenuKodu, IzinGereksinimi>> = {
   [MENU_KODLARI.AYAR_HATA_LOGLARI]: [IZIN_KODLARI.HATA_LOGU_OKU],
 } as const;
 
+// ADR-0027 (denetim) ve ADR-0029 (hata logları) gereği makam wildcard'ı (`*`)
+// bu menüleri otomatik açmaz; sadece SUPER_ADMIN rolüne görünür. KAYMAKAM
+// rolü `*` izni taşısa bile forensik/teknik yüzeyleri göremez.
+const SADECE_SUPER_ADMIN_MENULERI: readonly MenuKodu[] = [
+  MENU_KODLARI.AYAR_DENETIM,
+  MENU_KODLARI.AYAR_HATA_LOGLARI,
+];
+
 /**
  * Tek bir menü öğesi verilen izin set'iyle görünür mü?
  *
- * - Makam (`*`) her şeyi görür (Kural 50a).
+ * - Makam (`*`) çoğu menüyü görür (Kural 50a). İstisna: forensik/teknik
+ *   yüzeyler (`SADECE_SUPER_ADMIN_MENULERI`) — bu menüler `*` taşısa bile
+ *   sadece SUPER_ADMIN rolüne açılır.
  * - `null` gereksinim → auth yeterli (her oturumlu kullanıcı görür).
  * - Aksi halde OR semantik: gereksinim listesindeki en az bir kodun
  *   genişletilmiş kümesi izin set'iyle kesişiyorsa görünür.
@@ -76,11 +86,13 @@ export function menuGorunurMu(
   rolKodlari: readonly string[] = [],
 ): boolean {
   if (izinSeti.has("*")) {
-    return (
-      kod !== MENU_KODLARI.AYAR_DENETIM ||
-      rolKodlari.length === 0 ||
-      rolKodlari.includes(ROL_KODLARI.SUPER_ADMIN)
-    );
+    if (SADECE_SUPER_ADMIN_MENULERI.includes(kod)) {
+      return (
+        rolKodlari.length === 0 ||
+        rolKodlari.includes(ROL_KODLARI.SUPER_ADMIN)
+      );
+    }
+    return true;
   }
   const gereksinim = MENU_IZIN_HARITASI[kod];
   if (gereksinim === null) return true;
