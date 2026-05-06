@@ -16,14 +16,31 @@ sürümlenebilir, etiketlenebilir, gizlilik seviyesine sahip olabilir
 
 ```
 app/(panel)/dosyalar/
-├── README.md           — bu dosya
-├── schemas.ts          — 18 Zod şeması (server action contract'ları)
-├── services.ts         — Prisma + business logic (yuklemeBaslat/onayla,
-│                          listele, detay, indir/onizle, metadata,
-│                          etiket, bağlantı, sürüm, sil/restore/purge)
-├── services.test.ts    — integration testler (10 senaryo)
-└── actions.ts          — 19 server action ("use server")
+├── README.md                            — bu dosya
+├── page.tsx                             — server component, SSR ilk sayfa
+├── schemas.ts                           — 18+ Zod şeması (action contract'ları)
+├── services.ts                          — Prisma + business logic
+├── services.test.ts                     — integration testler (10 senaryo)
+├── actions.ts                           — 19+ server action ("use server")
+├── helpers/
+│   ├── dosya-filtre.ts                  — URL params ↔ filtre + boyut format
+│   └── dosya-filtre.test.ts             — 21 unit test
+├── hooks/
+│   ├── kullan-dosya-listesi.ts          — useInfiniteQuery (cursor)
+│   ├── kullan-dosya-detay.ts            — useQuery
+│   └── kullan-dosya-mutasyonlari.ts     — 6 useOptimisticMutation
+└── components/
+    ├── dosyalar-istemci.tsx             — orchestrator (filtre + tablo + çekmece)
+    ├── dosya-filtre-cubugu.tsx          — debounced arama + select'ler
+    ├── dosya-tablo.tsx                  — desktop tablo (TanStack uyumlu)
+    ├── dosya-mobil-kart-listesi.tsx     — mobile kart liste
+    ├── dosya-detay-cekmecesi.tsx        — 4 sekmeli ResponsiveDialog
+    ├── dosya-onizleme-paneli.tsx        — tür bazlı render (görsel/PDF/text)
+    └── dosya-surum-listesi.tsx          — sürüm listesi + yeni sürüm yükleme
 ```
+
+E2E test: [`tests/e2e/dosyalar.e2e.ts`](../../../tests/e2e/dosyalar.e2e.ts) —
+3 viewport happy path (Kural 17).
 
 Bağımlı altyapı (F3 helper'ları):
 
@@ -133,11 +150,28 @@ Kapsam filtresi otomatik: makam değilse kullanıcının erişebildiği
 proje/liste/kart bağlantısı olan dosyalar + kendi yüklediği orphan
 dosyalar.
 
-## Sonraki Adımlar (F5+)
+## Faz Tamamlanma Durumu
 
-- **F5** — Kart eklenti UI'sı bu modüle geçer; eski `Eklenti` yazımı durur.
-- **F6** — Merkezi `/dosyalar` sayfası MVP (TanStack Query hook'lar + UI bileşenleri).
-- **F7** — Önizleme paneli + sürüm sekmesi.
-- **F8** — Çöp kutusu, global arama, aktivite, bildirim entegrasyonu.
-- **F9** — Toplu işlemler, CSV dışa aktarma.
-- **F10** — E2E test, dokümantasyon.
+| Faz | Durum | Çıktı |
+|---|---|---|
+| F0 | ✅ | ADR-0028 |
+| F1 | ✅ | Schema + 2 migration + 19 izin |
+| F2 | ✅ | Eklenti → Dosya idempotent backfill (`prisma/scripts/backfill-eklenti-dosya.ts`) |
+| F3 | ✅ | Storage + güvenlik + yetki + önizleme helper'ları (lib/dosya-*.ts) |
+| F4 | ✅ | Service + action katmanı (19 action, 18+ şema) |
+| F5 | ✅ | Kart eklenti UI compatibility wrapper |
+| F6 | ✅ | Merkezi `/dosyalar` sayfası MVP |
+| F7 | ✅ | Önizleme paneli + sürüm sekmesi (4 sekmeli detay çekmecesi) |
+| F8 | ✅ | Çöp kutusu Dosya tablosuna bağlandı + realtime sabitleri |
+| F8b | ✅ | Aktivite anlatı + bildirim tipleri + global arama |
+| F9 | ✅ | Bildirim tetikleyicileri (DOSYA_YUKLENDI/SILINDI/BAGLANDI) |
+| F10 | ✅ | E2E test (3 viewport) + bu README |
+
+## v2 Geliştirmeleri
+
+- **Office önizleme**: LibreOffice headless ile PDF conversion (Plan 12)
+- **Virüs taraması**: ClamAV servisi (`KARANTINA` durumu zaten F1'de hazır)
+- **Toplu işlemler**: Toplu sil/etiket/indir + CSV dışa aktarma
+- **Hash dedup**: Aynı binary 2. yüklenince UI uyarısı + bağlantı önerisi
+- **Kaynak tipleri**: YORUM, KONTROL_MADDESI, KULLANICI, BIRIM (enum'da rezerv)
+- **Markdown önizleme**: DOMPurify ile sanitize edilmiş HTML render
