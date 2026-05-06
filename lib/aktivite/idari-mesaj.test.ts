@@ -4,7 +4,9 @@ import type { HamAktivite } from "./tipler";
 
 function ham(parca: Partial<HamAktivite>): HamAktivite {
   return {
-    id: 1n,
+    // tsconfig target=ES2017 BigInt literal'i desteklemiyor; BigInt() global
+    // function lib:esnext üzerinden tip-uyumlu (runtime modern Node/Bun).
+    id: BigInt(1),
     zaman: new Date("2026-05-06T09:00:00.000Z"),
     kullanici_id: null,
     islem: "UPDATE",
