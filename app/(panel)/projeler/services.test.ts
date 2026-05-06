@@ -25,6 +25,8 @@ import {
   ortamKur,
   projeOlusturFiks,
   projeleriSeedle,
+  listeOlusturFiks,
+  kartOlusturFiks,
   type Ortam,
 } from "@/tests/fixtures/proje";
 import { truncateAll } from "@/tests/db/setup";
@@ -181,6 +183,80 @@ describe("projeleriListele", () => {
   }, 30_000);
 
   // Eski birim izolasyonu testi yetkilendirme modeliyle kapsam dışı kaldı.
+
+  it("yetkili_sayisi/birim_sayisi proje + liste + kart üzerindekilerin DISTINCT union'u", async () => {
+    // Kart üzerindeki rozet "bu projede aktif kim/hangi birim var" sorusuna
+    // cevap olmalı — sadece doğrudan projeye atananlar (alt küme) değil.
+    const proje = await projeOlusturFiks(adminDb, {
+      birimId: ortam.birim.id,
+      olusturanId: ortam.superAdmin.id,
+      ad: "Union Test",
+    });
+    const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
+    const kart = await kartOlusturFiks(adminDb, { listeId: liste.id });
+
+    // Üç farklı kişi: biri proje, biri liste, biri kart üzerinde
+    await adminDb.projeYetkilisi.create({
+      data: { proje_id: proje.id, kullanici_id: ortam.superAdmin.id },
+    });
+    await adminDb.listeYetkilisi.create({
+      data: { liste_id: liste.id, kullanici_id: ortam.personel.id },
+    });
+    await adminDb.kartYetkilisi.create({
+      data: { kart_id: kart.id, kullanici_id: ortam.digerKullanici.id },
+    });
+
+    // İki birim: biri proje (fixture ekledi), biri liste + kart (DISTINCT testi)
+    await adminDb.listeBirimi.create({
+      data: { liste_id: liste.id, birim_id: ortam.digerBirim.id },
+    });
+    await adminDb.kartBirimi.create({
+      data: { kart_id: kart.id, birim_id: ortam.digerBirim.id },
+    });
+
+    const sonuc = await projeleriListele(ortam.superAdmin.id, {
+      filtre: "aktif",
+    });
+    const p = sonuc.find((x) => x.id === proje.id);
+    expect(p).toBeDefined();
+    // 3 farklı kullanıcı (proje + liste + kart) DISTINCT
+    expect(p!.yetkili_sayisi).toBe(3);
+    // 2 farklı birim: ortam.birim (proje) + ortam.digerBirim (liste∪kart, DISTINCT)
+    expect(p!.birim_sayisi).toBe(2);
+  });
+
+  it("silinmiş kart üzerindeki yetkililer union'a girmez", async () => {
+    const proje = await projeOlusturFiks(adminDb, {
+      birimId: ortam.birim.id,
+      olusturanId: ortam.superAdmin.id,
+      ad: "Silinmiş Kart Testi",
+    });
+    const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
+    const aktifKart = await kartOlusturFiks(adminDb, { listeId: liste.id });
+    const silinmisKart = await kartOlusturFiks(adminDb, {
+      listeId: liste.id,
+      silindi_mi: true,
+    });
+
+    // Aktif karta personel, silinmiş karta digerKullanici
+    await adminDb.kartYetkilisi.create({
+      data: { kart_id: aktifKart.id, kullanici_id: ortam.personel.id },
+    });
+    await adminDb.kartYetkilisi.create({
+      data: {
+        kart_id: silinmisKart.id,
+        kullanici_id: ortam.digerKullanici.id,
+      },
+    });
+
+    const sonuc = await projeleriListele(ortam.superAdmin.id, {
+      filtre: "aktif",
+    });
+    const p = sonuc.find((x) => x.id === proje.id);
+    expect(p).toBeDefined();
+    // Sadece aktif karttaki personel sayılır; silinmiş kartın yetkilisi yok
+    expect(p!.yetkili_sayisi).toBe(1);
+  });
 });
 
 describe("projeOlustur", () => {

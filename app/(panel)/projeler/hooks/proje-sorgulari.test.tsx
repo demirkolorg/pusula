@@ -86,6 +86,12 @@ function ornek(p: Partial<ProjeKart> = {}): ProjeKart {
     sira: p.sira ?? "M",
     yetkili_sayisi: p.yetkili_sayisi ?? 1,
     liste_sayisi: p.liste_sayisi ?? 0,
+    birim_sayisi: p.birim_sayisi ?? 0,
+    kart_sayisi: p.kart_sayisi ?? 0,
+    tamamlanan_kart_sayisi: p.tamamlanan_kart_sayisi ?? 0,
+    madde_sayisi: p.madde_sayisi ?? 0,
+    tamamlanan_madde_sayisi: p.tamamlanan_madde_sayisi ?? 0,
+    olusturan: p.olusturan ?? null,
     olusturma_zamani: p.olusturma_zamani ?? new Date(),
   };
 }

@@ -67,6 +67,12 @@ export function useProjeOlustur(anahtar: ListeAnahtari) {
         sira: "zzz",
         yetkili_sayisi: 1,
         liste_sayisi: 0,
+        birim_sayisi: 0,
+        kart_sayisi: 0,
+        tamamlanan_kart_sayisi: 0,
+        madde_sayisi: 0,
+        tamamlanan_madde_sayisi: 0,
+        olusturan: null,
         olusturma_zamani: new Date(),
       };
       return [...liste, taslak];
@@ -169,6 +175,12 @@ export function useSablondanProjeOlustur(anahtar: ListeAnahtari) {
         sira: "zzz",
         yetkili_sayisi: 1,
         liste_sayisi: 0,
+        birim_sayisi: 0,
+        kart_sayisi: 0,
+        tamamlanan_kart_sayisi: 0,
+        madde_sayisi: 0,
+        tamamlanan_madde_sayisi: 0,
+        olusturan: null,
         olusturma_zamani: new Date(),
       };
       return [...liste, taslak];

@@ -51,22 +51,16 @@ export function ProjelerIstemci({ yetkili }: { yetkili: boolean }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap gap-1">
-          {SEKMELER.map((s) => (
-            <Button
-              key={s.kod}
-              type="button"
-              size="sm"
-              variant={filtre === s.kod ? "default" : "outline"}
-              onClick={() => setFiltre(s.kod)}
-            >
-              {s.etiket}
-            </Button>
-          ))}
+      {/* Tek satır başlık: solda title, sağda arama + Yeni Proje (mobilde sarmalı) */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold leading-tight">Projeler</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Tüm projelerinizi pano (Kanban) ya da liste görünümünde yönetin.
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 sm:w-64">
+        <div className="flex items-center gap-2 sm:shrink-0">
+          <div className="relative flex-1 sm:w-64 sm:flex-none">
             <Search className="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2" />
             <Input
               value={aramaInput}
@@ -83,6 +77,20 @@ export function ProjelerIstemci({ yetkili }: { yetkili: boolean }) {
             <Plus className="size-4" /> Yeni Proje
           </Button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap gap-1">
+        {SEKMELER.map((s) => (
+          <Button
+            key={s.kod}
+            type="button"
+            size="sm"
+            variant={filtre === s.kod ? "default" : "outline"}
+            onClick={() => setFiltre(s.kod)}
+          >
+            {s.etiket}
+          </Button>
+        ))}
       </div>
 
       {sorgu.isLoading ? (

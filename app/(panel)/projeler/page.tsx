@@ -14,12 +14,6 @@ export default async function ProjelerSayfasi() {
 
   return (
     <div className="flex flex-1 flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold">Projeler</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Tüm projelerinizi pano (Kanban) ya da liste görünümünde yönetin.
-        </p>
-      </div>
       <ProjelerIstemci yetkili={yetkili} />
     </div>
   );
