@@ -17,6 +17,7 @@ import {
   dosyaSurumYuklemeOnaylaSemasi,
   dosyaIndirSemasi,
   dosyaOnizlemeSemasi,
+  dosyaMetinIcerikSemasi,
   dosyaAdGuncelleSemasi,
   dosyaAciklamaGuncelleSemasi,
   dosyaGizlilikGuncelleSemasi,
@@ -38,6 +39,7 @@ import {
   surumYuklemeOnayla,
   indirUrl,
   onizlemeUrl,
+  metinIcerikGetir,
   adGuncelle,
   aciklamaGuncelle,
   gizlilikGuncelle,
@@ -136,6 +138,13 @@ export const dosyaOnizlemeEylem = eylem({
   girdi: dosyaOnizlemeSemasi,
   calistir: async (girdi, ctx) =>
     onizlemeUrl(kullaniciIdAl(ctx), girdi.id),
+});
+
+export const dosyaMetinIcerikEylem = eylem({
+  ad: "dosya:metin-icerik",
+  girdi: dosyaMetinIcerikSemasi,
+  calistir: async (girdi, ctx) =>
+    metinIcerikGetir(kullaniciIdAl(ctx), girdi.id),
 });
 
 export const dosyaAdGuncelleEylem = eylem({

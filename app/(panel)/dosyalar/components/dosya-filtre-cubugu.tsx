@@ -28,6 +28,10 @@ const KATEGORI_SECENEKLERI: Array<{ deger: string; etiket: string }> = [
   { deger: "DIGER", etiket: "Diğer" },
 ];
 
+const KATEGORI_ETIKETI: Record<string, string> = Object.fromEntries(
+  KATEGORI_SECENEKLERI.map((k) => [k.deger, k.etiket]),
+);
+
 const SIRALAMA_SECENEKLERI: Array<{ deger: string; etiket: string }> = [
   { deger: "yeni-eklenen", etiket: "Yeni eklenen" },
   { deger: "eski-eklenen", etiket: "Eski eklenen" },
@@ -37,6 +41,10 @@ const SIRALAMA_SECENEKLERI: Array<{ deger: string; etiket: string }> = [
   { deger: "boyut-asc", etiket: "Boyut (küçük → büyük)" },
   { deger: "son-indirme", etiket: "Son indirme" },
 ];
+
+const SIRALAMA_ETIKETI: Record<string, string> = Object.fromEntries(
+  SIRALAMA_SECENEKLERI.map((s) => [s.deger, s.etiket]),
+);
 
 const TUMU = "__tumu__";
 
@@ -88,7 +96,13 @@ export function DosyaFiltreCubugu({ filtre, onChange }: Props) {
           }
         >
           <SelectTrigger className="h-11 min-w-[140px]" aria-label="Tür filtresi">
-            <SelectValue placeholder="Tür" />
+            <SelectValue>
+              {(v) =>
+                v === TUMU || !v
+                  ? "Tüm türler"
+                  : (KATEGORI_ETIKETI[v as string] ?? "Tür")
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={TUMU}>Tüm türler</SelectItem>
@@ -110,7 +124,9 @@ export function DosyaFiltreCubugu({ filtre, onChange }: Props) {
           }
         >
           <SelectTrigger className="h-11 min-w-[160px]" aria-label="Sıralama">
-            <SelectValue placeholder="Sırala" />
+            <SelectValue>
+              {(v) => SIRALAMA_ETIKETI[v as string] ?? "Sırala"}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {SIRALAMA_SECENEKLERI.map((s) => (

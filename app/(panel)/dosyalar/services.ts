@@ -530,7 +530,73 @@ export async function dosyaDetay(kullaniciId: string, dosyaId: string) {
     },
   });
   if (!d) hata("Dosya bulunamadı.", "BULUNAMADI");
-  return d;
+
+  // Bağlı kaynak adlarını paralel çek — UI'da id yerine isim gösterilir.
+  const kartIdleri = Array.from(
+    new Set(d.baglantilar.filter((b) => b.kart_id).map((b) => b.kart_id!)),
+  );
+  const listeIdleri = Array.from(
+    new Set(d.baglantilar.filter((b) => b.liste_id).map((b) => b.liste_id!)),
+  );
+  const projeIdleri = Array.from(
+    new Set(d.baglantilar.filter((b) => b.proje_id).map((b) => b.proje_id!)),
+  );
+
+  const [kartlar, listeler, projeler] = await Promise.all([
+    kartIdleri.length
+      ? db.kart.findMany({
+          where: { id: { in: kartIdleri } },
+          select: { id: true, baslik: true, liste: { select: { proje_id: true } } },
+        })
+      : Promise.resolve([]),
+    listeIdleri.length
+      ? db.liste.findMany({
+          where: { id: { in: listeIdleri } },
+          select: { id: true, ad: true, proje_id: true },
+        })
+      : Promise.resolve([]),
+    projeIdleri.length
+      ? db.proje.findMany({
+          where: { id: { in: projeIdleri } },
+          select: { id: true, ad: true },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const kartMap = new Map(kartlar.map((k) => [k.id, k]));
+  const listeMap = new Map(listeler.map((l) => [l.id, l]));
+  const projeMap = new Map(projeler.map((p) => [p.id, p]));
+
+  const baglantilarZenginlestirilmis = d.baglantilar.map((b) => {
+    if (b.kaynak_tip === "KART" && b.kart_id) {
+      const k = kartMap.get(b.kart_id);
+      const projeId = k?.liste.proje_id ?? b.proje_id ?? null;
+      return {
+        ...b,
+        kaynak_ad: k?.baslik ?? "Silinmiş kart",
+        rota_proje_id: projeId,
+      };
+    }
+    if (b.kaynak_tip === "LISTE" && b.liste_id) {
+      const l = listeMap.get(b.liste_id);
+      return {
+        ...b,
+        kaynak_ad: l?.ad ?? "Silinmiş liste",
+        rota_proje_id: l?.proje_id ?? b.proje_id ?? null,
+      };
+    }
+    if (b.kaynak_tip === "PROJE" && b.proje_id) {
+      const p = projeMap.get(b.proje_id);
+      return {
+        ...b,
+        kaynak_ad: p?.ad ?? "Silinmiş proje",
+        rota_proje_id: p?.id ?? null,
+      };
+    }
+    return { ...b, kaynak_ad: null as string | null, rota_proje_id: null };
+  });
+
+  return { ...d!, baglantilar: baglantilarZenginlestirilmis };
 }
 
 // =====================================================================
@@ -875,6 +941,57 @@ export async function kaliciSil(
       // Orphan obje — periodik GC.
     }
   }
+}
+
+// =====================================================================
+// Metin önizleme — server-side fetch + boyut limiti
+// =====================================================================
+
+const METIN_ONIZLEME_MAKS_BYTE = 1024 * 1024; // 1MB
+
+export async function metinIcerikGetir(
+  kullaniciId: string,
+  dosyaId: string,
+): Promise<{ icerik: string; kesildi: boolean }> {
+  await yetkiZorunluDosya(kullaniciId, "dosya:preview", dosyaId);
+
+  const d = await db.dosya.findUnique({
+    where: { id: dosyaId },
+    select: {
+      mime: true,
+      boyut: true,
+      kategori: true,
+      durum: true,
+      silindi_mi: true,
+      depolama_yolu: true,
+    },
+  });
+  if (!d || d.silindi_mi) hata("Dosya bulunamadı.", "BULUNAMADI");
+  if (d.durum !== DosyaDurumu.HAZIR) hata("Dosya hazır değil.", "GECERSIZ_GIRDI");
+  if (d.kategori !== "METIN") {
+    hata("Bu dosya tipi metin önizleme desteklemez.", "GECERSIZ_GIRDI");
+  }
+
+  const url = await presignedDosyaDownload(d.depolama_yolu);
+  const yanit = await fetch(url);
+  if (!yanit.ok) {
+    hata("Dosya storage'dan okunamadı.", "BULUNAMADI");
+  }
+
+  // Boyut limiti — büyük log dosyalarını streamleme yerine truncate.
+  const buffer = await yanit.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  const kesildi = bytes.length > METIN_ONIZLEME_MAKS_BYTE;
+  const sinirli = kesildi
+    ? bytes.subarray(0, METIN_ONIZLEME_MAKS_BYTE)
+    : bytes;
+  const icerik = new TextDecoder("utf-8", { fatal: false }).decode(sinirli);
+
+  await db.dosyaErisimLogu.create({
+    data: { dosya_id: dosyaId, kullanici_id: kullaniciId, tip: "ONIZLEME" },
+  });
+
+  return { icerik, kesildi };
 }
 
 // =====================================================================

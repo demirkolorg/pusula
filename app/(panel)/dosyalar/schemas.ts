@@ -112,6 +112,9 @@ export type DosyaIndirGirdi = z.infer<typeof dosyaIndirSemasi>;
 export const dosyaOnizlemeSemasi = z.object({ id: uuid });
 export type DosyaOnizlemeGirdi = z.infer<typeof dosyaOnizlemeSemasi>;
 
+export const dosyaMetinIcerikSemasi = z.object({ id: uuid });
+export type DosyaMetinIcerikGirdi = z.infer<typeof dosyaMetinIcerikSemasi>;
+
 // ============================================================
 // Metadata güncelleme
 // ============================================================
