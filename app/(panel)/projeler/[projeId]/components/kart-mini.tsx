@@ -226,7 +226,7 @@ export function KartMini({
               draggable={false}
             />
           ) : kapakSinifi ? (
-            <div className={cn("-mx-2 -mt-2 mb-1 h-6 rounded-t-md", kapakSinifi)} />
+            <div className={cn("-mx-2 -mt-2 mb-1 h-3 rounded-t-md", kapakSinifi)} />
           ) : null}
           <div className="flex items-start gap-1.5">
             <KartTamamlaToggle
