@@ -24,6 +24,10 @@ vi.mock("../actions", () => ({
   projeSiralaEylem: vi.fn(),
 }));
 
+vi.mock("@/app/(panel)/ayarlar/sablonlar/sablondan-proje", () => ({
+  sablondanProjeOlusturEylem: vi.fn(),
+}));
+
 import {
   useProjeOlustur,
   useProjeGuncelle,

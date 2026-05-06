@@ -139,6 +139,8 @@ export const IZIN_KODLARI = {
   ROL_KULLANICIYA_ATA: "rol:kullaniciya-ata",
 
   // ─────────── DENETİM ───────────
+  AKTIVITE_OKU: "aktivite:oku",
+  AKTIVITE_DISA_AKTAR: "aktivite:disa-aktar",
   DENETIM_OKU: "audit:oku",
   DENETIM_DISA_AKTAR: "audit:disa-aktar",
   HATA_LOGU_OKU: "hata-logu:oku",
@@ -293,6 +295,8 @@ export const IZIN_KATEGORI: Partial<Record<IzinKodu, IzinKategorisi>> = {
   [IZIN_KODLARI.ROL_KULLANICIYA_ATA]: IzinKategorisi.ROL,
 
   // AUDIT
+  [IZIN_KODLARI.AKTIVITE_OKU]: IzinKategorisi.AUDIT,
+  [IZIN_KODLARI.AKTIVITE_DISA_AKTAR]: IzinKategorisi.AUDIT,
   [IZIN_KODLARI.DENETIM_OKU]: IzinKategorisi.AUDIT,
   [IZIN_KODLARI.DENETIM_DISA_AKTAR]: IzinKategorisi.AUDIT,
   [IZIN_KODLARI.HATA_LOGU_OKU]: IzinKategorisi.AUDIT,
@@ -822,14 +826,23 @@ export const IZIN_TANIMLARI: Partial<
   },
 
   // ─────────── DENETİM ───────────
-  [IZIN_KODLARI.DENETIM_OKU]: {
-    ad: "Denetim Logu Görüntüle",
+  [IZIN_KODLARI.AKTIVITE_OKU]: {
+    ad: "Aktivite Günlüğünü Görüntüle",
     aciklama:
-      "Sistem aktivite/değişiklik günlüğünü inceleme (kim/ne/ne zaman)",
+      "Yetki kapsamındaki operasyon aktivitelerini makam dostu akış olarak okuma",
+  },
+  [IZIN_KODLARI.AKTIVITE_DISA_AKTAR]: {
+    ad: "Aktivite Günlüğünü Dışa Aktar",
+    aciklama: "Yetki kapsamındaki aktivite akışını CSV olarak dışa aktarma",
+  },
+  [IZIN_KODLARI.DENETIM_OKU]: {
+    ad: "Forensik Denetim Logu Görüntüle",
+    aciklama:
+      "Ham audit kaydını IP, request kimliği, HTTP yolu ve JSON diff ile inceleme",
   },
   [IZIN_KODLARI.DENETIM_DISA_AKTAR]: {
-    ad: "Denetim Logunu Dışa Aktar",
-    aciklama: "Denetim logunu CSV/JSON olarak dışa aktarma",
+    ad: "Forensik Denetim Logunu Dışa Aktar",
+    aciklama: "Ham denetim logunu CSV/JSON olarak dışa aktarma",
   },
   [IZIN_KODLARI.HATA_LOGU_OKU]: {
     ad: "Hata Logu Görüntüle",
@@ -967,8 +980,8 @@ export const VARSAYILAN_ROL_IZINLERI: Record<string, IzinKodu[]> = {
     IZIN_KODLARI.ROL_COGALT,
     IZIN_KODLARI.ROL_SIL,
     IZIN_KODLARI.ROL_KULLANICIYA_ATA,
-    IZIN_KODLARI.DENETIM_OKU,
-    IZIN_KODLARI.DENETIM_DISA_AKTAR,
+    IZIN_KODLARI.AKTIVITE_OKU,
+    IZIN_KODLARI.AKTIVITE_DISA_AKTAR,
     IZIN_KODLARI.HATA_LOGU_OKU,
     IZIN_KODLARI.HATA_LOGU_COZULDU_ISARETLE,
   ],
@@ -992,6 +1005,10 @@ export const VARSAYILAN_ROL_IZINLERI: Record<string, IzinKodu[]> = {
     IZIN_KODLARI.KULLANICI_DAVET_GONDER,
     IZIN_KODLARI.KULLANICI_DAVET_IPTAL,
     IZIN_KODLARI.KULLANICI_DAVET_YENIDEN,
+    IZIN_KODLARI.AKTIVITE_OKU,
   ],
-  [ROL_KODLARI.PERSONEL]: PERSONEL_KART,
+  [ROL_KODLARI.PERSONEL]: [
+    ...PERSONEL_KART,
+    IZIN_KODLARI.AKTIVITE_OKU,
+  ],
 };

@@ -26,6 +26,7 @@ describe("sidebar-yetki — menuGorunurMu", () => {
   });
 
   it("izin gerektiren menü yetkisize gizlenir", () => {
+    expect(menuGorunurMu(MENU_KODLARI.AKTIVITE_GUNLUGU, bosSet)).toBe(false);
     expect(menuGorunurMu(MENU_KODLARI.AYAR_DENETIM, bosSet)).toBe(false);
     expect(menuGorunurMu(MENU_KODLARI.AYAR_HATA_LOGLARI, bosSet)).toBe(false);
     expect(menuGorunurMu(MENU_KODLARI.AYAR_ROLLER, bosSet)).toBe(false);
@@ -35,9 +36,20 @@ describe("sidebar-yetki — menuGorunurMu", () => {
   });
 
   it("ilgili izne sahipse menü görünür (atomic kod)", () => {
+    const izinler = new Set([IZIN_KODLARI.AKTIVITE_OKU]);
+    expect(menuGorunurMu(MENU_KODLARI.AKTIVITE_GUNLUGU, izinler)).toBe(true);
+    expect(menuGorunurMu(MENU_KODLARI.AYAR_HATA_LOGLARI, izinler)).toBe(false);
+  });
+
+  it("forensik denetim atomic kodla açılır", () => {
     const izinler = new Set([IZIN_KODLARI.DENETIM_OKU]);
     expect(menuGorunurMu(MENU_KODLARI.AYAR_DENETIM, izinler)).toBe(true);
-    expect(menuGorunurMu(MENU_KODLARI.AYAR_HATA_LOGLARI, izinler)).toBe(false);
+  });
+
+  it("kaymakam wildcard ile aktiviteyi görür ama forensik denetimi görmez", () => {
+    const sonuc = gorunurMenuKodlari(new Set(["*"]), ["KAYMAKAM"]);
+    expect(sonuc).toContain(MENU_KODLARI.AKTIVITE_GUNLUGU);
+    expect(sonuc).not.toContain(MENU_KODLARI.AYAR_DENETIM);
   });
 
   it("Kullanıcılar menüsü 4 izinden herhangi biriyle görünür (OR)", () => {
@@ -107,12 +119,13 @@ describe("sidebar-yetki — gorunurMenuKodlari", () => {
   it("kısmi yetkili sadece izinli + auth-only menüleri görür", () => {
     const izinler = new Set([
       IZIN_KODLARI.HATA_LOGU_OKU,
-      IZIN_KODLARI.DENETIM_OKU,
+      IZIN_KODLARI.AKTIVITE_OKU,
     ]);
     const sonuc = gorunurMenuKodlari(izinler);
-    expect(sonuc).toContain(MENU_KODLARI.AYAR_DENETIM);
+    expect(sonuc).toContain(MENU_KODLARI.AKTIVITE_GUNLUGU);
     expect(sonuc).toContain(MENU_KODLARI.AYAR_HATA_LOGLARI);
     expect(sonuc).toContain(MENU_KODLARI.PROJELER);
+    expect(sonuc).not.toContain(MENU_KODLARI.AYAR_DENETIM);
     expect(sonuc).not.toContain(MENU_KODLARI.AYAR_ROLLER);
     expect(sonuc).not.toContain(MENU_KODLARI.AYAR_BIRIMLER);
     expect(sonuc).not.toContain(MENU_KODLARI.AYAR_GENEL);

@@ -10,6 +10,7 @@ import {
   List as ListIcon,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { aktiviteAnlati } from "@/lib/aktivite/anlati";
 import { cn } from "@/lib/utils";
 import {
   KATEGORI_IKON,
@@ -78,10 +79,10 @@ export function SonAktiviteler({
           </CardTitle>
           {denetimErisimi && (
             <Link
-              href="/ayarlar/denetim"
+              href="/aktivite-gunlugu"
               className="text-muted-foreground hover:text-foreground inline-flex h-9 items-center gap-1 px-1 text-xs font-medium transition-colors"
             >
-              Tüm Denetim
+              Tüm Aktiviteler
               <ExternalLink className="size-3" />
             </Link>
           )}
@@ -132,6 +133,7 @@ function AktiviteSatir({
 }) {
   const Ikon = KATEGORI_IKON[aktivite.kategori];
   const kim = aktiviteKullaniciAdi(aktivite);
+  const anlati = aktiviteAnlati(aktivite);
 
   return (
     <li>
@@ -157,17 +159,14 @@ function AktiviteSatir({
         </span>
 
         <div className="min-w-0 flex-1 space-y-1">
-          {/* 1. SATIR (büyük & öne çıkan): Kaynak başlık (kart başlığı / liste adı / proje adı) */}
-          <div className="text-foreground line-clamp-1 text-sm font-semibold">
-            {kaynakBasligi(aktivite)}
+          <div className="text-foreground line-clamp-2 text-sm font-medium leading-5">
+            {anlati.metin}
           </div>
 
-          {/* 2. SATIR (bağlam zinciri): Proje › Liste */}
           {(aktivite.baglam?.proje || aktivite.baglam?.liste) && (
             <BaglamZinciri baglam={aktivite.baglam} />
           )}
 
-          {/* 3. SATIR (alt detay): işlem badge + mesaj + kim */}
           <div className="text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11.5px]">
             <span
               className={cn(
@@ -177,9 +176,7 @@ function AktiviteSatir({
             >
               {ISLEM_ETIKETI[aktivite.islem]}
             </span>
-            <span className="line-clamp-1">
-              <span className="font-medium">{kim}</span> {aktivite.mesaj}
-            </span>
+            {aktivite.detay && <span className="line-clamp-1">{aktivite.detay}</span>}
           </div>
         </div>
 
@@ -192,19 +189,6 @@ function AktiviteSatir({
   );
 }
 
-// 1. satırda gösterilen "ana başlık" — önem sırası: kart > liste > proje > detay > mesaj.
-// Kart aktivitesinde kart başlığı, liste aktivitesinde liste adı, proje
-// aktivitesinde proje adı dominant gösterilir.
-function kaynakBasligi(a: SonAktiviteSatiri): string {
-  if (a.baglam?.kart?.baslik) return a.baglam.kart.baslik;
-  if (a.baglam?.liste?.ad) return a.baglam.liste.ad;
-  if (a.baglam?.proje?.ad) return a.baglam.proje.ad;
-  if (a.detay) return a.detay;
-  // Son çare: mesaj
-  return a.mesaj;
-}
-
-// Proje › Liste zinciri — ikonlu, küçük puntolu chip görünümü.
 function BaglamZinciri({
   baglam,
 }: {

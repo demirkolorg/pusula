@@ -28,6 +28,11 @@ vi.mock("../actions", () => ({
   kartArsivEylem: vi.fn(),
 }));
 
+vi.mock("../../actions", () => ({
+  projeArsivleEylem: vi.fn(),
+  projeGuncelleEylem: vi.fn(),
+}));
+
 import {
   useProjeDetay,
   useProjeKartlari,

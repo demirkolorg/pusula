@@ -88,6 +88,8 @@ const TIP_IKON: Record<AramaTipi, LucideIcon> = {
   liste: ListIcon,
 };
 
+const BOS_SONUCLAR: AramaSonucu[] = [];
+
 // =====================================================================
 // Bileşen
 // =====================================================================
@@ -113,19 +115,6 @@ export function KomutPaleti() {
     return () => document.removeEventListener("keydown", dinleyici);
   }, []);
 
-  // Sorgu değişince sekmeyi sıfırla — kullanıcı yeni arama yaparken hepsi'ne dön.
-  useEffect(() => {
-    setAktifSekme("hepsi");
-  }, [sorgu]);
-
-  // Dialog kapanınca sorgu + sekme sıfırlanır.
-  useEffect(() => {
-    if (!acikMi) {
-      setSorgu("");
-      setAktifSekme("hepsi");
-    }
-  }, [acikMi]);
-
   // Ctrl+1..4 ile sekme geçişi (Altay'dan ilham — Pusula'da 4 sekme)
   useEffect(() => {
     if (!acikMi) return;
@@ -142,7 +131,7 @@ export function KomutPaleti() {
   }, [acikMi]);
 
   const { data, isFetching } = useGenelArama({ sorgu });
-  const sonuclar = data?.sonuclar ?? [];
+  const sonuclar = data?.sonuclar ?? BOS_SONUCLAR;
   const sureMs = data?.sureMs ?? 0;
   const toplam = sonuclar.length;
 
@@ -175,14 +164,27 @@ export function KomutPaleti() {
   const baslangic = sorgu.trim().length < 2;
 
   const sec = (sonuc: AramaSonucu) => {
-    setAcikMi(false);
+    paletAcikliginiDegistir(false);
     router.push(yonlendirmeUrl(sonuc));
+  };
+
+  const sorguDegisti = (deger: string) => {
+    setSorgu(deger);
+    setAktifSekme("hepsi");
+  };
+
+  const paletAcikliginiDegistir = (sonraki: boolean) => {
+    setAcikMi(sonraki);
+    if (!sonraki) {
+      setSorgu("");
+      setAktifSekme("hepsi");
+    }
   };
 
   return (
     <CommandDialog
       open={acikMi}
-      onOpenChange={setAcikMi}
+      onOpenChange={paletAcikliginiDegistir}
       title="Genel Arama"
       description="Kart, yorum, kullanıcı, proje ara"
       className="sm:max-w-[90vw] max-w-[calc(100%-2rem)] max-h-[92dvh] sm:max-h-[86vh]"
@@ -191,7 +193,7 @@ export function KomutPaleti() {
         <CommandInput
           placeholder="Ara… (Cmd/Ctrl+K • Cmd/Ctrl+Space)"
           value={sorgu}
-          onValueChange={setSorgu}
+          onValueChange={sorguDegisti}
         />
 
         {/* Sonuç sayacı + tab bar + süre */}
@@ -286,7 +288,8 @@ export function KomutPaleti() {
           {bos && (
             <CommandEmpty>
               <p>
-                "<span className="font-medium">{sorgu}</span>" için sonuç bulunamadı.
+                &quot;<span className="font-medium">{sorgu}</span>&quot; için
+                sonuç bulunamadı.
               </p>
               <p className="text-muted-foreground mt-1 text-xs">
                 Farklı bir kelime deneyin veya yazımı kontrol edin.

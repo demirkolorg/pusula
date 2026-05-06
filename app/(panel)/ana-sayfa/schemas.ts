@@ -59,7 +59,7 @@ export type BenimKartSatirim = z.infer<typeof benimKartSatirimSemasi>;
 // Ana sayfa "Son Aktiviteler" widget'ı, proje aktivite modülünün olgun
 // `AktiviteOzeti` tipini paylaşır (mesaj + diff + bağlam = aynı yapı).
 // Tek kaynaktan render ile UI tutarlılığı sağlanır (denetim/proje/ana sayfa).
-export type { AktiviteOzeti as SonAktiviteSatiri } from "@/app/(panel)/projeler/[projeId]/aktivite/services";
+export type { AktiviteOzeti as SonAktiviteSatiri } from "@/lib/aktivite/tipler";
 
 // Son ziyaret edilen proje satırı — ProjeZiyareti üzerinden çekilir.
 export const sonZiyaretProjeSatiriSemasi = z.object({

@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { db } from "./db";
 import { EylemHatasi } from "./action-wrapper";
 import { HATA_KODU } from "./sonuc";
-import { makamRoluMu } from "./roller";
+import { ROL_KODLARI, makamRoluMu } from "./roller";
 import { izinKoduGenislet } from "./permissions-eslesme";
 
 // ADR-0013/0014: izin kataloğu saf modüldedir; auth/db bağımlılığı yok.
@@ -125,6 +125,17 @@ export async function yetkiZorunlu(
       "WARN",
     );
   }
+}
+
+export async function superAdminMi(kullaniciId: string): Promise<boolean> {
+  const satir = await db.kullaniciRol.findFirst({
+    where: {
+      kullanici_id: kullaniciId,
+      rol: { kod: ROL_KODLARI.SUPER_ADMIN },
+    },
+    select: { kullanici_id: true },
+  });
+  return satir !== null;
 }
 
 export function rolKontrol(roller: string[], hedef: string | string[]): boolean {

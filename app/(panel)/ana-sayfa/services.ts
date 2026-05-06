@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { kullaniciErisimBilgisi } from "@/lib/yetki";
-import { zenginlestirVeOzetle } from "@/app/(panel)/projeler/[projeId]/aktivite/services";
+import { kapsamBaglamiHazirla, kapsamWhere, zenginlestirVeOzetle } from "@/lib/aktivite";
 import type {
   AnaSayfaMetrik,
   BenimKartSatirim,
@@ -285,24 +285,8 @@ export async function sonAktiviteleriGetir(
   kullaniciId: string,
   limit = 20,
 ): Promise<SonAktiviteSatiri[]> {
-  const projeIdler = await erisimliProjeIdleri(kullaniciId);
-
-  // Erişilen projelerin tüm alt kaynaklarını (kart, liste) audit
-  // satırlarıyla eşleştirmek pahalı; pragmatik yaklaşım: kullanıcı kendi
-  // aktivitesini ve makam'sa tüm kayıtları görür. Diğerleri için son
-  // kayıtları kaynak_tip=Proje + kaynak_id IN (erişilen) ile filtrele.
-  const kosul: Prisma.AktiviteLoguWhereInput =
-    projeIdler === null
-      ? {}
-      : {
-          OR: [
-            { kullanici_id: kullaniciId },
-            {
-              kaynak_tip: "Proje",
-              kaynak_id: { in: projeIdler },
-            },
-          ],
-        };
+  const baglam = await kapsamBaglamiHazirla(kullaniciId);
+  const kosul = kapsamWhere(baglam);
 
   // Ham audit kayıtlarını çek — `zenginlestirVeOzetle` user-friendly
   // `AktiviteOzeti[]` üretir (mesaj + alan diff'leri + proje/liste/kart bağlamı).

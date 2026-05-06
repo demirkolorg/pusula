@@ -147,6 +147,35 @@ export function DenetimIstemci() {
         ),
       },
       {
+        accessorKey: "http_yol",
+        header: "HTTP",
+        cell: ({ row }) => (
+          <span className="font-mono text-xs">
+            {[row.original.http_metod, row.original.http_yol]
+              .filter(Boolean)
+              .join(" ") || "—"}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "request_id",
+        header: "Request",
+        cell: ({ row }) => (
+          <span className="font-mono text-xs">
+            {row.original.request_id ?? "—"}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "sebep",
+        header: "Gerekçe",
+        cell: ({ row }) => (
+          <span className="line-clamp-1 text-xs">
+            {row.original.sebep ?? "—"}
+          </span>
+        ),
+      },
+      {
         id: "eylem",
         header: "",
         cell: ({ row }) => (
@@ -270,7 +299,8 @@ export function DenetimIstemci() {
               {s.kaynak_etiket ?? s.kaynak_tip}
             </span>
             <span className="text-muted-foreground text-xs">
-              {s.kullanici_ad ?? "Sistem"} · {s.ip ?? "—"}
+              {s.kullanici_ad ?? "Sistem"} · {s.ip ?? "—"} ·{" "}
+              {s.request_id ?? "request yok"}
             </span>
           </button>
         )}

@@ -55,7 +55,7 @@ export default async function PanelLayout({
       onay_durumu: true,
       roller: {
         select: {
-          rol: { select: { ad: true } },
+          rol: { select: { ad: true, kod: true } },
         },
       },
     },
@@ -72,9 +72,10 @@ export default async function PanelLayout({
 
   const adSoyad = `${kullanici.ad} ${kullanici.soyad}`;
   const rolAdlari = kullanici.roller.map((r) => r.rol.ad);
+  const rolKodlari = kullanici.roller.map((r) => r.rol.kod);
 
   const izinSeti = await kullaniciIzinleriniAl(kullaniciId);
-  const gorunurKodlar = gorunurMenuKodlari(izinSeti);
+  const gorunurKodlar = gorunurMenuKodlari(izinSeti, rolKodlari);
 
   return (
     <SidebarProvider>

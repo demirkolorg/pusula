@@ -196,6 +196,11 @@ function Baslik({ kayit }: { kayit: DenetimSatiri }) {
             {kayit.kaynak_etiket}
           </p>
         )}
+        {kayit.anlati && (
+          <p className="text-muted-foreground text-sm leading-6">
+            {kayit.anlati}
+          </p>
+        )}
         <DialogDescription className="sr-only">
           Denetim kaydı detayları
         </DialogDescription>
@@ -231,6 +236,30 @@ function Baslik({ kayit }: { kayit: DenetimSatiri }) {
             </span>
           }
         />
+        <MetaSatir
+          ikon={Hash}
+          etiket="Request"
+          deger={
+            <span className="font-mono text-xs">
+              {kayit.request_id ?? "—"}
+            </span>
+          }
+        />
+        <MetaSatir
+          ikon={Hash}
+          etiket="Oturum"
+          deger={
+            <span className="font-mono text-xs">{kayit.oturum_id ?? "—"}</span>
+          }
+        />
+        <MetaSatir
+          ikon={Globe}
+          etiket="User-Agent"
+          deger={
+            <span className="font-mono text-xs">{kayit.user_agent ?? "—"}</span>
+          }
+        />
+        <MetaSatir ikon={Hash} etiket="Gerekçe" deger={kayit.sebep ?? "—"} />
       </div>
     </DialogHeader>
   );

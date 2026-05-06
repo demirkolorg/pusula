@@ -8,6 +8,7 @@ import {
   mentionliMetniGorunurYap,
 } from "@/lib/mention-server";
 import type { MentionKisiMap } from "@/lib/mention-format";
+import { idariMesaj } from "@/lib/aktivite/idari-mesaj";
 import type {
   KartAktiviteleriListele,
   ProjeAktiviteleriListele,
@@ -897,6 +898,10 @@ function aktiviteOzetle(
     case "ListeBirimi":
       return { ...ortak, ...listeBirimiMesaji(a, islem, birimMap) };
     default:
+      {
+        const idari = idariMesaj(a, islem);
+        if (idari) return { ...ortak, ...idari };
+      }
       return {
         ...ortak,
         kategori: "diger",

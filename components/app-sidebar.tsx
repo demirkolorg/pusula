@@ -29,6 +29,7 @@ import {
   BellIcon,
   SettingsIcon,
   Trash2Icon,
+  ActivityIcon,
 } from "lucide-react";
 import { BekleyenOneriRozeti } from "@/app/(panel)/onaylar/components/bekleyen-oneri-rozeti";
 
@@ -49,6 +50,12 @@ const TUM_GRUPLAR: IcMenuGrup[] = [
         title: "Projeler",
         url: "/projeler",
         icon: <ListChecksIcon />,
+      },
+      {
+        kod: MENU_KODLARI.AKTIVITE_GUNLUGU,
+        title: "Aktivite Günlüğü",
+        url: "/aktivite-gunlugu",
+        icon: <ActivityIcon />,
       },
       {
         kod: MENU_KODLARI.ONAYLAR,
@@ -106,7 +113,7 @@ const TUM_GRUPLAR: IcMenuGrup[] = [
       },
       {
         kod: MENU_KODLARI.AYAR_DENETIM,
-        title: "Denetim",
+        title: "Denetim (Forensik)",
         url: "/ayarlar/denetim",
         icon: <ShieldCheckIcon />,
       },

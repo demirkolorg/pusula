@@ -2,10 +2,12 @@
 
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { eylem } from "@/lib/action-wrapper";
-import { yetkiZorunlu, IZIN_KODLARI } from "@/lib/permissions";
+import { eylem, EylemHatasi } from "@/lib/action-wrapper";
+import { superAdminMi } from "@/lib/permissions";
 import { aramaBigIntIdleri } from "@/lib/arama";
 import { kaynakEtiketleriOlustur } from "@/lib/audit-kaynak-etiket";
+import { aktiviteAnlati, zenginlestirVeOzetle } from "@/lib/aktivite";
+import { HATA_KODU } from "@/lib/sonuc";
 import { denetimListeSemasi } from "./schemas";
 
 export type DenetimSatiri = {
@@ -21,17 +23,35 @@ export type DenetimSatiri = {
   http_yol: string | null;
   http_metod: string | null;
   request_id: string | null;
+  sebep: string | null;
+  oturum_id: string | null;
+  user_agent: string | null;
+  anlati: string | null;
   diff: unknown;
   eski_veri: unknown;
   yeni_veri: unknown;
   meta: unknown;
 };
 
+async function superAdminZorunlu(kullaniciId: string | null | undefined): Promise<void> {
+  if (!kullaniciId) {
+    throw new EylemHatasi("Oturum yok.", HATA_KODU.GIRIS_YOK);
+  }
+  if (!(await superAdminMi(kullaniciId))) {
+    throw new EylemHatasi(
+      "Bu sayfa yalnızca süper yöneticiler içindir.",
+      HATA_KODU.YETKISIZ,
+      undefined,
+      "WARN",
+    );
+  }
+}
+
 export const denetimListele = eylem({
   ad: "denetim:liste",
   girdi: denetimListeSemasi,
   calistir: async (girdi, ctx) => {
-    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.DENETIM_OKU);
+    await superAdminZorunlu(ctx.oturum?.kullaniciId);
 
     const where: Prisma.AktiviteLoguWhereInput = {};
     if (girdi.islem) where.islem = girdi.islem;
@@ -82,6 +102,10 @@ export const denetimListele = eylem({
       kullanicilar.map((k) => [k.id, `${k.ad} ${k.soyad}`]),
     );
     const kaynakEtiketleri = await kaynakEtiketleriOlustur(satirlar);
+    const ozetler = await zenginlestirVeOzetle(satirlar);
+    const anlatiMap = new Map(
+      ozetler.map((ozet) => [ozet.id, aktiviteAnlati(ozet).metin]),
+    );
 
     const kayitlar: DenetimSatiri[] = satirlar.map((s, index) => ({
       id: s.id.toString(),
@@ -98,6 +122,10 @@ export const denetimListele = eylem({
       http_yol: s.http_yol,
       http_metod: s.http_metod,
       request_id: s.request_id,
+      sebep: s.sebep,
+      oturum_id: s.oturum_id,
+      user_agent: s.user_agent,
+      anlati: anlatiMap.get(s.id.toString()) ?? null,
       diff: s.diff,
       eski_veri: s.eski_veri,
       yeni_veri: s.yeni_veri,
@@ -111,7 +139,7 @@ export const denetimListele = eylem({
 export const kaynakTipleriniGetir = eylem({
   ad: "denetim:kaynak-tipleri",
   calistir: async (_g, ctx) => {
-    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.DENETIM_OKU);
+    await superAdminZorunlu(ctx.oturum?.kullaniciId);
     const tipler = await db.aktiviteLogu.findMany({
       distinct: ["kaynak_tip"],
       select: { kaynak_tip: true },

@@ -35,7 +35,7 @@ export default async function AnaSayfa() {
       benimAcikKartlarim(kullanici.id, 8),
       sonAktiviteleriGetir(kullanici.id, 25),
       sonZiyaretEdilenProjeleriGetir(kullanici.id, 6),
-      izinVarMi(kullanici.id, IZIN_KODLARI.DENETIM_OKU),
+      izinVarMi(kullanici.id, IZIN_KODLARI.AKTIVITE_OKU),
       makamKpisiniGetir(kullanici.id),
     ]);
 

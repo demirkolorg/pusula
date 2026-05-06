@@ -14,9 +14,11 @@
 
 import { IZIN_KODLARI } from "./permissions-katalog";
 import { izinKoduGenislet } from "./permissions-eslesme";
+import { ROL_KODLARI } from "./roller";
 
 export const MENU_KODLARI = {
   PROJELER: "projeler",
+  AKTIVITE_GUNLUGU: "aktivite-gunlugu",
   ONAYLAR: "onaylar",
   COP_KUTUSU: "cop-kutusu",
   AYAR_GENEL: "ayar.genel",
@@ -38,6 +40,7 @@ type IzinGereksinimi = readonly string[] | null;
 
 export const MENU_IZIN_HARITASI: Readonly<Record<MenuKodu, IzinGereksinimi>> = {
   [MENU_KODLARI.PROJELER]: null,
+  [MENU_KODLARI.AKTIVITE_GUNLUGU]: [IZIN_KODLARI.AKTIVITE_OKU],
   [MENU_KODLARI.ONAYLAR]: [IZIN_KODLARI.KART_TAMAMLA],
   [MENU_KODLARI.COP_KUTUSU]: null,
   [MENU_KODLARI.AYAR_GENEL]: [IZIN_KODLARI.AYAR_KURUM_DUZENLE],
@@ -68,8 +71,15 @@ export const MENU_IZIN_HARITASI: Readonly<Record<MenuKodu, IzinGereksinimi>> = {
 export function menuGorunurMu(
   kod: MenuKodu,
   izinSeti: ReadonlySet<string>,
+  rolKodlari: readonly string[] = [],
 ): boolean {
-  if (izinSeti.has("*")) return true;
+  if (izinSeti.has("*")) {
+    return (
+      kod !== MENU_KODLARI.AYAR_DENETIM ||
+      rolKodlari.length === 0 ||
+      rolKodlari.includes(ROL_KODLARI.SUPER_ADMIN)
+    );
+  }
   const gereksinim = MENU_IZIN_HARITASI[kod];
   if (gereksinim === null) return true;
   return gereksinim.some((izinKodu) => {
@@ -85,8 +95,9 @@ export function menuGorunurMu(
  */
 export function gorunurMenuKodlari(
   izinSeti: ReadonlySet<string>,
+  rolKodlari: readonly string[] = [],
 ): MenuKodu[] {
   return Object.values(MENU_KODLARI).filter((kod) =>
-    menuGorunurMu(kod, izinSeti),
+    menuGorunurMu(kod, izinSeti, rolKodlari),
   );
 }
