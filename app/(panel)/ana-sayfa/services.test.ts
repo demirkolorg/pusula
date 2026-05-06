@@ -13,6 +13,7 @@ vi.mock("@/auth", () => ({
 import {
   anaSayfaMetrikleriniGetir,
   benimAcikKartlarim,
+  makamKpisiniGetir,
   sonAktiviteleriGetir,
   sonZiyaretEdilenProjeleriGetir,
   _icDestek,
@@ -82,11 +83,12 @@ describe("buHaftaninBaslangici", () => {
 // ============================================================
 
 describe("anaSayfaMetrikleriniGetir", () => {
-  it("hiç kart yokken tüm metrikler sıfır döner", async () => {
+  it("hiç kart yokken tüm metrikler sıfır döner ve kapsam kişisel", async () => {
     const metrik = await anaSayfaMetrikleriniGetir(
       ortam.personel.id,
       ortam.personel.email,
     );
+    expect(metrik.kapsam).toBe("kisisel");
     expect(metrik.acikGorev).toBe(0);
     expect(metrik.geciken).toBe(0);
     expect(metrik.buHaftaBitenlerim).toBe(0);
@@ -94,6 +96,7 @@ describe("anaSayfaMetrikleriniGetir", () => {
     expect(metrik.buHaftaTakim).toBe(0);
     expect(metrik.bekleyenDavetGelen).toBe(0);
     expect(metrik.bekleyenDavetGiden).toBe(0);
+    expect(metrik.bekleyenDavetTum).toBe(0);
   });
 
   it("bana atanan açık kartları sayar", async () => {
@@ -506,5 +509,198 @@ describe("sonAktiviteleriGetir", () => {
 
     const sonuc = await sonAktiviteleriGetir(ortam.superAdmin.id);
     expect(sonuc[0]!.kullanici).toBeNull();
+  });
+});
+
+// ============================================================
+// ADR-0026 — Makam (kapsam: "sistem") senaryoları
+// ============================================================
+
+describe("anaSayfaMetrikleriniGetir — makam kapsamı", () => {
+  it("makam için kapsam 'sistem' olarak döner", async () => {
+    const metrik = await anaSayfaMetrikleriniGetir(
+      ortam.superAdmin.id,
+      ortam.superAdmin.email,
+    );
+    expect(metrik.kapsam).toBe("sistem");
+  });
+
+  it("makam: kart yetkilisi olmasa bile sistemdeki tüm açık kartları sayar", async () => {
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+    const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
+    // 3 kart oluştur — hiçbiri superAdmin'e atanmadı.
+    await kartOlusturFiks(adminDb, { listeId: liste.id });
+    await kartOlusturFiks(adminDb, { listeId: liste.id });
+    await kartOlusturFiks(adminDb, { listeId: liste.id });
+
+    const metrik = await anaSayfaMetrikleriniGetir(
+      ortam.superAdmin.id,
+      ortam.superAdmin.email,
+    );
+    expect(metrik.kapsam).toBe("sistem");
+    expect(metrik.acikGorev).toBe(3);
+  });
+
+  it("makam: bitiş tarihi geçmiş tüm kartları geciken olarak sayar", async () => {
+    const proje = await projeOlusturFiks(adminDb, { birimId: ortam.birim.id });
+    const liste = await listeOlusturFiks(adminDb, { projeId: proje.id });
+    const dun = new Date();
+    dun.setDate(dun.getDate() - 1);
+    await kartOlusturFiks(adminDb, { listeId: liste.id, bitis: dun });
+    await kartOlusturFiks(adminDb, { listeId: liste.id, bitis: dun });
+    await kartOlusturFiks(adminDb, { listeId: liste.id }); // bitiş yok
+
+    const metrik = await anaSayfaMetrikleriniGetir(
+      ortam.superAdmin.id,
+      ortam.superAdmin.email,
+    );
+    expect(metrik.geciken).toBe(2);
+  });
+
+  it("makam: bekleyenDavetTum tüm aktif davetleri sayar, gelen/giden 0 döner", async () => {
+    const sonKullanma = new Date();
+    sonKullanma.setDate(sonKullanma.getDate() + 7);
+    await adminDb.davetTokeni.createMany({
+      data: [
+        {
+          token: "m1",
+          email: "x@test.local",
+          davet_eden_id: ortam.personel.id,
+          son_kullanma: sonKullanma,
+        },
+        {
+          token: "m2",
+          email: "y@test.local",
+          davet_eden_id: ortam.personel.id,
+          son_kullanma: sonKullanma,
+        },
+      ],
+    });
+
+    const metrik = await anaSayfaMetrikleriniGetir(
+      ortam.superAdmin.id,
+      ortam.superAdmin.email,
+    );
+    expect(metrik.bekleyenDavetTum).toBe(2);
+    expect(metrik.bekleyenDavetGelen).toBe(0);
+    expect(metrik.bekleyenDavetGiden).toBe(0);
+  });
+
+  it("kişisel: bekleyenDavetTum gelen+giden toplamı olarak gelir", async () => {
+    const sonKullanma = new Date();
+    sonKullanma.setDate(sonKullanma.getDate() + 7);
+    await adminDb.davetTokeni.createMany({
+      data: [
+        {
+          token: "k1",
+          email: ortam.personel.email,
+          davet_eden_id: ortam.superAdmin.id,
+          son_kullanma: sonKullanma,
+        },
+        {
+          token: "k2",
+          email: "yeni@test.local",
+          davet_eden_id: ortam.personel.id,
+          son_kullanma: sonKullanma,
+        },
+      ],
+    });
+
+    const metrik = await anaSayfaMetrikleriniGetir(
+      ortam.personel.id,
+      ortam.personel.email,
+    );
+    expect(metrik.bekleyenDavetGelen).toBe(1);
+    expect(metrik.bekleyenDavetGiden).toBe(1);
+    expect(metrik.bekleyenDavetTum).toBe(2);
+  });
+});
+
+// ============================================================
+// ADR-0026 — makamKpisiniGetir
+// ============================================================
+
+describe("makamKpisiniGetir", () => {
+  it("non-makam kullanıcı için null döner", async () => {
+    const sonuc = await makamKpisiniGetir(ortam.personel.id);
+    expect(sonuc).toBeNull();
+  });
+
+  it("makam: aktif proje sayısı silinmemiş projeleri döndürür", async () => {
+    await projeOlusturFiks(adminDb, { birimId: ortam.birim.id, ad: "P1" });
+    await projeOlusturFiks(adminDb, { birimId: ortam.birim.id, ad: "P2" });
+    await projeOlusturFiks(adminDb, {
+      birimId: ortam.birim.id,
+      ad: "Silinmis",
+      silindi_mi: true,
+    });
+
+    const sonuc = await makamKpisiniGetir(ortam.superAdmin.id);
+    expect(sonuc).not.toBeNull();
+    expect(sonuc!.aktifProje).toBe(2);
+  });
+
+  it("makam: aktifKullaniciSon7Gun son 7 günde giriş yapanları sayar", async () => {
+    const dun = new Date();
+    dun.setDate(dun.getDate() - 1);
+    const onGunOnce = new Date();
+    onGunOnce.setDate(onGunOnce.getDate() - 10);
+
+    // Personel dün giriş yaptı.
+    await adminDb.kullanici.update({
+      where: { id: ortam.personel.id },
+      data: { son_giris_zamani: dun },
+    });
+    // digerKullanici 10 gün önce — sınırın dışı.
+    await adminDb.kullanici.update({
+      where: { id: ortam.digerKullanici.id },
+      data: { son_giris_zamani: onGunOnce },
+    });
+
+    const sonuc = await makamKpisiniGetir(ortam.superAdmin.id);
+    expect(sonuc!.aktifKullaniciSon7Gun).toBe(1);
+  });
+
+  it("makam: onayBekleyenKullanici BEKLIYOR durumundakileri sayar", async () => {
+    await adminDb.kullanici.create({
+      data: {
+        email: "bekleyen@test.local",
+        parola_hash: "x",
+        ad: "B",
+        soyad: "K",
+        onay_durumu: "BEKLIYOR",
+      },
+    });
+
+    const sonuc = await makamKpisiniGetir(ortam.superAdmin.id);
+    expect(sonuc!.onayBekleyenKullanici).toBe(1);
+  });
+
+  it("makam: kritikHataSon24Sa FATAL/ERROR + çözülmemişleri sayar", async () => {
+    const simdi = new Date();
+    const otuzSaatOnce = new Date(simdi);
+    otuzSaatOnce.setHours(otuzSaatOnce.getHours() - 30);
+
+    await adminDb.hataLogu.createMany({
+      data: [
+        { seviye: "FATAL", taraf: "server", mesaj: "f1", cozuldu_mu: false },
+        { seviye: "ERROR", taraf: "server", mesaj: "e1", cozuldu_mu: false },
+        // Çözülmüş — sayılmamalı
+        { seviye: "ERROR", taraf: "server", mesaj: "e2", cozuldu_mu: true },
+        // WARN — sayılmamalı
+        { seviye: "WARN", taraf: "server", mesaj: "w1", cozuldu_mu: false },
+        // 30 saat önce — sayılmamalı
+        {
+          seviye: "ERROR",
+          taraf: "server",
+          mesaj: "eski",
+          cozuldu_mu: false,
+          zaman: otuzSaatOnce,
+        },
+      ],
+    });
+
+    const sonuc = await makamKpisiniGetir(ortam.superAdmin.id);
+    expect(sonuc!.kritikHataSon24Sa).toBe(2);
   });
 });

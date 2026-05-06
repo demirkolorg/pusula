@@ -5,6 +5,7 @@ import { zenginlestirVeOzetle } from "@/app/(panel)/projeler/[projeId]/aktivite/
 import type {
   AnaSayfaMetrik,
   BenimKartSatirim,
+  MakamKpi,
   SonAktiviteSatiri,
   SonZiyaretProjeSatiri,
 } from "./schemas";
@@ -73,7 +74,20 @@ export async function anaSayfaMetrikleriniGetir(
 ): Promise<AnaSayfaMetrik> {
   const haftaBasi = buHaftaninBaslangici();
   const simdi = new Date();
+  const erisim = await kullaniciErisimBilgisi(kullaniciId);
 
+  // ADR-0026 — makam (KAYMAKAM/SUPER_ADMIN) için sayımlar sistem geneli;
+  // kişisel modda kart yetkisi + email/davet_eden_id filtreleri uygulanır.
+  if (erisim.makam) return makamMetrikleri(haftaBasi, simdi);
+  return kisiselMetrikler(kullaniciId, email, haftaBasi, simdi);
+}
+
+async function kisiselMetrikler(
+  kullaniciId: string,
+  email: string,
+  haftaBasi: Date,
+  simdi: Date,
+): Promise<AnaSayfaMetrik> {
   const benimAcikKartFiltre: Prisma.KartWhereInput = {
     silindi_mi: false,
     arsiv_mi: false,
@@ -128,6 +142,7 @@ export async function anaSayfaMetrikleriniGetir(
   ]);
 
   return {
+    kapsam: "kisisel",
     acikGorev,
     geciken,
     buHaftaBitenlerim,
@@ -135,6 +150,50 @@ export async function anaSayfaMetrikleriniGetir(
     buHaftaTakim,
     bekleyenDavetGelen,
     bekleyenDavetGiden,
+    bekleyenDavetTum: bekleyenDavetGelen + bekleyenDavetGiden,
+  };
+}
+
+// Sistem ölçeği: kart yetkilisi filtresi yok, davet'te gelen/giden ayrımı
+// yok (makam zaten tüm sistemi yönetir, ayrım anlamsız). Bu hafta sayıları
+// sadece "Takım" satırını besler; kişisel "Sen/bana atanan" alanları 0 döner.
+async function makamMetrikleri(
+  haftaBasi: Date,
+  simdi: Date,
+): Promise<AnaSayfaMetrik> {
+  const sistemAcikKartFiltre: Prisma.KartWhereInput = {
+    silindi_mi: false,
+    arsiv_mi: false,
+    tamamlandi_mi: false,
+  };
+
+  const [acikGorev, geciken, buHaftaTakim, bekleyenDavetTum] = await Promise.all([
+    db.kart.count({ where: sistemAcikKartFiltre }),
+    db.kart.count({
+      where: { ...sistemAcikKartFiltre, bitis: { lt: simdi, not: null } },
+    }),
+    db.kart.count({
+      where: {
+        silindi_mi: false,
+        tamamlandi_mi: true,
+        tamamlanma_zamani: { gte: haftaBasi },
+      },
+    }),
+    db.davetTokeni.count({
+      where: { kullanildi_mi: false, son_kullanma: { gt: simdi } },
+    }),
+  ]);
+
+  return {
+    kapsam: "sistem",
+    acikGorev,
+    geciken,
+    buHaftaBitenlerim: 0,
+    buHaftaTamamladiklarim: 0,
+    buHaftaTakim,
+    bekleyenDavetGelen: 0,
+    bekleyenDavetGiden: 0,
+    bekleyenDavetTum,
   };
 }
 
@@ -305,6 +364,59 @@ export async function sonZiyaretEdilenProjeleriGetir(
     kapak_ikon: z.proje.kapak_ikon,
     yildizli_mi: z.proje.yildizli_mi,
   }));
+}
+
+// ============================================================
+// Makam KPI şeridi (ADR-0026) — sadece SUPER_ADMIN/KAYMAKAM
+// ============================================================
+
+// Non-makam için null döner; page.tsx mount kararını buna göre verir.
+// Yetki kontrolü servis seviyesinde — UI sadece görünür çıkmasın diye değil,
+// veri sızmasın diye de kapatır.
+export async function makamKpisiniGetir(
+  kullaniciId: string,
+): Promise<MakamKpi | null> {
+  const erisim = await kullaniciErisimBilgisi(kullaniciId);
+  if (!erisim.makam) return null;
+
+  const simdi = new Date();
+  const yediGunOnce = new Date(simdi);
+  yediGunOnce.setDate(yediGunOnce.getDate() - 7);
+  const yirmiDortSaatOnce = new Date(simdi);
+  yirmiDortSaatOnce.setHours(yirmiDortSaatOnce.getHours() - 24);
+
+  const [
+    aktifProje,
+    aktifKullaniciSon7Gun,
+    onayBekleyenKullanici,
+    kritikHataSon24Sa,
+  ] = await Promise.all([
+    db.proje.count({ where: { silindi_mi: false } }),
+    db.kullanici.count({
+      where: {
+        silindi_mi: false,
+        aktif: true,
+        son_giris_zamani: { gte: yediGunOnce },
+      },
+    }),
+    db.kullanici.count({
+      where: { silindi_mi: false, onay_durumu: "BEKLIYOR" },
+    }),
+    db.hataLogu.count({
+      where: {
+        zaman: { gte: yirmiDortSaatOnce },
+        seviye: { in: ["FATAL", "ERROR"] },
+        cozuldu_mu: false,
+      },
+    }),
+  ]);
+
+  return {
+    aktifProje,
+    aktifKullaniciSon7Gun,
+    onayBekleyenKullanici,
+    kritikHataSon24Sa,
+  };
 }
 
 // Test edilebilir helper'lar dışarıya açık.

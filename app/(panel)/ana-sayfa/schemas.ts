@@ -2,17 +2,39 @@ import { z } from "zod";
 
 // Ana sayfa metrik kartları için sayısal özet.
 // Zod ile çıkarılan tip; service fonksiyonları bu şekli garanti eder.
+//
+// ADR-0026 — kapsam alanı kullanıcının yetki ölçeğini taşır:
+//   "kisisel" → PERSONEL + BIRIM_AMIRI: kart yetkilisi olduğu işler
+//   "sistem"  → KAYMAKAM + SUPER_ADMIN: makam, sistemin tamamı
+// UI başlık/altyazıyı bu bayrağa göre seçer; servis ise count where
+// kümesini bu ayrıma göre kurar.
 export const anaSayfaMetrikSemasi = z.object({
+  kapsam: z.enum(["kisisel", "sistem"]),
   acikGorev: z.number().int().min(0),
   geciken: z.number().int().min(0),
   buHaftaBitenlerim: z.number().int().min(0),
   buHaftaTamamladiklarim: z.number().int().min(0),
   buHaftaTakim: z.number().int().min(0),
+  // Kişisel: bana gelen / ben gönderdim ayrımı taşınır.
+  // Sistem: aktif davet sayısı tek alan olarak (tum) gösterilir; gelen/giden
+  // alanları o modda 0 döner.
   bekleyenDavetGelen: z.number().int().min(0),
   bekleyenDavetGiden: z.number().int().min(0),
+  bekleyenDavetTum: z.number().int().min(0),
 });
 
 export type AnaSayfaMetrik = z.infer<typeof anaSayfaMetrikSemasi>;
+
+// ADR-0026 — Makam KPI şeridi. Sadece SUPER_ADMIN/KAYMAKAM görür; service
+// non-makam için null döner, page.tsx mount kararını buna göre verir.
+export const makamKpiSemasi = z.object({
+  aktifProje: z.number().int().min(0),
+  aktifKullaniciSon7Gun: z.number().int().min(0),
+  onayBekleyenKullanici: z.number().int().min(0),
+  kritikHataSon24Sa: z.number().int().min(0),
+});
+
+export type MakamKpi = z.infer<typeof makamKpiSemasi>;
 
 // Bana atanan kart satırı — kart modal'ı açabilmek için projeId/listeId taşır.
 export const benimKartSatirimSemasi = z.object({
