@@ -6,7 +6,6 @@ import Link from "next/link";
 
 import { PusulaLogo } from "@/components/branding";
 import { NavMain, type NavGroup } from "@/components/nav-main";
-import { NavProjects } from "@/components/nav-projects";
 import {
   Sidebar,
   SidebarContent,
@@ -17,6 +16,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { useKurumAyariStore } from "@/lib/stores/kurum-ayari-store";
+import { MENU_KODLARI, type MenuKodu } from "@/lib/sidebar-yetki";
 import {
   ListChecksIcon,
   ShieldCheckIcon,
@@ -25,8 +25,6 @@ import {
   Layers3Icon,
   UsersIcon,
   KeyRoundIcon,
-  TagsIcon,
-  ScrollTextIcon,
   AlertTriangleIcon,
   BellIcon,
   SettingsIcon,
@@ -34,52 +32,92 @@ import {
 } from "lucide-react";
 import { BekleyenOneriRozeti } from "@/app/(panel)/onaylar/components/bekleyen-oneri-rozeti";
 
-const navGroups: NavGroup[] = [
+// ADR-0020 — Sidebar RBAC: tanım ve görünürlük ayrı.
+// Tüm menü öğeleri burada tanımlı; `gorunurKodlar` prop'una göre filtrelenir.
+// İzin haritası saf modülde (`lib/sidebar-yetki.ts`); buradaki `kod` alanı
+// item'ı haritayla eşleştirir.
+
+type IcMenuItem = NavGroup["items"][number] & { kod: MenuKodu };
+type IcMenuGrup = { label: string; items: IcMenuItem[] };
+
+const TUM_GRUPLAR: IcMenuGrup[] = [
   {
     label: "Projeler",
     items: [
-      { title: "Projeler", url: "/projeler", icon: <ListChecksIcon /> },
-      // ADR-0019/PR-3 — Tamamlama Onayları sayfası KART_TAMAMLA izinli
-      // kullanıcılara açık. Yetki yoksa rozet boş döner ve görünmez kalır;
-      // sayfa server-side redirect ile koruyor.
       {
+        kod: MENU_KODLARI.PROJELER,
+        title: "Projeler",
+        url: "/projeler",
+        icon: <ListChecksIcon />,
+      },
+      {
+        kod: MENU_KODLARI.ONAYLAR,
         title: "Tamamlama Onayları",
         url: "/onaylar",
         icon: <ClipboardCheckIcon />,
         badge: <BekleyenOneriRozeti />,
       },
-      { title: "Çöp Kutusu", url: "/cop-kutusu", icon: <Trash2Icon /> },
+      {
+        kod: MENU_KODLARI.COP_KUTUSU,
+        title: "Çöp Kutusu",
+        url: "/cop-kutusu",
+        icon: <Trash2Icon />,
+      },
     ],
   },
   {
     label: "Ayarlar",
     items: [
-      { title: "Genel", url: "/ayarlar/genel", icon: <SettingsIcon /> },
       {
+        kod: MENU_KODLARI.AYAR_GENEL,
+        title: "Genel",
+        url: "/ayarlar/genel",
+        icon: <SettingsIcon />,
+      },
+      {
+        kod: MENU_KODLARI.AYAR_BILDIRIMLER,
         title: "Bildirim Ayarları",
         url: "/ayarlar/bildirimler",
         icon: <BellIcon />,
       },
-      { title: "Birimler", url: "/ayarlar/birimler", icon: <Building2Icon /> },
       {
+        kod: MENU_KODLARI.AYAR_BIRIMLER,
+        title: "Birimler",
+        url: "/ayarlar/birimler",
+        icon: <Building2Icon />,
+      },
+      {
+        kod: MENU_KODLARI.AYAR_KULLANICILAR,
         title: "Kullanıcılar",
         url: "/ayarlar/kullanicilar",
         icon: <UsersIcon />,
       },
       {
+        kod: MENU_KODLARI.AYAR_ONAY_BEKLEYENLER,
         title: "Onay Bekleyenler",
         url: "/ayarlar/onay-bekleyenler",
         icon: <Layers3Icon />,
       },
-      { title: "Roller", url: "/ayarlar/roller", icon: <KeyRoundIcon /> },
-      { title: "Etiketler", url: "/ayarlar/etiketler", icon: <TagsIcon /> },
-      { title: "Şablonlar", url: "/ayarlar/sablonlar", icon: <Layers3Icon /> },
       {
+        kod: MENU_KODLARI.AYAR_ROLLER,
+        title: "Roller",
+        url: "/ayarlar/roller",
+        icon: <KeyRoundIcon />,
+      },
+      {
+        kod: MENU_KODLARI.AYAR_SABLONLAR,
+        title: "Şablonlar",
+        url: "/ayarlar/sablonlar",
+        icon: <Layers3Icon />,
+      },
+      {
+        kod: MENU_KODLARI.AYAR_DENETIM,
         title: "Denetim",
         url: "/ayarlar/denetim",
         icon: <ShieldCheckIcon />,
       },
       {
+        kod: MENU_KODLARI.AYAR_HATA_LOGLARI,
         title: "Hata Logları",
         url: "/ayarlar/hata-loglari",
         icon: <AlertTriangleIcon />,
@@ -88,22 +126,33 @@ const navGroups: NavGroup[] = [
   },
 ];
 
-const projects = [
-  {
-    name: "Yönetim",
-    url: "/ayarlar/kullanicilar",
-    icon: <UsersIcon />,
-  },
-  {
-    name: "Denetim",
-    url: "/ayarlar/denetim",
-    icon: <ScrollTextIcon />,
-  },
-];
+function gruplariFiltrele(
+  gorunurSet: ReadonlySet<MenuKodu>,
+): NavGroup[] {
+  const sonuc: NavGroup[] = [];
+  for (const grup of TUM_GRUPLAR) {
+    const filtreli = grup.items
+      .filter((item) => gorunurSet.has(item.kod))
+      .map(({ kod: _kod, ...rest }) => rest);
+    if (filtreli.length > 0) {
+      sonuc.push({ label: grup.label, items: filtreli });
+    }
+  }
+  return sonuc;
+}
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
+  gorunurKodlar: MenuKodu[];
+};
+
+export function AppSidebar({ gorunurKodlar, ...props }: AppSidebarProps) {
   const kurumAdi = useKurumAyariStore((s) => s.kurumAdi);
   const uygulamaAdi = useKurumAyariStore((s) => s.uygulamaAdi);
+
+  const gorunurGruplar = React.useMemo(
+    () => gruplariFiltrele(new Set(gorunurKodlar)),
+    [gorunurKodlar],
+  );
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -124,8 +173,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain groups={navGroups} />
-        <NavProjects projects={projects} />
+        <NavMain groups={gorunurGruplar} />
       </SidebarContent>
       <SidebarRail />
     </Sidebar>

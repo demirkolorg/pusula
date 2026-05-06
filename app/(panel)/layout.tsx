@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/sidebar";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { kullaniciIzinleriniAl } from "@/lib/permissions";
+import { gorunurMenuKodlari } from "@/lib/sidebar-yetki";
 import { BildirimDropdown } from "@/app/(panel)/bildirimler/components/bildirim-dropdown";
 
 function oturumKullaniciIdAl(
@@ -71,9 +73,12 @@ export default async function PanelLayout({
   const adSoyad = `${kullanici.ad} ${kullanici.soyad}`;
   const rolAdlari = kullanici.roller.map((r) => r.rol.ad);
 
+  const izinSeti = await kullaniciIzinleriniAl(kullaniciId);
+  const gorunurKodlar = gorunurMenuKodlari(izinSeti);
+
   return (
     <SidebarProvider>
-      <AppSidebar />
+      <AppSidebar gorunurKodlar={gorunurKodlar} />
       <SidebarInset className="h-svh overflow-hidden">
         <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-2 border-b bg-background/80 backdrop-blur-md transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
           <div className="flex flex-1 items-center gap-2 px-4">
