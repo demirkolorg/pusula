@@ -10,6 +10,10 @@ import {
   mentionKisiMapiGetir,
   mentionliMetniGorunurYap,
 } from "@/lib/mention-server";
+import {
+  geriYukle as dosyaGeriYukle,
+  kaliciSil as dosyaKaliciSil,
+} from "@/app/(panel)/dosyalar/services";
 import type { CopGeriYukle, CopKaliciSil, CopKutusuListele, CopTipi } from "./schemas";
 
 // =====================================================================
@@ -244,22 +248,26 @@ function yorumBasligi(
   return gorunen.length > 80 ? gorunen.slice(0, 80) + "…" : gorunen;
 }
 
+// ADR-0028 / F8 — Çöp kutusunda "eklenti" tip'i artık yeni `Dosya` modelini
+// listeler. Backfill (F2) ile eski Eklenti kayıtları zaten Dosya'ya taşındı;
+// Eklenti tablosu F4 sonrası read-only ve buradaki yeni yazımlardan etkilenmez.
+// UI tarafı `tip: "eklenti"` çağrısını korur, içerik Dosya'dan gelir.
 async function eklentiListele(
   kullaniciId: string,
   projeFiltresi: string[] | null,
   girdi: CopKutusuListele,
 ): Promise<{ kayitlar: CopOzeti[]; toplam: number }> {
-  const eklentiler = await db.eklenti.findMany({
+  const dosyalar = await db.dosya.findMany({
     where: {
       silindi_mi: true,
       OR: [
         { yukleyen_id: kullaniciId },
         ...(projeFiltresi === null
-          ? [{ kart: {} as never }]
+          ? []
           : [
               {
-                kart: {
-                  liste: { proje_id: { in: projeFiltresi } },
+                baglantilar: {
+                  some: { proje_id: { in: projeFiltresi } },
                 },
               },
             ]),
@@ -268,29 +276,51 @@ async function eklentiListele(
     select: {
       id: true,
       ad: true,
-      kart_id: true,
       silinme_zamani: true,
-      kart: {
-        select: {
-          baslik: true,
-          liste: { select: { proje_id: true } },
-        },
+      baglantilar: {
+        take: 1,
+        orderBy: { birincil_mi: "desc" },
+        select: { kart_id: true, proje_id: true },
       },
     },
     orderBy: { silinme_zamani: "desc" },
     take: girdi.limit,
   });
+
+  // Kart başlıklarını batch fetch et (DosyaBaglantisi'nde kart relation yok,
+  // sadece denormalize kart_id var).
+  const kartIdleri = Array.from(
+    new Set(
+      dosyalar
+        .map((d) => d.baglantilar[0]?.kart_id)
+        .filter((id): id is string => !!id),
+    ),
+  );
+  const kartlar = kartIdleri.length
+    ? await db.kart.findMany({
+        where: { id: { in: kartIdleri } },
+        select: { id: true, baslik: true },
+      })
+    : [];
+  const kartBaslikMap = new Map(kartlar.map((k) => [k.id, k.baslik]));
+
   return {
-    kayitlar: eklentiler.map((e) => ({
-      id: e.id,
-      tip: "eklenti" as const,
-      baslik: e.ad,
-      detay: e.kart.baslik,
-      silinme_zamani: e.silinme_zamani!,
-      proje_id: e.kart.liste.proje_id,
-      parent_id: e.kart_id,
-    })),
-    toplam: eklentiler.length,
+    kayitlar: dosyalar.map((d) => {
+      const birincil = d.baglantilar[0];
+      const kartBaslik = birincil?.kart_id
+        ? (kartBaslikMap.get(birincil.kart_id) ?? null)
+        : null;
+      return {
+        id: d.id,
+        tip: "eklenti" as const,
+        baslik: d.ad,
+        detay: kartBaslik,
+        silinme_zamani: d.silinme_zamani!,
+        proje_id: birincil?.proje_id ?? null,
+        parent_id: birincil?.kart_id ?? null,
+      };
+    }),
+    toplam: dosyalar.length,
   };
 }
 
@@ -388,33 +418,9 @@ export async function copGeriYukle(
       break;
     }
     case "eklenti": {
-      const eklenti = await db.eklenti.findUnique({
-        where: { id: girdi.id },
-        select: {
-          silindi_mi: true,
-          yukleyen_id: true,
-          kart: { select: { id: true, liste: { select: { proje_id: true } } } },
-        },
-      });
-      if (!eklenti || !eklenti.silindi_mi) {
-        throw new EylemHatasi("Kayıt bulunamadı.", HATA_KODU.BULUNAMADI);
-      }
-      const yukleyen = eklenti.yukleyen_id === kullaniciId;
-      const projeYetkili = await canProje(
-        kullaniciId,
-        "proje:edit",
-        eklenti.kart.liste.proje_id,
-      );
-      if (!yukleyen && !projeYetkili) {
-        throw new EylemHatasi(
-          "Bu eklentiyi geri yükleme yetkiniz yok.",
-          HATA_KODU.YETKISIZ,
-        );
-      }
-      await db.eklenti.update({
-        where: { id: girdi.id },
-        data: { silindi_mi: false, silinme_zamani: null },
-      });
+      // ADR-0028 / F8 — Yeni Dosya modeline delege. canDosya helper'ı
+      // gizlilik + kaynak erişimi + yükleyen ayrımını otomatik yapar.
+      await dosyaGeriYukle(kullaniciId, girdi.id);
       break;
     }
   }
@@ -476,15 +482,16 @@ export async function copKaliciSil(
       break;
     }
     case "eklenti": {
-      // TODO v2: MinIO dosyasını da sil (storage.deleteObject(depolama_yolu)).
-      const v = await db.eklenti.findUnique({
+      // ADR-0028 / F8 — Yeni Dosya modeline delege. kaliciSil tüm sürüm
+      // storage objelerini de siler (idempotent, hata orphan GC'ye düşer).
+      const v = await db.dosya.findUnique({
         where: { id: girdi.id },
         select: { silindi_mi: true },
       });
       if (!v || !v.silindi_mi) {
         throw new EylemHatasi("Kayıt bulunamadı.", HATA_KODU.BULUNAMADI);
       }
-      await db.eklenti.delete({ where: { id: girdi.id } });
+      await dosyaKaliciSil(kullaniciId, girdi.id);
       break;
     }
   }

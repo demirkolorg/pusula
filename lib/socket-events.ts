@@ -61,6 +61,15 @@ export const SOCKET = {
   EKLENTI_OLUSTUR: "eklenti:olustur",
   EKLENTI_SIL: "eklenti:sil",
 
+  // ADR-0028 — yeni dosya yönetimi event'leri
+  DOSYA_OLUSTUR: "dosya:olustur",
+  DOSYA_GUNCELLE: "dosya:guncelle",
+  DOSYA_SIL: "dosya:sil",
+  DOSYA_GERI_YUKLE: "dosya:geri-yukle",
+  DOSYA_BAGLANTI_EKLE: "dosya:baglanti-ekle",
+  DOSYA_BAGLANTI_KALDIR: "dosya:baglanti-kaldir",
+  DOSYA_ONIZLEME_HAZIR: "dosya:onizleme-hazir",
+
   KAPAK_AYARLA: "kapak:ayarla",
   KAPAK_KALDIR: "kapak:kaldir",
   KAPAK_RENGI_AYARLA: "kapak-rengi:ayarla",
