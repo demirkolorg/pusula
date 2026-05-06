@@ -9,7 +9,8 @@ import { yetkiZorunlu, IZIN_KODLARI } from "@/lib/permissions";
 import { yetkiZorunluKart } from "@/lib/yetki";
 import { uploadLimiter } from "@/lib/rate-limit";
 import { HATA_KODU } from "@/lib/sonuc";
-import { tetikleEklentiYuklendi } from "@/app/(panel)/bildirimler/tetikleyiciler";
+import { db } from "@/lib/db";
+import { tetikleDosyaYuklendi } from "@/app/(panel)/bildirimler/tetikleyiciler";
 import {
   eklentiIndirSemasi,
   eklentiSilSemasi,
@@ -67,12 +68,28 @@ export const yuklemeOnaylaEylem = eylem({
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.kart_id);
     const kullaniciId = kullaniciIdAl(ctx);
     const sonuc = await yuklemeOnaylaSrv(kullaniciId, girdi);
-    tetikleEklentiYuklendi({
-      eklentiId: sonuc.id,
-      kartId: girdi.kart_id,
-      yukleyenId: kullaniciId,
-      ad: "",
-    }).catch(() => {});
+    // ADR-0028 / F9 — yeni Dosya yönetimi bildirim tipi.
+    // Yüklenen dosyanın gerçek adını okumak için ek query (oturum'da var
+    // ama compatibility wrapper'ı return değerine dahil etmiyor).
+    void (async () => {
+      try {
+        const d = await db.dosya.findUnique({
+          where: { id: sonuc.id },
+          select: { ad: true },
+        });
+        if (d) {
+          await tetikleDosyaYuklendi({
+            dosyaId: sonuc.id,
+            kaynakTip: "KART",
+            kaynakId: girdi.kart_id,
+            yukleyenId: kullaniciId,
+            ad: d.ad,
+          });
+        }
+      } catch {
+        /* bildirim hatası akışı durdurmaz */
+      }
+    })();
     return sonuc;
   },
 });

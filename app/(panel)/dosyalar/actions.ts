@@ -8,9 +8,16 @@ import { eylem, EylemHatasi } from "@/lib/action-wrapper";
 import { yetkiZorunlu, IZIN_KODLARI } from "@/lib/permissions";
 import { uploadLimiter } from "@/lib/rate-limit";
 import { HATA_KODU } from "@/lib/sonuc";
+import { db } from "@/lib/db";
+import {
+  tetikleDosyaBaglandi,
+  tetikleDosyaSilindi,
+  tetikleDosyaYuklendi,
+} from "@/app/(panel)/bildirimler/tetikleyiciler";
 import {
   dosyaListeFiltreSemasi,
   dosyaDetaySemasi,
+  projeIciDosyaAgaciSemasi,
   dosyaYuklemeBaslatSemasi,
   dosyaYuklemeOnaylaSemasi,
   dosyaSurumYuklemeBaslatSemasi,
@@ -52,6 +59,11 @@ import {
   geriYukle,
   kaliciSil,
 } from "./services";
+import {
+  projeKlasorListesi,
+  projeIciDosyaAgaci,
+} from "./services-proje-gorunumu";
+import { z } from "zod";
 
 function kullaniciIdAl(ctx: {
   oturum: { kullaniciId?: string } | null;
@@ -77,6 +89,26 @@ export const dosyaDetayEylem = eylem({
     dosyaDetay(kullaniciIdAl(ctx), girdi.id),
 });
 
+// Proje Görünümü — file manager tarzı klasör listesi.
+// Girdi yok; bos obje semasi (eylem wrapper'i her durumda Zod parse'liyor).
+export const projeKlasorListesiEylem = eylem({
+  ad: "dosya:proje-klasor-listesi",
+  girdi: z.object({}).optional(),
+  calistir: async (_girdi, ctx) => {
+    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.DOSYA_OKU);
+    return projeKlasorListesi(kullaniciIdAl(ctx));
+  },
+});
+
+export const projeIciDosyaAgaciEylem = eylem({
+  ad: "dosya:proje-icerigi",
+  girdi: projeIciDosyaAgaciSemasi,
+  calistir: async (girdi, ctx) => {
+    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.DOSYA_OKU);
+    return projeIciDosyaAgaci(kullaniciIdAl(ctx), girdi.proje_id);
+  },
+});
+
 export const dosyaYuklemeBaslatEylem = eylem({
   ad: "dosya:yukleme-baslat",
   girdi: dosyaYuklemeBaslatSemasi,
@@ -96,8 +128,39 @@ export const dosyaYuklemeBaslatEylem = eylem({
 export const dosyaYuklemeOnaylaEylem = eylem({
   ad: "dosya:yukleme-onayla",
   girdi: dosyaYuklemeOnaylaSemasi,
-  calistir: async (girdi, ctx) =>
-    yuklemeOnayla(kullaniciIdAl(ctx), girdi),
+  calistir: async (girdi, ctx) => {
+    const kullaniciId = kullaniciIdAl(ctx);
+    const sonuc = await yuklemeOnayla(kullaniciId, girdi);
+    // Bildirim tetikle — ADR-0028 F9. Hata yutulur (bildirim domain dışı).
+    void (async () => {
+      try {
+        const dosya = await db.dosya.findUnique({
+          where: { id: sonuc.id },
+          select: {
+            ad: true,
+            baglantilar: {
+              take: 1,
+              orderBy: { birincil_mi: "desc" },
+              select: { kaynak_tip: true, kaynak_id: true },
+            },
+          },
+        });
+        const b = dosya?.baglantilar[0];
+        if (dosya && b) {
+          await tetikleDosyaYuklendi({
+            dosyaId: sonuc.id,
+            kaynakTip: b.kaynak_tip as "KART" | "PROJE" | "LISTE",
+            kaynakId: b.kaynak_id,
+            yukleyenId: kullaniciId,
+            ad: dosya.ad,
+          });
+        }
+      } catch {
+        /* bildirim hatası akışı durdurmaz */
+      }
+    })();
+    return sonuc;
+  },
 });
 
 export const dosyaSurumYuklemeBaslatEylem = eylem({
@@ -232,7 +295,28 @@ export const dosyaBaglantiEkleEylem = eylem({
       ctx.oturum?.kullaniciId,
       IZIN_KODLARI.DOSYA_BAGLANTI_EKLE,
     );
-    return baglantiEkle(kullaniciIdAl(ctx), girdi);
+    const kullaniciId = kullaniciIdAl(ctx);
+    const sonuc = await baglantiEkle(kullaniciId, girdi);
+    void (async () => {
+      try {
+        const dosya = await db.dosya.findUnique({
+          where: { id: girdi.dosya_id },
+          select: { ad: true },
+        });
+        if (dosya) {
+          await tetikleDosyaBaglandi({
+            dosyaId: girdi.dosya_id,
+            kaynakTip: girdi.kaynak_tip,
+            kaynakId: girdi.kaynak_id,
+            ekleyenId: kullaniciId,
+            ad: dosya.ad,
+          });
+        }
+      } catch {
+        /* bildirim hatası akışı durdurmaz */
+      }
+    })();
+    return sonuc;
   },
 });
 
@@ -253,8 +337,31 @@ export const dosyaSilEylem = eylem({
   ad: "dosya:sil",
   girdi: dosyaSilSemasi,
   calistir: async (girdi, ctx) => {
+    const kullaniciId = kullaniciIdAl(ctx);
+    // Silmeden önce ad ve birincil kart bağlantısını al — bildirim için.
+    const meta = await db.dosya.findUnique({
+      where: { id: girdi.id },
+      select: {
+        ad: true,
+        baglantilar: {
+          take: 1,
+          orderBy: { birincil_mi: "desc" },
+          where: { kaynak_tip: "KART" },
+          select: { kart_id: true },
+        },
+      },
+    });
     // canDosya helper'ı kendi-sil/baska-sil ayrımını otomatik yapar.
-    await sil(kullaniciIdAl(ctx), girdi.id);
+    await sil(kullaniciId, girdi.id);
+    const kartId = meta?.baglantilar[0]?.kart_id;
+    if (meta && kartId) {
+      void tetikleDosyaSilindi({
+        dosyaId: girdi.id,
+        kartId,
+        silenId: kullaniciId,
+        ad: meta.ad,
+      }).catch(() => {});
+    }
     return { id: girdi.id };
   },
 });
