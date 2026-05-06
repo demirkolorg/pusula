@@ -1,13 +1,17 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangleIcon,
   DownloadIcon,
+  ExternalLinkIcon,
   FileIcon,
   FileTextIcon,
   Loader2Icon,
+  MaximizeIcon,
+  XIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
@@ -114,16 +118,160 @@ function PdfOnizleme({ dosyaId, ad }: { dosyaId: string; ad: string }) {
     staleTime: 8 * 60_000,
   });
 
-  if (sorgu.isLoading) return <YukleniyorKutu />;
-  if (sorgu.error || !sorgu.data) return <HataKutu mesaj={sorgu.error?.message} />;
+  const [tamEkran, setTamEkran] = React.useState(false);
 
+  if (sorgu.isLoading) return <YukleniyorKutu />;
+  if (sorgu.error || !sorgu.data)
+    return <HataKutu mesaj={sorgu.error?.message} />;
+
+  // <object> tag, browser PDF eklentisi olmasa bile child fallback'i gösterir
+  // (iframe'in aksine). Sandbox kaldırıldı — Chrome PDF viewer extension
+  // bazı sürümlerde sandbox altında çalışmıyor; presigned URL kısa ömürlü
+  // olduğu için XSS yüzeyi yok denecek kadar dar.
   return (
-    <iframe
-      src={sorgu.data.url}
-      title={ad}
-      className="h-[60vh] w-full rounded-md border"
-      sandbox="allow-scripts allow-same-origin"
-    />
+    <div className="flex flex-col gap-2">
+      {/* Belirgin araç çubuğu — primary "Tam ekran" + outline "Yeni sekme" */}
+      <div className="bg-muted/40 flex items-center justify-end gap-2 rounded-md border px-2 py-1.5">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            window.open(sorgu.data.url, "_blank", "noopener,noreferrer")
+          }
+          className="gap-1.5"
+        >
+          <ExternalLinkIcon className="size-4" />
+          Yeni sekmede aç
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => setTamEkran(true)}
+          className="gap-1.5"
+        >
+          <MaximizeIcon className="size-4" />
+          Tam ekran
+        </Button>
+      </div>
+
+      <PdfObje url={sorgu.data.url} ad={ad} className="h-[60vh]" />
+
+      {tamEkran && (
+        <PdfTamEkran
+          url={sorgu.data.url}
+          ad={ad}
+          onKapat={() => setTamEkran(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function PdfObje({
+  url,
+  ad,
+  className,
+}: {
+  url: string;
+  ad: string;
+  className?: string;
+}) {
+  return (
+    <object
+      data={url}
+      type="application/pdf"
+      className={`bg-muted/20 w-full rounded-md border ${className ?? ""}`}
+      aria-label={ad}
+    >
+      <div className="flex flex-col items-center gap-3 p-8 text-center">
+        <FileTextIcon className="text-muted-foreground size-10" />
+        <p className="text-sm">
+          Tarayıcınız PDF&apos;i gömülü görüntüleyemiyor.
+        </p>
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary inline-flex items-center gap-1.5 text-sm hover:underline"
+        >
+          <ExternalLinkIcon className="size-4" />
+          Yeni sekmede aç
+        </a>
+      </div>
+    </object>
+  );
+}
+
+function PdfTamEkran({
+  url,
+  ad,
+  onKapat,
+}: {
+  url: string;
+  ad: string;
+  onKapat: () => void;
+}) {
+  // ESC tuşu ile kapat + body scroll lock (overlay açıkken arka plan kaymasın).
+  // Bu bileşen yalnız `tamEkran=true` olduğunda mount olur; o anda zaten
+  // istemcide kullanıcı etkileşimi ile çağrılır → `document` her zaman var.
+  React.useEffect(() => {
+    const onTus = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onKapat();
+    };
+    document.addEventListener("keydown", onTus);
+    const oncekiOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onTus);
+      document.body.style.overflow = oncekiOverflow;
+    };
+  }, [onKapat]);
+
+  // Portal: Dialog primitive'i `transform: translate(-50%,-50%)` uyguluyor;
+  // child'lardaki `position: fixed` o transform'a hizalanıyor (CSS gotcha).
+  // `document.body`'ye render ederek viewport'a sabitleniyoruz.
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${ad} — tam ekran önizleme`}
+      className="bg-background fixed inset-0 z-[100] flex flex-col"
+    >
+      <div className="border-b flex items-center justify-between gap-3 px-4 py-2">
+        <div className="min-w-0 flex items-center gap-2">
+          <FileTextIcon className="text-muted-foreground size-4 shrink-0" />
+          <p className="truncate text-sm font-medium" title={ad}>
+            {ad}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
+            className="gap-1.5"
+          >
+            <ExternalLinkIcon className="size-4" />
+            Yeni sekme
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={onKapat}
+            aria-label="Tam ekranı kapat (ESC)"
+          >
+            <XIcon className="size-4" />
+          </Button>
+        </div>
+      </div>
+      <div className="flex-1 overflow-hidden p-2">
+        <PdfObje url={url} ad={ad} className="h-full" />
+      </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -185,7 +333,7 @@ function IndirFallback({
       </div>
       <Button size="sm" onClick={indir} className="gap-1.5 min-h-[44px]">
         <DownloadIcon className="size-4" />
-        {ad}'ı indir
+        {ad}&apos;ı indir
       </Button>
     </div>
   );

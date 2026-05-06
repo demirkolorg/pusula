@@ -15,7 +15,7 @@
 //   MINIO_DOSYA_BUCKET = "pusula-dosyalar" (default — Eklenti bucket'ından ayrı)
 //   diğer MINIO_* değişkenleri lib/storage.ts ile paylaşılır.
 
-import { storageIstemci } from "./storage";
+import { publicHostuyla, storageIstemci } from "./storage";
 
 export const DOSYA_BUCKET =
   process.env.MINIO_DOSYA_BUCKET ?? "pusula-dosyalar";
@@ -96,7 +96,8 @@ export async function presignedDosyaUpload(
   // sadece PUT'u imzalar (minio-js sınırı). Server-side mime doğrulaması
   // dosyaYuklemeOnaylaEylem'de yapılır.
   void mime;
-  return await c.presignedPutObject(DOSYA_BUCKET, yol, UPLOAD_TTL_SN);
+  const url = await c.presignedPutObject(DOSYA_BUCKET, yol, UPLOAD_TTL_SN);
+  return publicHostuyla(url);
 }
 
 export async function presignedDosyaDownload(yol: string): Promise<string> {
@@ -105,7 +106,12 @@ export async function presignedDosyaDownload(yol: string): Promise<string> {
   }
   await dosyaBucketHazirla();
   const c = storageIstemci();
-  return await c.presignedGetObject(DOSYA_BUCKET, yol, DOWNLOAD_TTL_SN);
+  // MinIO Docker compose'da internal hostname (`minio:9000`) ile imzalar;
+  // browser'a `localhost:9000`'i göstermek için `publicHostuyla` çevirir.
+  // Bu eksikse PDF/image iframe + img src'leri hostname çözemez ve broken
+  // ikon basar. (Eklenti storage'ı zaten bu çeviriyi yapıyor.)
+  const url = await c.presignedGetObject(DOSYA_BUCKET, yol, DOWNLOAD_TTL_SN);
+  return publicHostuyla(url);
 }
 
 /**

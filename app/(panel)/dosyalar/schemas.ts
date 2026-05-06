@@ -60,6 +60,10 @@ export type DosyaListeFiltre = z.infer<typeof dosyaListeFiltreSemasi>;
 export const dosyaDetaySemasi = z.object({ id: uuid });
 export type DosyaDetayGirdi = z.infer<typeof dosyaDetaySemasi>;
 
+// Proje görünümü — file manager tarzı klasör/içerik
+export const projeIciDosyaAgaciSemasi = z.object({ proje_id: uuid });
+export type ProjeIciDosyaAgaciGirdi = z.infer<typeof projeIciDosyaAgaciSemasi>;
+
 // ============================================================
 // Upload akışı
 // ============================================================

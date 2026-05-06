@@ -104,7 +104,14 @@ export function boyutIzinliMi(byte: number): boolean {
 const UPLOAD_TTL = 5 * 60;
 const DOWNLOAD_TTL = 10 * 60;
 
-function publicHostuyla(url: string): string {
+/**
+ * MinIO presigned URL'i tarayıcıdan erişilebilir host'a çevirir.
+ * Docker compose'da MinIO genellikle internal hostname'le (`minio:9000`)
+ * gözükür; browser ise `localhost:9000`'a erişir. `MINIO_PUBLIC_HOST` env
+ * tanımlıysa replacement uygulanır. Hem eklenti hem dosyalar storage'ı
+ * bu helper'ı kullanır (DRY).
+ */
+export function publicHostuyla(url: string): string {
   const host = process.env.MINIO_PUBLIC_HOST;
   if (!host) return url;
   // "http://minio:9000/..." → "http://localhost:9000/..."
