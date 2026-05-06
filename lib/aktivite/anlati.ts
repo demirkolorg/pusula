@@ -25,13 +25,15 @@ function baglamMetni(a: AktiviteOzeti): string | null {
 function kartCumlesi(a: AktiviteOzeti, kim: string, baglam: string | null): string {
   const kart = tirnakli(a.baglam?.kart?.baslik ?? a.detay, "silinmiş kart");
   const nesne = `${kart} kartını`;
+  const iyelikliMesaj = a.mesaj.match(/^kartın\s+(.+)$/)?.[1];
+  if (iyelikliMesaj) {
+    return temizle(
+      `${kim}, ${baglam ? `${baglam} ` : ""}${kart} kartının ${iyelikliMesaj}.`,
+    );
+  }
   const mesaj = a.mesaj
-    .replace(/^kartı\s+/, "")
-    .replace(/^kartın\s+/, "kartın ");
-  const govde = mesaj.startsWith("kartın ")
-    ? `${kart} ${mesaj}`
-    : `${nesne} ${mesaj}`;
-  return temizle(`${kim}, ${baglam ? `${baglam} ` : ""}${govde}.`);
+    .replace(/^kartı\s+/, "");
+  return temizle(`${kim}, ${baglam ? `${baglam} ` : ""}${nesne} ${mesaj}.`);
 }
 
 function iliskiCumlesi(a: AktiviteOzeti, kim: string, baglam: string | null): string {

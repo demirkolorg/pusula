@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { kullaniciErisimBilgisi } from "@/lib/yetki";
 import type { AktiviteKapsamFiltresi } from "./tipler";
-export { kapsamWhere } from "./kapsam-where";
+export { kapsamWhere, kaynakBaglamiWhere } from "./kapsam-where";
 
 function inKosulu(idler: readonly string[]): { in: string[] } | undefined {
   return idler.length > 0 ? { in: [...idler] } : undefined;

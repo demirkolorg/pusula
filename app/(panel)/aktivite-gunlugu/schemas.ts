@@ -7,6 +7,9 @@ export const aktiviteGunluguFiltreSemasi = z.object({
   arama: z.string().trim().min(1).max(120).optional(),
   islem: z.enum(["CREATE", "UPDATE", "DELETE"]).optional(),
   kaynak_tip: z.string().trim().min(1).max(80).optional(),
+  proje_id: z.string().uuid().optional(),
+  liste_id: z.string().uuid().optional(),
+  kart_id: z.string().uuid().optional(),
   baslangic: z.string().datetime().optional(),
   bitis: z.string().datetime().optional(),
 });

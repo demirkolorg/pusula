@@ -29,6 +29,14 @@ describe("aktiviteAnlati", () => {
     );
   });
 
+  it("kartın liste değişimini iyelikli ve açık anlatır", () => {
+    expect(
+      aktiviteAnlati(aktivite({ mesaj: "kartın listesini değiştirdi" })).metin,
+    ).toBe(
+      "Ayşe Demir, 'Kış Tedbirleri' projesinin 'Hazırlık' listesinde 'Ambulans planı' kartının listesini değiştirdi.",
+    );
+  });
+
   it("sistem kullanıcısını ve yorum detayını işler", () => {
     const sonuc = aktiviteAnlati(
       aktivite({

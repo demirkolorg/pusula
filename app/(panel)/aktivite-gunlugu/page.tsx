@@ -6,6 +6,7 @@ import {
   type AktiviteGunluguFiltre,
 } from "./schemas";
 import {
+  aktiviteBaglamSecenekleriGetir,
   aktiviteGunluguListele,
   aktiviteKaynakTipleriGetir,
 } from "./services";
@@ -21,15 +22,47 @@ function paramAl(
   return Array.isArray(deger) ? deger[0] : deger;
 }
 
+function kapsamParamAl(
+  params: Record<string, string | string[] | undefined>,
+): AktiviteGunluguFiltre["kapsam"] {
+  return paramAl(params, "kapsam") === "benim" ? "benim" : "tum";
+}
+
+function islemParamAl(
+  params: Record<string, string | string[] | undefined>,
+): AktiviteGunluguFiltre["islem"] {
+  const deger = paramAl(params, "islem");
+  if (deger === "CREATE" || deger === "UPDATE" || deger === "DELETE") {
+    return deger;
+  }
+  return undefined;
+}
+
+function uuidParamAl(
+  params: Record<string, string | string[] | undefined>,
+  ad: string,
+): string | undefined {
+  const deger = paramAl(params, ad);
+  if (!deger) return undefined;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    deger,
+  )
+    ? deger
+    : undefined;
+}
+
 function filtreHazirla(
   params: Record<string, string | string[] | undefined>,
 ): AktiviteGunluguFiltre {
   return aktiviteGunluguFiltreSemasi.parse({
     ...AKTIVITE_GUNLUGU_VARSAYILAN_FILTRE,
-    kapsam: paramAl(params, "kapsam") ?? "tum",
+    kapsam: kapsamParamAl(params),
     arama: paramAl(params, "arama"),
-    islem: paramAl(params, "islem"),
+    islem: islemParamAl(params),
     kaynak_tip: paramAl(params, "kaynak_tip"),
+    proje_id: uuidParamAl(params, "proje_id"),
+    liste_id: uuidParamAl(params, "liste_id"),
+    kart_id: uuidParamAl(params, "kart_id"),
   });
 }
 
@@ -57,11 +90,13 @@ export default async function AktiviteGunluguSayfasi({
   }
 
   const filtre = filtreHazirla(await searchParams);
-  const [ilkSayfa, kaynakTipleri, disaAktarabilir] = await Promise.all([
-    aktiviteGunluguListele(kullaniciId, filtre),
-    aktiviteKaynakTipleriGetir(kullaniciId),
-    izinVarMi(kullaniciId, IZIN_KODLARI.AKTIVITE_DISA_AKTAR),
-  ]);
+  const [ilkSayfa, kaynakTipleri, baglamSecenekleri, disaAktarabilir] =
+    await Promise.all([
+      aktiviteGunluguListele(kullaniciId, filtre),
+      aktiviteKaynakTipleriGetir(kullaniciId),
+      aktiviteBaglamSecenekleriGetir(kullaniciId),
+      izinVarMi(kullaniciId, IZIN_KODLARI.AKTIVITE_DISA_AKTAR),
+    ]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
@@ -75,6 +110,7 @@ export default async function AktiviteGunluguSayfasi({
         ilkFiltre={filtre}
         ilkSayfa={ilkSayfa}
         kaynakTipleri={kaynakTipleri}
+        baglamSecenekleri={baglamSecenekleri}
         disaAktarabilir={disaAktarabilir}
       />
     </div>

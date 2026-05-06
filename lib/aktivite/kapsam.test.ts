@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { kapsamWhere } from "./kapsam-where";
+import { kapsamWhere, kaynakBaglamiWhere } from "./kapsam-where";
 import type { AktiviteKapsamFiltresi } from "./tipler";
 
 const temel: AktiviteKapsamFiltresi = {
@@ -38,5 +38,20 @@ describe("kapsamWhere", () => {
       kontrolListesiIdleri: [],
     });
     expect(where).toEqual({ OR: [{ kullanici_id: temel.kullaniciId }] });
+  });
+
+  it("seçili kaynak bağlamı kullanıcı genişletmesi olmadan filtre üretir", () => {
+    const where = kaynakBaglamiWhere({
+      projeIdleri: ["p1"],
+      listeIdleri: ["l1"],
+      kartIdleri: ["k1"],
+      kontrolListesiIdleri: ["kl1"],
+    });
+    const metin = JSON.stringify(where);
+    expect(metin).toContain("proje_id");
+    expect(metin).toContain("liste_id");
+    expect(metin).toContain("kart_id");
+    expect(metin).toContain("kontrol_listesi_id");
+    expect(metin).not.toContain("kullanici_id");
   });
 });

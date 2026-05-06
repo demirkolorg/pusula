@@ -6,7 +6,9 @@ import {
   aktiviteAnlati,
   kapsamBaglamiHazirla,
   kapsamWhere,
+  kaynakBaglamiWhere,
   zenginlestirVeOzetle,
+  type AktiviteKapsamFiltresi,
   type AktiviteOzeti,
   type AnlatiCumlesi,
 } from "@/lib/aktivite";
@@ -26,6 +28,17 @@ export type AktiviteGunluguSayfasi = {
   sonrakiCursor: string | null;
 };
 
+export type AktiviteBaglamSecenekleri = {
+  projeler: Array<{ id: string; ad: string }>;
+  listeler: Array<{ id: string; ad: string; proje_id: string }>;
+  kartlar: Array<{
+    id: string;
+    baslik: string;
+    liste_id: string;
+    proje_id: string;
+  }>;
+};
+
 type HamSatir = {
   id: bigint;
   zaman: Date;
@@ -38,6 +51,110 @@ type HamSatir = {
   diff: unknown;
   sebep: string | null;
 };
+
+type KartSecenekHam = {
+  id: string;
+  baslik: string;
+  liste_id: string;
+  liste: { proje_id: string };
+};
+
+function secenekWhereOlustur(baglam: AktiviteKapsamFiltresi): {
+  projeWhere: Prisma.ProjeWhereInput;
+  listeWhere: Prisma.ListeWhereInput;
+  kartWhere: Prisma.KartWhereInput;
+} {
+  if (baglam.makam) {
+    return {
+      projeWhere: { silindi_mi: false },
+      listeWhere: { proje: { silindi_mi: false } },
+      kartWhere: { silindi_mi: false, liste: { proje: { silindi_mi: false } } },
+    };
+  }
+
+  return {
+    projeWhere: { id: { in: baglam.projeIdleri ?? [] }, silindi_mi: false },
+    listeWhere: {
+      id: { in: baglam.listeIdleri ?? [] },
+      proje: { silindi_mi: false },
+    },
+    kartWhere: {
+      id: { in: baglam.kartIdleri ?? [] },
+      silindi_mi: false,
+      liste: { proje: { silindi_mi: false } },
+    },
+  };
+}
+
+function kartSecenekleriDonustur(
+  kartlar: KartSecenekHam[],
+): AktiviteBaglamSecenekleri["kartlar"] {
+  return kartlar.map((k) => ({
+    id: k.id,
+    baslik: k.baslik,
+    liste_id: k.liste_id,
+    proje_id: k.liste.proje_id,
+  }));
+}
+
+async function kontrolListesiIdleriGetir(
+  kartIdleri: readonly string[],
+): Promise<string[]> {
+  if (kartIdleri.length === 0) return [];
+  const kayitlar = await db.kontrolListesi.findMany({
+    where: { kart_id: { in: [...kartIdleri] } },
+    select: { id: true },
+  });
+  return kayitlar.map((k) => k.id);
+}
+
+async function seciliBaglamKosulu(
+  filtre: AktiviteGunluguFiltre,
+): Promise<Prisma.AktiviteLoguWhereInput | null> {
+  if (filtre.kart_id) {
+    return kaynakBaglamiWhere({
+      kartIdleri: [filtre.kart_id],
+      kontrolListesiIdleri: await kontrolListesiIdleriGetir([filtre.kart_id]),
+    });
+  }
+
+  if (filtre.liste_id) {
+    const kartlar = await db.kart.findMany({
+      where: { liste_id: filtre.liste_id },
+      select: { id: true },
+    });
+    const kartIdleri = kartlar.map((k) => k.id);
+    return kaynakBaglamiWhere({
+      listeIdleri: [filtre.liste_id],
+      kartIdleri,
+      kontrolListesiIdleri: await kontrolListesiIdleriGetir(kartIdleri),
+    });
+  }
+
+  if (filtre.proje_id) {
+    const listeler = await db.liste.findMany({
+      where: { proje_id: filtre.proje_id },
+      select: { id: true },
+    });
+    const listeIdleri = listeler.map((l) => l.id);
+    const kartlar =
+      listeIdleri.length > 0
+        ? await db.kart.findMany({
+            where: { liste_id: { in: listeIdleri } },
+            select: { id: true },
+          })
+        : [];
+    const kartIdleri = kartlar.map((k) => k.id);
+    return kaynakBaglamiWhere({
+      projeIdleri: [filtre.proje_id],
+      listeIdleri,
+      kartIdleri,
+      kontrolListesiIdleri: await kontrolListesiIdleriGetir(kartIdleri),
+    });
+  }
+
+  return null;
+}
 
 function tarihKosulu(girdi: AktiviteGunluguFiltre): Prisma.AktiviteLoguWhereInput | null {
   if (!girdi.baslangic && !girdi.bitis) return null;
@@ -95,6 +212,7 @@ export async function aktiviteGunluguListele(
   const filtre = aktiviteGunluguFiltreSemasi.parse(girdi);
   const baglam = await kapsamBaglamiHazirla(kullaniciId);
   const arama = await aramaKosulu(filtre.arama);
+  const seciliBaglam = await seciliBaglamKosulu(filtre);
   if (arama && "id" in arama) {
     const idKosulu = arama.id;
     if (
@@ -115,6 +233,7 @@ export async function aktiviteGunluguListele(
     filtre.kapsam === "benim" ? { kullanici_id: kullaniciId } : null,
     filtre.islem ? { islem: filtre.islem } : null,
     filtre.kaynak_tip ? { kaynak_tip: filtre.kaynak_tip } : null,
+    seciliBaglam,
     tarihKosulu(filtre),
     arama,
   ]);
@@ -162,4 +281,43 @@ export async function aktiviteKaynakTipleriGetir(
     take: 100,
   });
   return tipler.map((t) => t.kaynak_tip);
+}
+
+export async function aktiviteBaglamSecenekleriGetir(
+  kullaniciId: string,
+): Promise<AktiviteBaglamSecenekleri> {
+  const baglam = await kapsamBaglamiHazirla(kullaniciId);
+  const { projeWhere, listeWhere, kartWhere } = secenekWhereOlustur(baglam);
+
+  const [projeler, listeler, kartlar] = await Promise.all([
+    db.proje.findMany({
+      where: projeWhere,
+      orderBy: { ad: "asc" },
+      select: { id: true, ad: true },
+      take: 300,
+    }),
+    db.liste.findMany({
+      where: listeWhere,
+      orderBy: { ad: "asc" },
+      select: { id: true, ad: true, proje_id: true },
+      take: 500,
+    }),
+    db.kart.findMany({
+      where: kartWhere,
+      orderBy: { baslik: "asc" },
+      select: {
+        id: true,
+        baslik: true,
+        liste_id: true,
+        liste: { select: { proje_id: true } },
+      },
+      take: 700,
+    }),
+  ]);
+
+  return {
+    projeler,
+    listeler,
+    kartlar: kartSecenekleriDonustur(kartlar),
+  };
 }

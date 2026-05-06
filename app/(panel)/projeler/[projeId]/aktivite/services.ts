@@ -1191,7 +1191,11 @@ function kartMesaji(
   }
   const alanlar = Object.keys(diff);
   if (alanlar.includes("liste_id")) {
-    return { kategori: "kart", mesaj: "kartı taşıdı", detay: null };
+    return {
+      kategori: "kart",
+      mesaj: "kartın listesini değiştirdi",
+      detay: null,
+    };
   }
   // Sıra-only güncelleme — drag-drop gürültüsünü temiz mesaja çevir.
   // tamamlanma_zamani / tamamlayan_id, tamamlandi_mi yan etkisi olarak
