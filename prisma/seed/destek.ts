@@ -285,7 +285,7 @@ async function aktiviteLogunuYukle(db: PrismaClient, ctx: SeedCtx): Promise<void
 
       // Bitiş tarihi güncellemeleri
       { kullanici_id: ozel.id, islem: "UPDATE", kaynak_tip: "Kart", kaynak_id: krizMasasi.id, diff: { bitis: { eski: null, yeni: gunEkle(2, 17).toISOString() } }, zaman: gunEkle(-2, 14) },
-      { kullanici_id: ozel.id, islem: "UPDATE", kaynak_tip: "Kart", kaynak_id: krizMasasi.id, diff: { aciklama: { eski: "Görev dağılımı netleşecek", yeni: "Nöbet listeleri ve müdahale matrisleri netleştirilecek." } }, zaman: gunEkle(-2, 15) },
+      { kullanici_id: ozel.id, islem: "UPDATE", kaynak_tip: "Kart", kaynak_id: krizMasasi.id, diff: { aciklama_metin: { eski: "Görev dağılımı netleşecek", yeni: "Nöbet listeleri ve müdahale matrisleri netleştirilecek." } }, zaman: gunEkle(-2, 15) },
 
       // Yorum eklemeleri
       { kullanici_id: ozelAmir.id, islem: "CREATE", kaynak_tip: "Yorum", kaynak_id: krizMasasi.id, yeni_veri: { kart_id: krizMasasi.id, icerik_uzunlugu: 86 }, zaman: gunEkle(-3, 11) },
@@ -316,7 +316,7 @@ async function aktiviteLogunuYukle(db: PrismaClient, ctx: SeedCtx): Promise<void
       { kullanici_id: saglikAmir.id, islem: "CREATE", kaynak_tip: "KontrolListesi", kaynak_id: null, yeni_veri: { ad: "Hıfzıssıhha gündemi" }, zaman: gunEkle(-4, 10) },
 
       // Tarım — saha tespit
-      { kullanici_id: tarimAmir.id, islem: "UPDATE", kaynak_tip: "Kart", kaynak_id: tarimSaha.id, diff: { aciklama_uzunlugu: { eski: 80, yeni: 120 } }, zaman: gunEkle(-2, 12) },
+      { kullanici_id: tarimAmir.id, islem: "UPDATE", kaynak_tip: "Kart", kaynak_id: tarimSaha.id, diff: { aciklama_metin: { eski: "Saha tespit yetersiz", yeni: "Saha tespit raporu — köy köy hane sayımı tamamlandı" } }, zaman: gunEkle(-2, 12) },
 
       // Yazı işleri evrak
       { kullanici_id: yaziMemur.id, islem: "CREATE", kaynak_tip: "Eklenti", kaynak_id: evrakYardim.id, yeni_veri: { ad: "dilekce-tarama.pdf" }, zaman: gunEkle(-3, 14) },

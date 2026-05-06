@@ -39,7 +39,9 @@ export function ProjeAramaSheet({ projeId, acik, setAcik }: Props) {
     for (const l of detay.listeler) {
       for (const k of l.kartlar) {
         const baslik = k.baslik.toLocaleLowerCase("tr");
-        const aciklama = (k.aciklama ?? "").toLocaleLowerCase("tr");
+        // ADR-0023 — Arama denormalize edilmiş plaintext üzerinden; Tiptap
+        // doc içinde kelime aramak gereksiz (her edit'te aynı string türetilir).
+        const aciklama = (k.aciklama_metin ?? "").toLocaleLowerCase("tr");
         if (baslik.includes(arama) || aciklama.includes(arama)) {
           found.push({ kart: k, liste: l.ad });
           if (found.length >= 50) return found;

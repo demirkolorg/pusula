@@ -1,4 +1,4 @@
-import { ListeTipi, type Prisma } from "@prisma/client";
+import { ListeTipi, Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { siraArasi, siraSonuna } from "@/lib/sira";
 import { EylemHatasi } from "@/lib/action-wrapper";
@@ -7,6 +7,11 @@ import { presignedDownload } from "@/lib/storage";
 import { yayinla } from "@/lib/realtime";
 import { SOCKET, room } from "@/lib/socket-events";
 import { kullaniciErisimBilgisi } from "@/lib/yetki";
+import {
+  tiptapDokumaniBosMu,
+  tiptapDokumaniMetne,
+  type TiptapDokuman,
+} from "@/lib/tiptap";
 import type {
   KartArsiv,
   KartGuncelle,
@@ -60,7 +65,11 @@ type OneriDurumu = "YOK" | "BEKLIYOR" | "REDDEDILDI";
 export type ListeKartOzeti = {
   id: string;
   baslik: string;
-  aciklama: string | null;
+  // ADR-0023 — Tiptap zengin metin. `aciklama_dokuman` ProseMirror Doc JSON;
+  // `aciklama_metin` server'da türetilen düz metin (line-clamp listesi,
+  // arama önizleme, tsvector). UI editör `aciklama_dokuman`'a yazar.
+  aciklama_dokuman: TiptapDokuman | null;
+  aciklama_metin: string | null;
   sira: string;
   kapak_renk: string | null;
   // Eklenti'den ayarlanmış görsel kapak — server-side presigned URL.
@@ -304,7 +313,8 @@ export async function projeDetayiniGetir(
             select: {
               id: true,
               baslik: true,
-              aciklama: true,
+              aciklama_dokuman: true,
+              aciklama_metin: true,
               sira: true,
               kapak_renk: true,
               kapak_dosya_id: true,
@@ -399,7 +409,9 @@ export async function projeDetayiniGetir(
         return {
           id: k.id,
           baslik: k.baslik,
-          aciklama: k.aciklama,
+          // Prisma Json bridging — server-side schema ile yazılan değer.
+          aciklama_dokuman: (k.aciklama_dokuman ?? null) as TiptapDokuman | null,
+          aciklama_metin: k.aciklama_metin,
           sira: k.sira,
           kapak_renk: k.kapak_renk,
           kapak: k.kapak_dosya_id ? kapakMap.get(k.kapak_dosya_id) ?? null : null,
@@ -637,7 +649,10 @@ export async function kartOlustur(
     data: {
       liste_id: girdi.liste_id,
       baslik: girdi.baslik.trim(),
-      aciklama: girdi.aciklama?.trim() || null,
+      // ADR-0023 — Yeni kart boş açıklama ile başlar; modal'dan Tiptap ile
+      // düzenlenir. Prisma JSON kolonu için DbNull (SQL NULL) kullanılır.
+      aciklama_dokuman: Prisma.DbNull,
+      aciklama_metin: null,
       sira,
       olusturan_id: kullaniciId,
       yetkililer: { create: { kullanici_id: kullaniciId } },
@@ -649,7 +664,8 @@ export async function kartOlustur(
       id: true,
       liste_id: true,
       baslik: true,
-      aciklama: true,
+      aciklama_dokuman: true,
+      aciklama_metin: true,
       sira: true,
       kapak_renk: true,
       bitis: true,
@@ -663,7 +679,8 @@ export async function kartOlustur(
     id: yeni.id,
     liste_id: yeni.liste_id,
     baslik: yeni.baslik,
-    aciklama: yeni.aciklama,
+    aciklama_dokuman: (yeni.aciklama_dokuman ?? null) as TiptapDokuman | null,
+    aciklama_metin: yeni.aciklama_metin,
     sira: yeni.sira,
     kapak_renk: yeni.kapak_renk,
     kapak: null,
@@ -722,7 +739,17 @@ export async function kartGuncelle(
 
   const veri: Record<string, unknown> = {};
   if (girdi.baslik !== undefined) veri.baslik = girdi.baslik.trim();
-  if (girdi.aciklama !== undefined) veri.aciklama = girdi.aciklama?.trim() || null;
+  // ADR-0023 — Açıklama Tiptap doc; plaintext denormalize alanı server'da
+  // türetilir (client güveni yok). null gelirse SQL NULL'a yazılır.
+  if (girdi.aciklama_dokuman !== undefined) {
+    if (girdi.aciklama_dokuman === null || tiptapDokumaniBosMu(girdi.aciklama_dokuman)) {
+      veri.aciklama_dokuman = Prisma.DbNull;
+      veri.aciklama_metin = null;
+    } else {
+      veri.aciklama_dokuman = girdi.aciklama_dokuman as Prisma.InputJsonValue;
+      veri.aciklama_metin = tiptapDokumaniMetne(girdi.aciklama_dokuman) || null;
+    }
+  }
   if (girdi.kapak_renk !== undefined) veri.kapak_renk = girdi.kapak_renk;
   if (girdi.baslangic !== undefined) veri.baslangic = girdi.baslangic;
   if (girdi.bitis !== undefined) veri.bitis = girdi.bitis;
@@ -1231,7 +1258,8 @@ export async function projedeTumKartlar(
       liste_id: true,
       liste: { select: { ad: true } },
       baslik: true,
-      aciklama: true,
+      aciklama_dokuman: true,
+      aciklama_metin: true,
       sira: true,
       kapak_renk: true,
       bitis: true,
@@ -1268,7 +1296,8 @@ export async function projedeTumKartlar(
     liste_id: k.liste_id,
     liste_ad: k.liste.ad,
     baslik: k.baslik,
-    aciklama: k.aciklama,
+    aciklama_dokuman: (k.aciklama_dokuman ?? null) as TiptapDokuman | null,
+    aciklama_metin: k.aciklama_metin,
     sira: k.sira,
     kapak_renk: k.kapak_renk,
     // Liste görünümü tablo — kapak görseli MVP'de gösterilmez (DataTable

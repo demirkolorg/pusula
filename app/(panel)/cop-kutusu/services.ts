@@ -5,7 +5,11 @@
 import { db } from "@/lib/db";
 import { EylemHatasi } from "@/lib/action-wrapper";
 import { HATA_KODU } from "@/lib/sonuc";
-import { kullaniciErisimBilgisi, canProje, canKart } from "@/lib/yetki";
+import { kullaniciErisimBilgisi, canProje } from "@/lib/yetki";
+import {
+  mentionKisiMapiGetir,
+  mentionliMetniGorunurYap,
+} from "@/lib/mention-server";
 import type { CopGeriYukle, CopKaliciSil, CopKutusuListele, CopTipi } from "./schemas";
 
 // =====================================================================
@@ -153,7 +157,9 @@ async function kartListele(
     select: {
       id: true,
       baslik: true,
-      aciklama: true,
+      // ADR-0023 — Çöp kutusu önizlemesi için denormalize plaintext yeterli;
+      // Tiptap doc'u parse etmeden line-clamp basabiliriz.
+      aciklama_metin: true,
       liste_id: true,
       silinme_zamani: true,
       liste: { select: { proje_id: true, proje: { select: { ad: true } } } },
@@ -212,11 +218,15 @@ async function yorumListele(
     orderBy: { silinme_zamani: "desc" },
     take: girdi.limit,
   });
+  const mentionKisiMap = await mentionKisiMapiGetir(
+    yorumlar.map((y) => y.icerik),
+  );
+
   return {
     kayitlar: yorumlar.map((y) => ({
       id: y.id,
       tip: "yorum" as const,
-      baslik: y.icerik.length > 80 ? y.icerik.slice(0, 80) + "…" : y.icerik,
+      baslik: yorumBasligi(y.icerik, mentionKisiMap),
       detay: y.kart.baslik,
       silinme_zamani: y.silinme_zamani!,
       proje_id: y.kart.liste.proje_id,
@@ -224,6 +234,14 @@ async function yorumListele(
     })),
     toplam: yorumlar.length,
   };
+}
+
+function yorumBasligi(
+  icerik: string,
+  mentionKisiMap: Awaited<ReturnType<typeof mentionKisiMapiGetir>>,
+): string {
+  const gorunen = mentionliMetniGorunurYap(icerik, mentionKisiMap);
+  return gorunen.length > 80 ? gorunen.slice(0, 80) + "…" : gorunen;
 }
 
 async function eklentiListele(

@@ -5,6 +5,7 @@ import { ListeTipi } from "@prisma/client";
 import { eylemMutasyonu, useOptimisticMutation } from "@/lib/optimistic";
 import { siraArasi, siraKarsilastir, siraSonuna } from "@/lib/sira";
 import { tempId } from "@/lib/temp-id";
+import { tiptapDokumaniMetne } from "@/lib/tiptap";
 import {
   kartArsivEylem,
   kartGeriYukleEylem,
@@ -268,7 +269,9 @@ export function useKartOlustur(anahtar: DetayKey) {
           const taslak: ListeKartOzeti = {
             id: vars.id_taslak,
             baslik: vars.baslik,
-            aciklama: vars.aciklama ?? null,
+            // Yeni kart açıklamasız doğar (ADR-0023). Modal'da Tiptap ile düzenlenir.
+            aciklama_dokuman: null,
+            aciklama_metin: null,
             sira: siraSonuna(sonSira),
             kapak_renk: null,
             kapak: null,
@@ -318,8 +321,18 @@ export function useKartGuncelle(anahtar: DetayKey) {
               ? {
                   ...k,
                   baslik: vars.baslik ?? k.baslik,
-                  aciklama:
-                    vars.aciklama === undefined ? k.aciklama : vars.aciklama,
+                  // ADR-0023 — Tiptap doc geldiyse plaintext'i de türet ki
+                  // line-clamp listesi ve arama önizleme anında güncellensin.
+                  aciklama_dokuman:
+                    vars.aciklama_dokuman === undefined
+                      ? k.aciklama_dokuman
+                      : vars.aciklama_dokuman,
+                  aciklama_metin:
+                    vars.aciklama_dokuman === undefined
+                      ? k.aciklama_metin
+                      : vars.aciklama_dokuman === null
+                        ? null
+                        : tiptapDokumaniMetne(vars.aciklama_dokuman) || null,
                   kapak_renk:
                     vars.kapak_renk === undefined
                       ? k.kapak_renk

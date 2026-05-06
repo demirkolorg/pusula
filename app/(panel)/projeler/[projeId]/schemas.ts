@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { KAPAK_RENK_TOKENLERI } from "@/lib/kapak-renk";
+import { tiptapDokumanSemasi } from "@/lib/tiptap";
 
 // ============================================================
 // Liste (kolon) şemaları
@@ -42,13 +43,17 @@ export const kartOlusturSemasi = z.object({
   id_taslak: z.string().optional(),
   liste_id: z.string().uuid(),
   baslik: z.string().min(1, "Başlık zorunlu").max(300),
-  aciklama: z.string().max(10000).optional().nullable(),
+  // ADR-0023 — Yeni kartlar boş açıklama ile doğar; düzenleme kart-modal'dan
+  // Tiptap editör üzerinden yapılır.
 });
 
 export const kartGuncelleSemasi = z.object({
   id: z.string().uuid(),
   baslik: z.string().min(1).max(300).optional(),
-  aciklama: z.string().max(10000).nullable().optional(),
+  // ADR-0023 — Tiptap (ProseMirror) doküman JSON'u. null = açıklama temizle.
+  // `aciklama_metin` server'da `tiptapDokumaniMetne()` ile türetilir; client
+  // göndermez (Kontrol Kural 49 — server-side hesaplanan alan).
+  aciklama_dokuman: tiptapDokumanSemasi.nullable().optional(),
   kapak_renk: z.enum(KAPAK_RENK_TOKENLERI).nullable().optional(),
   baslangic: z.coerce.date().nullable().optional(),
   bitis: z.coerce.date().nullable().optional(),

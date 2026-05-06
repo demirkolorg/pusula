@@ -125,9 +125,9 @@ export function KartListeIstemci({ projeId }: Props) {
                 {s.liste_ad}
               </Badge>
             </div>
-            {s.aciklama && (
+            {s.aciklama_metin && (
               <p className="text-muted-foreground line-clamp-2 text-xs">
-                {s.aciklama}
+                {s.aciklama_metin}
               </p>
             )}
             <div className="text-muted-foreground mt-1 flex items-center gap-3 text-xs">

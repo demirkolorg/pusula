@@ -155,7 +155,6 @@ export function KanbanListe({
       id_taslak: tempId(),
       liste_id: liste.id,
       baslik,
-      aciklama: null,
     });
     setYeniKartBaslik("");
     setYeniKartAcik(false);

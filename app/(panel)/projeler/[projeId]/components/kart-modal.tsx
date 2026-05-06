@@ -29,6 +29,7 @@ import {
   useKartSusturmaToggle,
 } from "../susturma/hooks";
 import type { ListeKartOzeti, ProjeDetayOzeti } from "../services";
+import type { TiptapDokuman } from "@/lib/tiptap";
 import { KartModalHeader } from "./kart-modal-header";
 import { KartModalAksiyonMenusu } from "./kart-modal-aksiyon-menusu";
 import { KartModalBaslik } from "./kart-modal-baslik";
@@ -147,16 +148,12 @@ function KartModalIcerik({
   const susturmaMut = useKartSusturmaToggle(kartId);
 
   const [baslik, setBaslik] = React.useState(bulunan?.kart.baslik ?? "");
-  const [aciklama, setAciklama] = React.useState(
-    bulunan?.kart.aciklama ?? "",
-  );
 
   const ozelKartId = bulunan?.kart.id;
   // Kart id değişince form'u sıfırla; aynı kart için her render'da reset etme.
   React.useEffect(() => {
     if (!bulunan) return;
     setBaslik(bulunan.kart.baslik);
-    setAciklama(bulunan.kart.aciklama ?? "");
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 'bulunan' bilerek dependency'de yok
   }, [ozelKartId]);
 
@@ -178,9 +175,11 @@ function KartModalIcerik({
     guncelle.mutate({ id: kart.id, baslik: baslik.trim() });
   };
 
-  const aciklamaKaydet = () => {
-    if (aciklama === (kart.aciklama ?? "")) return;
-    guncelle.mutate({ id: kart.id, aciklama: aciklama || null });
+  // ADR-0023 — Tiptap doc kaydetme. KartModalAciklama debounce yapıp bunu
+  // tetikler; null = açıklamayı temizle. Cache karşılaştırması optimistic
+  // hook'unda zaten var (Kontrol Kural 108).
+  const aciklamaKaydet = (yeni: TiptapDokuman | null) => {
+    guncelle.mutate({ id: kart.id, aciklama_dokuman: yeni });
   };
 
   const bitisKaydet = (yeni: Date | null) => {
@@ -361,9 +360,9 @@ function KartModalIcerik({
             />
 
             <KartModalAciklama
-              aciklama={aciklama}
-              setAciklama={setAciklama}
+              dokuman={kart.aciklama_dokuman}
               kaydet={aciklamaKaydet}
+              yetkili={yetkiliYonet}
             />
 
             <KartModalKontrolBlogu

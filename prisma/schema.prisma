@@ -730,7 +730,13 @@ model Kart {
   id                      String                @id @default(uuid()) @db.Uuid
   liste_id                String                @db.Uuid
   baslik                  String
-  aciklama                String?
+  // ADR-0023 — Zengin metin (Tiptap). aciklama_dokuman ProseMirror Doc JSON
+  // (TiptapDokuman tipi); aciklama_metin server-side türetilen düz metin —
+  // line-clamp listeleri, audit diff, full-text search trigger'ı için.
+  // Client'tan sadece aciklama_dokuman gelir; aciklama_metin servis tarafında
+  // tiptapToText() ile yeniden hesaplanır.
+  aciklama_dokuman        Json?
+  aciklama_metin          String?               @db.Text
   sira                    String // LexoRank — liste içi kart sırası
   kapak_renk              String?
   kapak_dosya_id          String?               @db.Uuid

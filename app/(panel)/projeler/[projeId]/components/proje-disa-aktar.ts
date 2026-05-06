@@ -64,7 +64,9 @@ export function projeDetayiniJsonOlarakIndir(proje: ProjeDetayOzeti): void {
         ad: l.ad,
         kartlar: l.kartlar.map((k) => ({
           baslik: k.baslik,
-          aciklama: k.aciklama,
+          // ADR-0023 — Dışa aktarımda denormalize plaintext yeterli; Tiptap
+          // JSON'u ham/yapısal alan, dış sistemler için anlamsız.
+          aciklama: k.aciklama_metin,
           bitis: bitisFormatla(k.bitis),
           arsivde: k.arsiv_mi,
         })),

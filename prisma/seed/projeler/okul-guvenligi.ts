@@ -25,7 +25,151 @@ export const okulGuvenligiProjesi: ProjeSeed = {
           key: "okul-servis",
           baslik: "Servis güzergahı risk noktalarını işaretle",
           aciklama:
-            "Taşımalı Eğitim Yönetmeliği'nin 17. maddesi ve İçişleri Bakanlığı'nın okul güvenliği genelgesi uyarınca, ilçemizdeki 10 servis güzergahı boyunca risk noktaları saha çalışmasıyla raporlanacaktır. Risk haritası; durak güvenliği (öğrenci bekleme alanı yeterli mi, asfalt seviyesi normal mi, görüş açısı kapalı mı), kavşak görünürlüğü, virajlardaki ayna eksikliği, yaya geçidi çizgileri, hız limit levhası, otomatik hız tespit kameraları, ışıklandırma ve kar yağışı sonrası kayganlaşma kalemlerini içerecektir. İlçe Trafik Tescil Memurluğu, Milli Eğitim Müdürlüğü ve İlçe Jandarma Komutanlığı ekipleri 10 günlük saha turuyla tüm güzergahları gezecek; eksiklik tespit edilen noktalarda Belediye Fen İşleri ve Karayolları'na resmi yazıyla bildirim yapılacaktır. Kayganlaşma riski yüksek olan Kop Geçidi alt kısmı, Karaçoban ayrımı ve Doğanca eğimli rampa için kış aylarında özel tedbir (kum + tuz serme rotası) uygulanacaktır. Geçen yıl Karaçoban yolunda servis aracı dönüş esnasında kaymış, mucize eseri yaralanma olmamıştır; o olay sonrası bu güzergaha 2 adet uyarı levhası ve 1 adet yayalar geçidi konvex aynası talep edilmiştir. Risk haritası A3 boyutta basılarak okul müdürlüklerine, Sayın Kaymakamlığa ve İl Milli Eğitim Müdürlüğüne sunulacaktır. Servis sürücülerine harita eğitimi planlanmıştır.",
+            "Taşımalı Eğitim Yönetmeliği'nin 17. maddesi ve İçişleri Bakanlığı'nın okul güvenliği genelgesi uyarınca, ilçemizdeki 10 servis güzergahı boyunca risk noktaları saha çalışmasıyla raporlanacaktır.",
+          // ADR-0023 — Zengin metin örneği: heading + bullet list + bold + link.
+          // UI'da kullanıcılara format paritesi göstermek amaçlı.
+          aciklamaDokuman: {
+            type: "doc",
+            content: [
+              {
+                type: "heading",
+                attrs: { level: 2 },
+                content: [{ type: "text", text: "Yasal Dayanak" }],
+              },
+              {
+                type: "paragraph",
+                content: [
+                  {
+                    type: "text",
+                    text: "Taşımalı Eğitim Yönetmeliği'nin ",
+                  },
+                  {
+                    type: "text",
+                    text: "17. maddesi",
+                    marks: [{ type: "bold" }],
+                  },
+                  {
+                    type: "text",
+                    text: " ve İçişleri Bakanlığı'nın okul güvenliği genelgesi uyarınca, ilçemizdeki 10 servis güzergahı boyunca risk noktaları saha çalışmasıyla raporlanacaktır.",
+                  },
+                ],
+              },
+              {
+                type: "heading",
+                attrs: { level: 2 },
+                content: [{ type: "text", text: "Risk Haritası Kapsamı" }],
+              },
+              {
+                type: "bulletList",
+                content: [
+                  {
+                    type: "listItem",
+                    content: [
+                      {
+                        type: "paragraph",
+                        content: [
+                          {
+                            type: "text",
+                            text: "Durak güvenliği",
+                            marks: [{ type: "bold" }],
+                          },
+                          {
+                            type: "text",
+                            text: " (öğrenci bekleme alanı, asfalt seviyesi, görüş açısı)",
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                  {
+                    type: "listItem",
+                    content: [
+                      {
+                        type: "paragraph",
+                        content: [
+                          { type: "text", text: "Kavşak görünürlüğü ve viraj aynaları" },
+                        ],
+                      },
+                    ],
+                  },
+                  {
+                    type: "listItem",
+                    content: [
+                      {
+                        type: "paragraph",
+                        content: [
+                          { type: "text", text: "Yaya geçidi çizgileri ve hız limit levhaları" },
+                        ],
+                      },
+                    ],
+                  },
+                  {
+                    type: "listItem",
+                    content: [
+                      {
+                        type: "paragraph",
+                        content: [
+                          { type: "text", text: "Kar yağışı sonrası kayganlaşma noktaları" },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+              {
+                type: "heading",
+                attrs: { level: 3 },
+                content: [{ type: "text", text: "Yüksek Risk Bölgeleri" }],
+              },
+              {
+                type: "paragraph",
+                content: [
+                  {
+                    type: "text",
+                    text: "Kop Geçidi alt kısmı, Karaçoban ayrımı ve Doğanca eğimli rampa için kış aylarında ",
+                  },
+                  {
+                    type: "text",
+                    text: "kum + tuz serme rotası",
+                    marks: [{ type: "italic" }],
+                  },
+                  { type: "text", text: " uygulanır." },
+                ],
+              },
+              {
+                type: "orderedList",
+                content: [
+                  {
+                    type: "listItem",
+                    content: [
+                      {
+                        type: "paragraph",
+                        content: [{ type: "text", text: "10 günlük saha turu" }],
+                      },
+                    ],
+                  },
+                  {
+                    type: "listItem",
+                    content: [
+                      {
+                        type: "paragraph",
+                        content: [{ type: "text", text: "Belediye + Karayolları'na yazılı bildirim" }],
+                      },
+                    ],
+                  },
+                  {
+                    type: "listItem",
+                    content: [
+                      {
+                        type: "paragraph",
+                        content: [{ type: "text", text: "A3 risk haritası ve sürücü eğitimi" }],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
           etiketler: ["Eğitim", "Saha", "Güvenlik"],
           yetkililer: ["trafikMemur", "milliMemur"],
           birimler: ["emniyet", "jandarma"],
@@ -34,8 +178,8 @@ export const okulGuvenligiProjesi: ProjeSeed = {
             {
               ad: "Saha çalışması",
               maddeler: [
-                { metin: "10 servis güzergahı dolaşıldı", atanan: "trafikMemur", tamam: true },
-                { metin: "Risk haritası çıkarıldı", atanan: "trafikMemur", tamam: true },
+                { metin: "10 servis güzergahı dolaşıldı", atanan: "trafikMemur", tamam: true, tamamlanmaGun: -10 },
+                { metin: "Risk haritası çıkarıldı", atanan: "trafikMemur", tamam: true, tamamlanmaGun: -5 },
                 { metin: "Levha ihtiyaç listesi belediyeye iletildi", atanan: "trafikMemur" },
                 { metin: "Kayganlık önleyici plan belirlendi", atanan: "belediyeFenIsleri" },
               ],
@@ -115,10 +259,53 @@ export const okulGuvenligiProjesi: ProjeSeed = {
             },
           ],
           yorumlar: [
-            { yazan: "milliRehber", icerik: "10 dosyadan 6'sı sosyo-ekonomik, 4'ü erken evlilik şüphesi içeriyor.", gunFarki: -3 },
-            { yazan: "sydvSosyalCalisan", icerik: "İki haneye yardım dosyası açıldı, kaymakamlık onayı bekleniyor.", gunFarki: -2 },
-            { yazan: "asdmAmir", icerik: "Erken evlilik şüphesi olan dosyalar için ASHB değerlendirmesine alındı.", gunFarki: -1 },
-            { yazan: "kaymakam", icerik: "Bu dosyaların haftalık takibini istiyorum, her cuma rapor.", gunFarki: 0 },
+            {
+              yazan: "milliRehber",
+              icerik:
+                "10 dosyadan 6'sı sosyo-ekonomik, 4'ü erken evlilik şüphesi içeriyor. Erken evlilik dosyaları için 5395 sayılı Kanun çerçevesinde @<asdmAmir> ile koordineli ilerleyeceğiz, mahkemeye intikal gerektirebilir.",
+              gunFarki: -7,
+              saat: 10,
+            },
+            {
+              yazan: "sydvSosyalCalisan",
+              icerik:
+                "Sosyo-ekonomik dosyalardan iki haneye yardım dosyası açıldı, kaymakamlık onayı bekleniyor. Saha izlenimim: ailelerin asıl sıkıntısı ısınma ve ulaşım masrafı, çocuk okula gidemiyor değil — gönderecek koşulu kalmamış.",
+              gunFarki: -5,
+              saat: 14,
+              yanit: 0,
+            },
+            {
+              yazan: "asdmAmir",
+              icerik:
+                "Erken evlilik şüphesi olan 4 dosya ASHB değerlendirmesine alındı. İl Müdürlüğü uzman psikoloğu hafta içi ilçeye gelecek; @<milliRehber> görüşme planını ortak oluşturalım. Vaka mahremiyeti açısından dosya numarası dışında bilgi paylaşmıyorum.",
+              gunFarki: -3,
+              saat: 11,
+              yanit: 0,
+              duzenlendi: true,
+            },
+            {
+              yazan: "milliRehber",
+              icerik:
+                "Anlaşıldı, görüşme planını çarşamba akşamına kadar size ileteceğim. Çocuk Şube'den de bir yetkili davet etmemiz uygun olur mu?",
+              gunFarki: -3,
+              saat: 15,
+              yanit: 2,
+            },
+            {
+              yazan: "kaymakam",
+              icerik:
+                "Bu dosyaların haftalık takibini bizzat istiyorum — her cuma 14:00 makamımda kısa brifing. Erken evlilik konusunda asla taviz yok, çocuğun yüksek yararını gözeterek hareket edin. Gerekirse Cumhuriyet Başsavcılığı'na suç duyurusu yapılır.",
+              gunFarki: -1,
+              saat: 9,
+            },
+            {
+              yazan: "sydvSosyalCalisan",
+              icerik:
+                "Anladım Sayın Kaymakamım, ilk brifing bu cuma için hazır. Sosyo-ekonomik dosyalardan birinde acil kömür ihtiyacı var, bekletmeden mütevelli heyetine taşıyorum.",
+              gunFarki: 0,
+              saat: 8,
+              yanit: 4,
+            },
           ],
           ekler: [
             { ad: "devamsizlik-dosyasi.pdf", mime: "application/pdf", boyut: 230_000, yukleyen: "milliMemur" },

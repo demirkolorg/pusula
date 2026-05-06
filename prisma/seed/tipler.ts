@@ -152,10 +152,25 @@ export type SeedCtx = {
   kartlar: Map<string, Idli>;
 };
 
+// Yorum içeriğinde `@<KullaniciAnahtar>` placeholder kullanılır; seed runtime
+// `lib/mention-format.ts` MENTION_UUID_REGEX uyumlu `@<uuid>` formatına
+// dönüştürür → UI mention parser'ı doğrudan render eder. Threading için
+// `yanit` opsiyonel: aynı kart yorumlar dizisindeki bir önceki yorumun
+// 0-tabanlı index'ini referans verir; seed iki pas (önce yorum oluştur, sonra
+// yanit_yorum_id güncelle) ile çözer.
+//
+// ADR-0023 — `aciklama` düz metin seed kolaylığı için kalır; runtime'da
+// `metinTiptapDokumana()` ile Tiptap doc'a sarılır. Bazı kartlara zengin
+// metin örneği vermek için opsiyonel `aciklamaDokuman` (tam Tiptap doc)
+// alanı ekli; bu alan dolu ise `aciklama` plaintext'i sadece denormalize
+// `aciklama_metin` kolonu için referans alınır.
+import type { TiptapDokuman } from "@/lib/tiptap";
+
 export type KartSeed = {
   key: string;
   baslik: string;
   aciklama: string;
+  aciklamaDokuman?: TiptapDokuman;
   etiketler: string[];
   yetkililer?: KullaniciAnahtar[];
   birimler?: BirimAnahtar[];
@@ -165,9 +180,24 @@ export type KartSeed = {
   arsiv?: boolean;
   kontrol?: Array<{
     ad: string;
-    maddeler: Array<{ metin: string; atanan?: KullaniciAnahtar; tamam?: boolean }>;
+    maddeler: Array<{
+      metin: string;
+      atanan?: KullaniciAnahtar;
+      tamam?: boolean;
+      // tamamlanma zamanını gun cinsinden REFERANS_TARIH'e göre belirler.
+      // Çeşitlendirme için: -7, -3, -1, 0 gibi.
+      tamamlanmaGun?: number;
+    }>;
   }>;
-  yorumlar?: Array<{ yazan: KullaniciAnahtar; icerik: string; gunFarki?: number }>;
+  yorumlar?: Array<{
+    yazan: KullaniciAnahtar;
+    icerik: string;
+    gunFarki?: number;
+    saat?: number;
+    // Bu yorumun, aynı array'deki kaçıncı yoruma yanıt verdiği (0-tabanlı).
+    yanit?: number;
+    duzenlendi?: boolean;
+  }>;
   ekler?: Array<{ ad: string; mime: string; boyut: number; yukleyen?: KullaniciAnahtar }>;
 };
 

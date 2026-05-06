@@ -13,7 +13,8 @@ function kart(id: string): ListeKartOzeti {
   return {
     id,
     baslik: id,
-    aciklama: null,
+    aciklama_dokuman: null,
+    aciklama_metin: null,
     sira: id,
     kapak_renk: null,
     kapak: null,

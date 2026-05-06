@@ -1,7 +1,8 @@
 import { fakerTR as faker } from "@faker-js/faker";
 import argon2 from "argon2";
-import { IzinKategorisi, type PrismaClient } from "@prisma/client";
+import { IzinKategorisi, Prisma, type PrismaClient } from "@prisma/client";
 import { siraSonuna } from "@/lib/sira";
+import { metinTiptapDokumana } from "@/lib/tiptap";
 
 // Tur 2 — Modul "Proje" integration testleri icin seed factory'leri.
 // Faker-tr ile Turkce isimler/aciklamalar uretilir (Kontrol Kural 81).
@@ -354,6 +355,8 @@ export async function listeleriSeedle(
 export type KartFiksOps = {
   listeId: string;
   baslik?: string;
+  // Test fixture'ı için düz metin kabul; Tiptap doc + plaintext alanına
+  // otomatik dönüştürülür (ADR-0023).
   aciklama?: string | null;
   sira?: string;
   oncekiSira?: string | null;
@@ -377,11 +380,17 @@ export async function kartOlusturFiks(
   silindi_mi: boolean;
 }> {
   const sira = ops.sira ?? siraSonuna(ops.oncekiSira ?? null);
+  const aciklamaDok = ops.aciklama
+    ? metinTiptapDokumana(ops.aciklama)
+    : null;
   const k = await db.kart.create({
     data: {
       liste_id: ops.listeId,
       baslik: ops.baslik ?? faker.commerce.productName(),
-      aciklama: ops.aciklama ?? null,
+      aciklama_dokuman: aciklamaDok
+        ? (aciklamaDok as Prisma.InputJsonValue)
+        : Prisma.DbNull,
+      aciklama_metin: ops.aciklama ?? null,
       sira,
       kapak_renk: ops.kapak_renk ?? null,
       baslangic: ops.baslangic ?? null,

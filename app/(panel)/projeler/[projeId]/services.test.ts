@@ -580,7 +580,12 @@ describe("kartGuncelle", () => {
     await kartGuncelle(ortam.superAdmin.id, {
       id: k.id,
       baslik: "Yeni",
-      aciklama: "Aciklama",
+      aciklama_dokuman: {
+        type: "doc",
+        content: [
+          { type: "paragraph", content: [{ type: "text", text: "Aciklama" }] },
+        ],
+      },
       kapak_renk: "tertiary",
       baslangic,
       bitis,
@@ -589,7 +594,10 @@ describe("kartGuncelle", () => {
 
     const sonra = await adminDb.kart.findUnique({ where: { id: k.id } });
     expect(sonra?.baslik).toBe("Yeni");
-    expect(sonra?.aciklama).toBe("Aciklama");
+    // ADR-0023 — `aciklama_metin` denormalize alanı server'da Tiptap doc'tan
+    // türetilir (services içinde `tiptapDokumaniMetne`).
+    expect(sonra?.aciklama_metin).toBe("Aciklama");
+    expect(sonra?.aciklama_dokuman).toMatchObject({ type: "doc" });
     expect(sonra?.kapak_renk).toBe("tertiary");
     expect(sonra?.baslangic?.toISOString()).toBe(baslangic.toISOString());
     expect(sonra?.bitis?.toISOString()).toBe(bitis.toISOString());

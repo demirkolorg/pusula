@@ -3,6 +3,11 @@ import { db } from "@/lib/db";
 import { EylemHatasi } from "@/lib/action-wrapper";
 import { HATA_KODU } from "@/lib/sonuc";
 import { kapakEtiketi } from "@/lib/kapak-renk";
+import {
+  mentionKisiMapiGetir,
+  mentionliMetniGorunurYap,
+} from "@/lib/mention-server";
+import type { MentionKisiMap } from "@/lib/mention-format";
 import type {
   KartAktiviteleriListele,
   ProjeAktiviteleriListele,
@@ -50,6 +55,15 @@ export type AktiviteOzeti = {
   // Anlamsız alanlar (sira, guncelleme_zamani, silindi_mi, arsiv_mi vb.)
   // ana mesajda ifade edildiği için listede yer almaz.
   degisiklikler: AlanDegisikligi[] | null;
+  // Bağlam — "hangi proje, hangi liste, hangi kart" — proje aktivite modalı
+  // ve detay diyaloğu için. Kart modal'ında kart bilgisi zaten bilindiği için
+  // orada null kalır. Liste/kart silinmişse ad null olabilir; id varsa silinmiş
+  // kayıt göstergesi UI tarafında "(silinmiş kart)" gibi bir fallback üretir.
+  baglam: {
+    proje: { id: string; ad: string | null } | null;
+    liste: { id: string; ad: string | null } | null;
+    kart: { id: string; baslik: string | null } | null;
+  } | null;
 };
 
 // =====================================================================
@@ -382,6 +396,12 @@ async function zenginlestirVeOzetle(
   const birimIdler = new Set<string>();
   const listeIdler = new Set<string>();
   const eklentiIdler = new Set<string>();
+  const yorumMetinleri: string[] = [];
+  // Bağlam ID setleri — proje/kart/liste/kontrol-listesi adlarını çekmek için.
+  const baglamKartIdler = new Set<string>();
+  const baglamListeIdler = new Set<string>();
+  const baglamKlIdler = new Set<string>();
+  const baglamProjeIdler = new Set<string>();
   for (const a of ham) {
     if (a.kaynak_tip === "KartEtiket") {
       const ePost = (a.yeni_veri as { etiket_id?: string } | null)?.etiket_id;
@@ -424,10 +444,105 @@ async function zenginlestirVeOzetle(
       idAlan("tamamlayan_id", atananIdler);
       idAlan("kapak_dosya_id", eklentiIdler);
     }
+    if (a.kaynak_tip === "Yorum") {
+      const icerik =
+        jsonAlan<string>(a.yeni_veri, "icerik") ??
+        jsonAlan<string>(a.eski_veri, "icerik");
+      if (icerik) yorumMetinleri.push(icerik);
+    }
+
+    // Bağlam çıkarımı — her aktivitenin "hangi liste, hangi kart" olduğunu
+    // ileride join'leyebilmek için ID'leri topla.
+    if (a.kaynak_tip === "Kart" && a.kaynak_id) {
+      baglamKartIdler.add(a.kaynak_id);
+    }
+    if (a.kaynak_tip === "Liste" && a.kaynak_id) {
+      baglamListeIdler.add(a.kaynak_id);
+    }
+    if (
+      a.kaynak_tip === "Yorum" ||
+      a.kaynak_tip === "Eklenti" ||
+      a.kaynak_tip === "KontrolListesi" ||
+      a.kaynak_tip === "KartEtiket" ||
+      a.kaynak_tip === "KartYetkilisi" ||
+      a.kaynak_tip === "KartBirimi"
+    ) {
+      const kid =
+        (a.yeni_veri as { kart_id?: string } | null)?.kart_id ??
+        (a.eski_veri as { kart_id?: string } | null)?.kart_id;
+      if (kid) baglamKartIdler.add(kid);
+    }
+    if (a.kaynak_tip === "KontrolMaddesi") {
+      const klid =
+        (a.yeni_veri as { kontrol_listesi_id?: string } | null)
+          ?.kontrol_listesi_id ??
+        (a.eski_veri as { kontrol_listesi_id?: string } | null)
+          ?.kontrol_listesi_id;
+      if (klid) baglamKlIdler.add(klid);
+    }
+    if (a.kaynak_tip === "ListeYetkilisi" || a.kaynak_tip === "ListeBirimi") {
+      const lid =
+        (a.yeni_veri as { liste_id?: string } | null)?.liste_id ??
+        (a.eski_veri as { liste_id?: string } | null)?.liste_id;
+      if (lid) baglamListeIdler.add(lid);
+    }
+    // Proje düzeyi kayıtlar — proje_id JSON path
+    if (
+      a.kaynak_tip === "Proje" &&
+      a.kaynak_id
+    ) {
+      baglamProjeIdler.add(a.kaynak_id);
+    }
+    if (
+      a.kaynak_tip === "ProjeYetkilisi" ||
+      a.kaynak_tip === "ProjeBirimi" ||
+      a.kaynak_tip === "Etiket"
+    ) {
+      const pid =
+        (a.yeni_veri as { proje_id?: string } | null)?.proje_id ??
+        (a.eski_veri as { proje_id?: string } | null)?.proje_id;
+      if (pid) baglamProjeIdler.add(pid);
+    }
   }
 
-  const [etiketler, atananlar, birimler, listeler, eklentiAdlar] =
-    await Promise.all([
+  // KontrolMaddesi'ler için kontrol_listesi → kart_id eşleşmesi:
+  // önce ilgili KontrolListesi'leri çekerek kart_id'leri öğren, sonra
+  // o kart_id'leri baglamKartIdler'a ekle (kart adını da çekebilelim).
+  const kontrolListesiKartMap = new Map<string, string>();
+  if (baglamKlIdler.size > 0) {
+    const klKayitlar = await db.kontrolListesi.findMany({
+      where: { id: { in: Array.from(baglamKlIdler) } },
+      select: { id: true, kart_id: true },
+    });
+    for (const kl of klKayitlar) {
+      kontrolListesiKartMap.set(kl.id, kl.kart_id);
+      baglamKartIdler.add(kl.kart_id);
+    }
+  }
+
+  // Bağlam liste ID'lerini, kartların liste_id'leriyle birleştirmeden
+  // önce kartları çekmemiz gerek. Önce kartlar, sonra kartın liste_id
+  // dahil edip o ID'leri de listeIdler'a ekle ve listeleri çek.
+  const baglamKartlar =
+    baglamKartIdler.size > 0
+      ? await db.kart.findMany({
+          where: { id: { in: Array.from(baglamKartIdler) } },
+          select: { id: true, baslik: true, liste_id: true },
+        })
+      : [];
+  for (const k of baglamKartlar) {
+    baglamListeIdler.add(k.liste_id);
+  }
+
+  const [
+    etiketler,
+    atananlar,
+    birimler,
+    listeler,
+    eklentiAdlar,
+    baglamListeler,
+    yorumMentionKisiMap,
+  ] = await Promise.all([
       etiketIdler.size > 0
         ? db.etiket.findMany({
             where: { id: { in: Array.from(etiketIdler) } },
@@ -458,7 +573,27 @@ async function zenginlestirVeOzetle(
             select: { id: true, ad: true },
           })
         : Promise.resolve([]),
+      baglamListeIdler.size > 0
+        ? db.liste.findMany({
+            where: { id: { in: Array.from(baglamListeIdler) } },
+            select: { id: true, ad: true, proje_id: true },
+          })
+        : Promise.resolve([]),
+      mentionKisiMapiGetir(yorumMetinleri),
     ]);
+
+  // Bağlam listelerinden çıkan proje_id'leri proje fetch setine ekle ve
+  // proje kayıtlarını çek (kart→liste→proje zinciri için).
+  for (const l of baglamListeler) {
+    baglamProjeIdler.add(l.proje_id);
+  }
+  const baglamProjeler =
+    baglamProjeIdler.size > 0
+      ? await db.proje.findMany({
+          where: { id: { in: Array.from(baglamProjeIdler) } },
+          select: { id: true, ad: true },
+        })
+      : [];
 
   const etiketMap = new Map(etiketler.map((e) => [e.id, e]));
   const atananMap = new Map(atananlar.map((u) => [u.id, u]));
@@ -477,8 +612,24 @@ async function zenginlestirVeOzetle(
     birim: birimMap,
   };
 
+  const baglamMaplari: BaglamMaplari = {
+    kart: new Map(baglamKartlar.map((k) => [k.id, k])),
+    liste: new Map(baglamListeler.map((l) => [l.id, l])),
+    proje: new Map(baglamProjeler.map((p) => [p.id, p])),
+    kontrolListesi: kontrolListesiKartMap,
+  };
+
   return ham.map((a) =>
-    aktiviteOzetle(a, kullaniciMap, etiketMap, atananMap, birimMap, idMaplar),
+    aktiviteOzetle(
+      a,
+      kullaniciMap,
+      etiketMap,
+      atananMap,
+      birimMap,
+      idMaplar,
+      baglamMaplari,
+      yorumMentionKisiMap,
+    ),
   );
 }
 
@@ -487,6 +638,19 @@ type IdMaplar = {
   kullanici: Map<string, string>;
   eklenti: Map<string, string>;
   birim: Map<string, string>;
+};
+
+// Bağlam map'leri — her aktivitenin "hangi proje, hangi liste, hangi kart"
+// bağlamını üretmek için. Aktivite kaydının kendisinden veya ilişki
+// tablosundan kart_id / liste_id / proje_id çıkarılır, bu map'lerden ad
+// bilgisi alınır.
+type BaglamMaplari = {
+  kart: Map<string, { id: string; baslik: string | null; liste_id: string }>;
+  // Liste detayı: ad + proje_id (kart→liste→proje zinciri için)
+  liste: Map<string, { id: string; ad: string | null; proje_id: string }>;
+  proje: Map<string, { id: string; ad: string | null }>;
+  // KontrolListesi.id → kart_id eşleşmesi (KontrolMaddesi → kart bağlamı için)
+  kontrolListesi: Map<string, string>;
 };
 
 function birimGoruntu(k: {
@@ -519,7 +683,12 @@ type HamAktivite = {
 // fallback'ine düşme riski olur.
 const KART_ALAN_ETIKETI: Record<string, string> = {
   baslik: "kartın başlığı",
-  aciklama: "kartın açıklaması",
+  // ADR-0023 — Tiptap doc + denormalize plaintext. Audit mesajında plaintext
+  // değişikliğini referans alıyoruz; doc her edit'te değişir ama "anlamlı"
+  // değişim metnin kendisi (ikisi tutarlı: services tek bir transaction'da
+  // her ikisini birden yazar). aciklama_dokuman değişimi mesajdan çıkarıldı
+  // (her keypress audit gibi gürültü olur).
+  aciklama_metin: "kartın açıklaması",
   bitis: "kartın bitiş tarihi",
   baslangic: "kartın başlangıç tarihi",
   kapak_renk: "kartın kapak rengi",
@@ -533,6 +702,131 @@ function jsonAlan<T = unknown>(j: unknown, alan: string): T | undefined {
   return undefined;
 }
 
+// Liste id'sinden proje özeti çıkar (kart→liste→proje zinciri).
+function projeOzeti(
+  listeId: string | null | undefined,
+  baglam: BaglamMaplari,
+): { id: string; ad: string | null } | null {
+  if (!listeId) return null;
+  const l = baglam.liste.get(listeId);
+  if (!l) return null;
+  const p = baglam.proje.get(l.proje_id);
+  return p ? { id: p.id, ad: p.ad } : { id: l.proje_id, ad: null };
+}
+
+// Aktivite kaydının proje, kart_id ve liste_id bağlamını çöz — yorumun ait
+// olduğu kart, kartın bulunduğu liste, listenin ait olduğu proje vb.
+// Composite-PK ilişki tablolarında JSON'dan, Kart/Liste/Proje için kaynak_id
+// veya yeni_veri/eski_veri'den okur. Silinmiş kayıt → ad null → UI fallback.
+function baglamCoz(
+  a: HamAktivite,
+  baglam: BaglamMaplari,
+): AktiviteOzeti["baglam"] {
+  const tip = a.kaynak_tip;
+
+  // Doğrudan Proje kaydı — kaynak_id proje id'si.
+  if (tip === "Proje" && a.kaynak_id) {
+    const p = baglam.proje.get(a.kaynak_id);
+    return {
+      proje: p ?? { id: a.kaynak_id, ad: null },
+      liste: null,
+      kart: null,
+    };
+  }
+
+  // Diğer proje düzeyi (yetkili/birim/etiket) — JSON'dan proje_id
+  if (tip === "ProjeYetkilisi" || tip === "ProjeBirimi" || tip === "Etiket") {
+    const projeId =
+      jsonAlan<string>(a.yeni_veri, "proje_id") ??
+      jsonAlan<string>(a.eski_veri, "proje_id") ??
+      null;
+    if (!projeId) return null;
+    const p = baglam.proje.get(projeId);
+    return {
+      proje: p ?? { id: projeId, ad: null },
+      liste: null,
+      kart: null,
+    };
+  }
+
+  // Doğrudan Kart kaydı — kaynak_id zaten kart id'si.
+  if (tip === "Kart" && a.kaynak_id) {
+    const k = baglam.kart.get(a.kaynak_id);
+    if (k) {
+      const l = baglam.liste.get(k.liste_id);
+      return {
+        proje: projeOzeti(k.liste_id, baglam),
+        liste: l ? { id: l.id, ad: l.ad } : null,
+        kart: { id: k.id, baslik: k.baslik },
+      };
+    }
+    // Kart silinmişse — id biliniyor ama ad yok
+    return {
+      proje: null,
+      liste: null,
+      kart: { id: a.kaynak_id, baslik: null },
+    };
+  }
+
+  // Doğrudan Liste kaydı — kart bağlamı yok
+  if (tip === "Liste" && a.kaynak_id) {
+    const l = baglam.liste.get(a.kaynak_id);
+    return {
+      proje: l ? projeOzeti(a.kaynak_id, baglam) : null,
+      liste: l ? { id: l.id, ad: l.ad } : { id: a.kaynak_id, ad: null },
+      kart: null,
+    };
+  }
+
+  // Liste-bağlı ilişkiler — JSON'dan liste_id
+  if (tip === "ListeYetkilisi" || tip === "ListeBirimi") {
+    const listeId =
+      jsonAlan<string>(a.yeni_veri, "liste_id") ??
+      jsonAlan<string>(a.eski_veri, "liste_id") ??
+      null;
+    if (!listeId) return null;
+    const l = baglam.liste.get(listeId);
+    return {
+      proje: l ? projeOzeti(listeId, baglam) : null,
+      liste: l ? { id: l.id, ad: l.ad } : { id: listeId, ad: null },
+      kart: null,
+    };
+  }
+
+  // Kart-bağlı kayıtlar (Yorum, Eklenti, KontrolListesi, KartEtiket,
+  // KartYetkilisi, KartBirimi) — JSON'dan kart_id
+  let kartId: string | null = null;
+  if (KART_ID_ICEREN_TIPLER.includes(tip as never)) {
+    kartId =
+      jsonAlan<string>(a.yeni_veri, "kart_id") ??
+      jsonAlan<string>(a.eski_veri, "kart_id") ??
+      null;
+  } else if (tip === "KontrolMaddesi") {
+    // KontrolMaddesi → kontrol_listesi_id → kart_id (dolaylı)
+    const klId =
+      jsonAlan<string>(a.yeni_veri, "kontrol_listesi_id") ??
+      jsonAlan<string>(a.eski_veri, "kontrol_listesi_id") ??
+      null;
+    if (klId) kartId = baglam.kontrolListesi.get(klId) ?? null;
+  }
+
+  if (!kartId) return null;
+  const k = baglam.kart.get(kartId);
+  if (!k) {
+    return {
+      proje: null,
+      liste: null,
+      kart: { id: kartId, baslik: null },
+    };
+  }
+  const l = baglam.liste.get(k.liste_id);
+  return {
+    proje: projeOzeti(k.liste_id, baglam),
+    liste: l ? { id: l.id, ad: l.ad } : null,
+    kart: { id: k.id, baslik: k.baslik },
+  };
+}
+
 function aktiviteOzetle(
   a: HamAktivite,
   kullaniciMap: Map<string, { id: string; ad: string; soyad: string }>,
@@ -540,6 +834,8 @@ function aktiviteOzetle(
   atananMap: Map<string, { id: string; ad: string; soyad: string }>,
   birimMap: Map<string, string>,
   idMaplar: IdMaplar,
+  baglamMaplari: BaglamMaplari,
+  yorumMentionKisiMap: MentionKisiMap,
 ): AktiviteOzeti {
   const islem = (a.islem === "CREATE" || a.islem === "UPDATE" || a.islem === "DELETE"
     ? a.islem
@@ -552,6 +848,8 @@ function aktiviteOzetle(
   const degisiklikler =
     islem === "UPDATE" ? degisiklikleriHazirla(a, idMaplar) : null;
 
+  const baglam = baglamCoz(a, baglamMaplari);
+
   const ortak = {
     id: a.id.toString(),
     zaman: a.zaman,
@@ -559,6 +857,7 @@ function aktiviteOzetle(
     islem,
     kaynak_id: a.kaynak_id,
     degisiklikler,
+    baglam,
   };
 
   switch (a.kaynak_tip) {
@@ -569,7 +868,7 @@ function aktiviteOzetle(
     case "Kart":
       return { ...ortak, ...kartMesaji(a, islem) };
     case "Yorum":
-      return { ...ortak, ...yorumMesaji(a, islem) };
+      return { ...ortak, ...yorumMesaji(a, islem, yorumMentionKisiMap) };
     case "Eklenti":
       return { ...ortak, ...eklentiMesaji(a, islem) };
     case "KontrolListesi":
@@ -922,10 +1221,15 @@ function kartMesaji(
 function yorumMesaji(
   a: HamAktivite,
   islem: AktiviteOzeti["islem"],
+  mentionKisiMap: MentionKisiMap,
 ): Pick<AktiviteOzeti, "kategori" | "mesaj" | "detay"> {
   if (islem === "CREATE") {
     const ic = jsonAlan<string>(a.yeni_veri, "icerik") ?? "";
-    return { kategori: "yorum", mesaj: "yorum yazdı", detay: kisalt(ic, 80) };
+    return {
+      kategori: "yorum",
+      mesaj: "yorum yazdı",
+      detay: kisalt(mentionliMetniGorunurYap(ic, mentionKisiMap), 80),
+    };
   }
   const diff = a.diff as Record<string, { eski: unknown; yeni: unknown }> | null;
   // Yorum tek yönlü silinir — UI'da geri yükleme yok, bu yüzden silindi_mi
@@ -1189,7 +1493,11 @@ const ALAN_ETIKETI: Record<string, Record<string, string>> = {
   },
   Kart: {
     baslik: "Başlık",
-    aciklama: "Açıklama",
+    // ADR-0023 — `aciklama_metin` denormalize alanı; denetim diyaloğu metin
+    // farkını gösterir. `aciklama_dokuman` (Tiptap JSON) ham objedir,
+    // anlamlı diff için plaintext yeterli.
+    aciklama_metin: "Açıklama",
+    aciklama_dokuman: "Açıklama (zengin metin)",
     bitis: "Bitiş tarihi",
     baslangic: "Başlangıç tarihi",
     kapak_renk: "Kapak rengi",

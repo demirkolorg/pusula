@@ -5,6 +5,11 @@
 ## [Yayınlanmamış]
 
 ### Eklenen
+- **Kart açıklamasında zengin metin (ADR-0023)** — Tiptap (ProseMirror) editör; bold, italik, üstü çizili, satır içi kod, başlık (H1-H3), madde işaretli & numaralı liste, link. shadcn primitive'leri (Tooltip + Popover + Separator) ile özel toolbar; mobil 360px'te yatay scroll. `Kart.aciklama` (String) → `Kart.aciklama_dokuman` (Json) + `Kart.aciklama_metin` (denormalize plaintext, tsvector trigger'ı + line-clamp listesi + audit diff bunu okur). Server-side Zod doc validation (max 1000 düğüm, 10 derinlik, 10K karakter/text). Optimistic mutation `useKartGuncelle` 1500ms onBlur debounce ile çalışır.
+- `lib/tiptap/` — server-safe helper kütüphanesi (TiptapDokuman Zod şeması, plaintext serialize, mention çıkarma + 33 unit test).
+- `components/tiptap/` — istemci editor + toolbar + link popover.
+- `prisma/migrations/20260508000000_kart_aciklama_tiptap_dokuman` — kolon değişimi + tsvector trigger refactor.
+- **Makam katmanı bildirim otomatik alıcı (ADR-0022)** — `SUPER_ADMIN` ve `KAYMAKAM` rolündeki aktif/onaylı kullanıcılar `bildirimUret` tek noktasından **tüm bildirim tetikleyicilerine** otomatik alıcı olarak dahil edilir. Kural 50a'nın bildirim katmanına yansıması: makam kullanıcısı atama/üyelik gerektirmeden tüm projelerin akışını görür. Üreten dışlama, `BildirimTercih` ve susturma süzgeçleri korunur (opt-out kullanılabilir). Email kanalı (Adım 4 / Faz 5.5) için de aynı union uygulanır.
 - **Genel Arama / Komut Paleti (ADR-0017)** — Cmd/Ctrl+K + Cmd/Ctrl+Space ile açılan global arama. 9 tipte aranabilir: kart, yorum, kontrol maddesi, eklenti, kullanıcı, birim, etiket, proje, liste. Postgres `tsvector` + custom `pusula_turkish` config (Snowball Türkçe stemmer + unaccent + stop-word) + `pg_trgm` fuzzy fallback. UNION ALL sorgu, app-level yetki filtresi (Makam — SUPER_ADMIN/KAYMAKAM — bypass).
 - `app/(panel)/genel-arama/` — feature folder (5 katman: schemas, services, actions, hooks, components + saf logic helper + 16 unit test).
 - `app/(panel)/genel-arama/components/komut-paleti.tsx` — geniş modal (90vw × 86vh), 4 sekmeli tab bar (Hepsi / İçerik / Yapı / Kişi-Yer), Ctrl+1..4 sekme kısayolu, sayaç pill, durationMs.

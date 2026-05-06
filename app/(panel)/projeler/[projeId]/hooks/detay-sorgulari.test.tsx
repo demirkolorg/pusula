@@ -101,7 +101,8 @@ function ornekKart(p: Partial<ListeKartOzeti> = {}): ListeKartOzeti {
   return {
     id: p.id ?? crypto.randomUUID(),
     baslik: p.baslik ?? "Kart",
-    aciklama: p.aciklama ?? null,
+    aciklama_dokuman: p.aciklama_dokuman ?? null,
+    aciklama_metin: p.aciklama_metin ?? null,
     sira: p.sira ?? "M",
     kapak_renk: p.kapak_renk ?? null,
     kapak: p.kapak ?? null,
@@ -942,7 +943,16 @@ describe("useKartGuncelle", () => {
               ornekKart({
                 id: "k-1",
                 baslik: "B",
-                aciklama: "EskiAciklama",
+                aciklama_dokuman: {
+                  type: "doc",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: "EskiAciklama" }],
+                    },
+                  ],
+                },
+                aciklama_metin: "EskiAciklama",
                 kapak_renk: "primary",
                 bitis: tarih,
               }),
@@ -957,11 +967,11 @@ describe("useKartGuncelle", () => {
       wrapper: sarici(qc),
     });
 
-    // aciklama, kapak_renk, bitis null'lanir; baslik/arsiv_mi degismez.
+    // aciklama_dokuman, kapak_renk, bitis null'lanir; baslik/arsiv_mi degismez.
     act(() => {
       result.current.mutate({
         id: "k-1",
-        aciklama: null,
+        aciklama_dokuman: null,
         kapak_renk: null,
         bitis: null,
       });
@@ -972,7 +982,8 @@ describe("useKartGuncelle", () => {
         .getQueryData<ProjeDetayOzeti>(ANAHTAR)
         ?.listeler[0]?.kartlar[0];
       expect(k?.baslik).toBe("B"); // korundu
-      expect(k?.aciklama).toBeNull();
+      expect(k?.aciklama_dokuman).toBeNull();
+      expect(k?.aciklama_metin).toBeNull();
       expect(k?.kapak_renk).toBeNull();
       expect(k?.bitis).toBeNull();
     });
