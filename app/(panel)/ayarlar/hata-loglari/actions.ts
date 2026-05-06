@@ -115,7 +115,10 @@ export const hataCozumIsaretle = eylem({
   ad: "hata-logu:cozum",
   girdi: hataCozumSemasi,
   calistir: async (girdi, ctx) => {
-    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.HATA_LOGU_OKU);
+    await yetkiZorunlu(
+      ctx.oturum?.kullaniciId,
+      IZIN_KODLARI.HATA_LOGU_COZULDU_ISARETLE,
+    );
     const idBig = BigInt(girdi.id);
     if (Number.isNaN(Number(idBig))) {
       throw new EylemHatasi("Geçersiz kayıt.", HATA_KODU.GECERSIZ_GIRDI);
