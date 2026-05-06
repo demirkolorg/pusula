@@ -282,23 +282,27 @@ model Kullanici {
   olusturma_zamani  DateTime            @default(now())
   guncelleme_zamani DateTime            @updatedAt
 
-  birim                        Birim?           @relation(fields: [birim_id], references: [id])
+  birim                        Birim?                @relation(fields: [birim_id], references: [id])
   roller                       KullaniciRol[]
   proje_yetkileri              ProjeYetkilisi[]
   liste_yetkileri              ListeYetkilisi[]
   kart_yetkileri               KartYetkilisi[]
-  olusturduklari               Proje[]          @relation("ProjeOlusturan")
-  yorumlar                     Yorum[]          @relation("YorumYazan")
-  eklentiler                   Eklenti[]        @relation("EklentiYukleyen")
-  tamamlanan_maddeler          KontrolMaddesi[] @relation("KontrolTamamlayan")
-  atanan_maddeler              KontrolMaddesi[] @relation("KontrolAtanan")
-  onerdigi_madde_tamamlamalari KontrolMaddesi[] @relation("KontrolMaddeTamamlamaOneren")
-  tamamladigi_kartlar          Kart[]           @relation("KartTamamlayan")
-  onerdigi_kart_tamamlamalari  Kart[]           @relation("KartTamamlamaOneren")
-  bildirimler                  Bildirim[]       @relation("BildirimAlici")
-  ureten_bildirimler           Bildirim[]       @relation("BildirimUreten")
+  olusturduklari               Proje[]               @relation("ProjeOlusturan")
+  yorumlar                     Yorum[]               @relation("YorumYazan")
+  eklentiler                   Eklenti[]             @relation("EklentiYukleyen")
+  // ADR-0028 — dosya yönetimi çekirdek modeli
+  dosyalari                    Dosya[]               @relation("DosyaYukleyen")
+  dosya_surumleri              DosyaSurumu[]         @relation("DosyaSurumYukleyen")
+  dosya_baglantilari           DosyaBaglantisi[]     @relation("DosyaBaglantiEkleyen")
+  tamamlanan_maddeler          KontrolMaddesi[]      @relation("KontrolTamamlayan")
+  atanan_maddeler              KontrolMaddesi[]      @relation("KontrolAtanan")
+  onerdigi_madde_tamamlamalari KontrolMaddesi[]      @relation("KontrolMaddeTamamlamaOneren")
+  tamamladigi_kartlar          Kart[]                @relation("KartTamamlayan")
+  onerdigi_kart_tamamlamalari  Kart[]                @relation("KartTamamlamaOneren")
+  bildirimler                  Bildirim[]            @relation("BildirimAlici")
+  ureten_bildirimler           Bildirim[]            @relation("BildirimUreten")
   // ADR-0021 — kullanıcı şablonları
-  sablonlari                   ProjeSablonu[]   @relation("SablonOlusturan")
+  sablonlari                   ProjeSablonu[]        @relation("SablonOlusturan")
   bildirim_tercihleri          BildirimTercih[]
   kart_susturmalari            KartSusturma[]
   proje_susturmalari           ProjeSusturma[]
@@ -327,6 +331,8 @@ enum IzinKategorisi {
   ROL
   AUDIT
   AYAR
+  // ADR-0028 — Dosya yönetimi çekirdek modeli
+  DOSYA
 }
 
 model Rol {
@@ -907,6 +913,228 @@ model Eklenti {
   @@index([arama_vektoru], type: Gin)
   // ADR-0017: pg_trgm fuzzy fallback
   @@index([ad(ops: raw("gin_trgm_ops"))], type: Gin, map: "Eklenti_ad_trgm_idx")
+}
+
+// ============================================================
+// Dosya yönetimi çekirdek modeli (ADR-0028)
+// Plan: docs/issues/2026-05-06-dosya-yonetimi-modulu-plani.md
+// Kart-eki "Eklenti" modelinin yerini alır; F2 backfill ile mevcut
+// Eklenti kayıtları taşınır, F4 sonrası Eklenti kaldırılır.
+// ============================================================
+
+enum DosyaKategori {
+  GORSEL
+  PDF
+  OFIS_BELGESI
+  TABLO
+  SUNUM
+  METIN
+  ARSIV
+  DIGER
+}
+
+enum DosyaDurumu {
+  YUKLENIYOR
+  HAZIR
+  KARANTINA
+  HATALI
+}
+
+enum DosyaGizlilik {
+  NORMAL
+  HASSAS
+  GIZLI
+}
+
+// v1 UI: KART, PROJE, LISTE. YORUM/KONTROL_MADDESI/KULLANICI/BIRIM
+// rezerv — v2'de UI açar, schema değişmez.
+enum DosyaKaynakTipi {
+  PROJE
+  LISTE
+  KART
+  YORUM
+  KONTROL_MADDESI
+  KULLANICI
+  BIRIM
+}
+
+enum DosyaIslemeDurumu {
+  BEKLIYOR
+  ISLENIYOR
+  TAMAMLANDI
+  BASARISIZ
+  ATLANDI
+}
+
+enum DosyaErisimTipi {
+  ONIZLEME
+  INDIRME
+  PAYLASIM
+}
+
+model Dosya {
+  id                   String            @id @default(uuid()) @db.Uuid
+  yukleyen_id          String            @db.Uuid
+  ad                   String
+  aciklama             String?           @db.Text
+  mime                 String
+  uzanti               String?
+  kategori             DosyaKategori
+  boyut                Int
+  hash_sha256          String?
+  // ADR-0028 — aktif sürüm referansı; FK constraint yok (circular relation
+  // önlemek için service tarafında doğrulanır).
+  aktif_surum_id       String?           @db.Uuid
+  bucket               String
+  depolama_yolu        String
+  thumbnail_yolu       String?
+  onizleme_yolu        String?
+  // Çıkarılmış metin — v1 yazılmaz; F7+'da preview/extract job ile dolar.
+  metin_icerik         String?           @db.Text
+  durum                DosyaDurumu       @default(YUKLENIYOR)
+  gizlilik             DosyaGizlilik     @default(NORMAL)
+  // ADR-0028 — virüs servisi v2; alan baştan rezerv.
+  virus_tarama_durumu  DosyaIslemeDurumu @default(BEKLIYOR)
+  onizleme_durumu      DosyaIslemeDurumu @default(BEKLIYOR)
+  metin_cikarma_durumu DosyaIslemeDurumu @default(BEKLIYOR)
+  indirme_sayisi       Int               @default(0)
+  son_indirme_zamani   DateTime?
+  silindi_mi           Boolean           @default(false)
+  silinme_zamani       DateTime?
+  olusturma_zamani     DateTime          @default(now())
+  guncelleme_zamani    DateTime          @updatedAt
+
+  yukleyen    Kullanici               @relation("DosyaYukleyen", fields: [yukleyen_id], references: [id])
+  surumler    DosyaSurumu[]
+  baglantilar DosyaBaglantisi[]
+  etiketler   DosyaEtiketBaglantisi[]
+  erisimler   DosyaErisimLogu[]
+
+  // ADR-0017: global arama (tsvector + GIN) — trigger ile otomatik güncellenir.
+  arama_vektoru Unsupported("tsvector")?
+
+  @@index([yukleyen_id, olusturma_zamani(sort: Desc)])
+  @@index([kategori, olusturma_zamani(sort: Desc)])
+  @@index([mime])
+  @@index([boyut])
+  @@index([durum])
+  @@index([gizlilik])
+  @@index([silindi_mi, olusturma_zamani(sort: Desc)])
+  @@index([hash_sha256])
+  @@index([arama_vektoru], type: Gin)
+  // ADR-0017: pg_trgm fuzzy fallback
+  @@index([ad(ops: raw("gin_trgm_ops"))], type: Gin, map: "Dosya_ad_trgm_idx")
+}
+
+model DosyaSurumu {
+  id               String   @id @default(uuid()) @db.Uuid
+  dosya_id         String   @db.Uuid
+  surum_no         Int
+  yukleyen_id      String   @db.Uuid
+  ad               String
+  mime             String
+  boyut            Int
+  hash_sha256      String?
+  bucket           String
+  depolama_yolu    String
+  aciklama         String?  @db.Text
+  olusturma_zamani DateTime @default(now())
+
+  dosya    Dosya     @relation(fields: [dosya_id], references: [id], onDelete: Cascade)
+  yukleyen Kullanici @relation("DosyaSurumYukleyen", fields: [yukleyen_id], references: [id])
+
+  @@unique([dosya_id, surum_no])
+  @@index([dosya_id, olusturma_zamani(sort: Desc)])
+  @@index([hash_sha256])
+}
+
+model DosyaBaglantisi {
+  id               String          @id @default(uuid()) @db.Uuid
+  dosya_id         String          @db.Uuid
+  kaynak_tip       DosyaKaynakTipi
+  kaynak_id        String          @db.Uuid
+  // Denormalize alanlar — RBAC kapsam filtreleri ve liste sorguları join'siz
+  // çalışsın diye. Kart bağlantısında üçü doldurulur; proje bağlantısında
+  // yalnız proje_id doldurulur.
+  proje_id         String?         @db.Uuid
+  liste_id         String?         @db.Uuid
+  kart_id          String?         @db.Uuid
+  ekleyen_id       String          @db.Uuid
+  birincil_mi      Boolean         @default(false)
+  olusturma_zamani DateTime        @default(now())
+
+  dosya   Dosya     @relation(fields: [dosya_id], references: [id], onDelete: Cascade)
+  ekleyen Kullanici @relation("DosyaBaglantiEkleyen", fields: [ekleyen_id], references: [id])
+
+  @@unique([dosya_id, kaynak_tip, kaynak_id])
+  @@index([kaynak_tip, kaynak_id])
+  @@index([proje_id])
+  @@index([liste_id])
+  @@index([kart_id])
+  @@index([dosya_id])
+}
+
+model DosyaEtiketi {
+  id               String   @id @default(uuid()) @db.Uuid
+  // ADR-0028 — proje bazlı etiket (proje_id null ise sistem geneli).
+  proje_id         String?  @db.Uuid
+  ad               String
+  renk             String?
+  olusturan_id     String?  @db.Uuid
+  olusturma_zamani DateTime @default(now())
+
+  baglar DosyaEtiketBaglantisi[]
+
+  @@unique([proje_id, ad])
+  @@index([ad])
+}
+
+model DosyaEtiketBaglantisi {
+  dosya_id  String @db.Uuid
+  etiket_id String @db.Uuid
+
+  dosya  Dosya        @relation(fields: [dosya_id], references: [id], onDelete: Cascade)
+  etiket DosyaEtiketi @relation(fields: [etiket_id], references: [id], onDelete: Cascade)
+
+  @@id([dosya_id, etiket_id])
+  @@index([etiket_id])
+}
+
+model DosyaYuklemeOturumu {
+  id                String          @id @default(uuid()) @db.Uuid
+  kullanici_id      String          @db.Uuid
+  kaynak_tip        DosyaKaynakTipi
+  kaynak_id         String          @db.Uuid
+  ad                String
+  mime              String
+  boyut             Int
+  depolama_yolu     String
+  durum             DosyaDurumu     @default(YUKLENIYOR)
+  hata              String?
+  son_kullanma      DateTime
+  olusturma_zamani  DateTime        @default(now())
+  guncelleme_zamani DateTime        @updatedAt
+
+  @@index([kullanici_id, olusturma_zamani(sort: Desc)])
+  @@index([durum, son_kullanma])
+}
+
+// Önizleme/indirme okuma olayları — audit'e değil burada tutulur (ADR-0028).
+model DosyaErisimLogu {
+  id           BigInt          @id @default(autoincrement())
+  dosya_id     String          @db.Uuid
+  kullanici_id String?         @db.Uuid
+  tip          DosyaErisimTipi
+  request_id   String?
+  ip           String?
+  user_agent   String?
+  zaman        DateTime        @default(now())
+
+  dosya Dosya @relation(fields: [dosya_id], references: [id], onDelete: Cascade)
+
+  @@index([dosya_id, zaman(sort: Desc)])
+  @@index([kullanici_id, zaman(sort: Desc)])
+  @@index([tip, zaman(sort: Desc)])
 }
 
 model KontrolListesi {

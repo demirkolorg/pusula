@@ -112,6 +112,39 @@ export const IZIN_KODLARI = {
   KART_YETKILI_BIRIM_ATA: "kart.yetkili:birim-ata",
   KART_YETKILI_BIRIM_CIKAR: "kart.yetkili:birim-cikar",
 
+  // ─────────── DOSYA (ADR-0028) — Çekirdek dosya yönetimi ───────────
+  DOSYA_OKU: "dosya:oku",
+  DOSYA_YUKLE: "dosya:yukle",
+  DOSYA_INDIR: "dosya:indir",
+  DOSYA_ONIZLE: "dosya:onizle",
+
+  // ─────────── DOSYA / Düzenle ───────────
+  DOSYA_AD_DUZENLE: "dosya:duzenle-ad",
+  DOSYA_ACIKLAMA_DUZENLE: "dosya:duzenle-aciklama",
+  DOSYA_GIZLILIK_DUZENLE: "dosya:gizlilik-duzenle",
+
+  // ─────────── DOSYA / Etiket ───────────
+  DOSYA_ETIKET_ATA: "dosya.etiket:ata",
+  DOSYA_ETIKET_YONET: "dosya.etiket:yonet",
+
+  // ─────────── DOSYA / Bağlantı ───────────
+  DOSYA_BAGLANTI_EKLE: "dosya.baglanti:ekle",
+  DOSYA_BAGLANTI_KALDIR: "dosya.baglanti:kaldir",
+
+  // ─────────── DOSYA / Sürüm ───────────
+  DOSYA_SURUM_YUKLE: "dosya.surum:yukle",
+
+  // ─────────── DOSYA / Silme ───────────
+  DOSYA_KENDI_SIL: "dosya:kendi-sil",
+  DOSYA_BASKA_SIL: "dosya:baska-sil",
+  DOSYA_GERI_YUKLE: "dosya:geri-yukle",
+  DOSYA_KALICI_SIL: "dosya:kalici-sil",
+
+  // ─────────── DOSYA / Toplu & Güvenlik ───────────
+  DOSYA_TOPLU_ISLEM: "dosya:toplu-islem",
+  DOSYA_GUVENLIK_YONET: "dosya:guvenlik-yonet",
+  DOSYA_DISA_AKTAR: "dosya:disa-aktar",
+
   // ─────────── KULLANICI ───────────
   KULLANICI_DAVET_GONDER: "kullanici.davet:gonder",
   KULLANICI_DAVET_IPTAL: "kullanici.davet:iptal",
@@ -253,6 +286,26 @@ export const IZIN_KATEGORI: Partial<Record<IzinKodu, IzinKategorisi>> = {
   [IZIN_KODLARI.KART_EKLENTI_INDIR]: IzinKategorisi.KART,
   [IZIN_KODLARI.KART_EKLENTI_KENDI_SIL]: IzinKategorisi.KART,
   [IZIN_KODLARI.KART_EKLENTI_BASKA_SIL]: IzinKategorisi.KART,
+  // DOSYA — ADR-0028 çekirdek dosya yönetimi
+  [IZIN_KODLARI.DOSYA_OKU]: IzinKategorisi.DOSYA,
+  [IZIN_KODLARI.DOSYA_YUKLE]: IzinKategorisi.DOSYA,
+  [IZIN_KODLARI.DOSYA_INDIR]: IzinKategorisi.DOSYA,
+  [IZIN_KODLARI.DOSYA_ONIZLE]: IzinKategorisi.DOSYA,
+  [IZIN_KODLARI.DOSYA_AD_DUZENLE]: IzinKategorisi.DOSYA,
+  [IZIN_KODLARI.DOSYA_ACIKLAMA_DUZENLE]: IzinKategorisi.DOSYA,
+  [IZIN_KODLARI.DOSYA_GIZLILIK_DUZENLE]: IzinKategorisi.DOSYA,
+  [IZIN_KODLARI.DOSYA_ETIKET_ATA]: IzinKategorisi.DOSYA,
+  [IZIN_KODLARI.DOSYA_ETIKET_YONET]: IzinKategorisi.DOSYA,
+  [IZIN_KODLARI.DOSYA_BAGLANTI_EKLE]: IzinKategorisi.DOSYA,
+  [IZIN_KODLARI.DOSYA_BAGLANTI_KALDIR]: IzinKategorisi.DOSYA,
+  [IZIN_KODLARI.DOSYA_SURUM_YUKLE]: IzinKategorisi.DOSYA,
+  [IZIN_KODLARI.DOSYA_KENDI_SIL]: IzinKategorisi.DOSYA,
+  [IZIN_KODLARI.DOSYA_BASKA_SIL]: IzinKategorisi.DOSYA,
+  [IZIN_KODLARI.DOSYA_GERI_YUKLE]: IzinKategorisi.DOSYA,
+  [IZIN_KODLARI.DOSYA_KALICI_SIL]: IzinKategorisi.DOSYA,
+  [IZIN_KODLARI.DOSYA_TOPLU_ISLEM]: IzinKategorisi.DOSYA,
+  [IZIN_KODLARI.DOSYA_GUVENLIK_YONET]: IzinKategorisi.DOSYA,
+  [IZIN_KODLARI.DOSYA_DISA_AKTAR]: IzinKategorisi.DOSYA,
   [IZIN_KODLARI.KART_KONTROL_OLUSTUR]: IzinKategorisi.KART,
   [IZIN_KODLARI.KART_KONTROL_DUZENLE]: IzinKategorisi.KART,
   [IZIN_KODLARI.KART_KONTROL_SIL]: IzinKategorisi.KART,
@@ -357,6 +410,24 @@ export const IZIN_ALT_KATEGORI: Partial<Record<IzinKodu, string>> = {
   [IZIN_KODLARI.KART_EKLENTI_KENDI_SIL]: "eklenti",
   [IZIN_KODLARI.KART_EKLENTI_BASKA_SIL]: "eklenti",
 
+  // DOSYA — ADR-0028 (alt-kategoriler accordion grupları için)
+  [IZIN_KODLARI.DOSYA_AD_DUZENLE]: "duzenle",
+  [IZIN_KODLARI.DOSYA_ACIKLAMA_DUZENLE]: "duzenle",
+  [IZIN_KODLARI.DOSYA_GIZLILIK_DUZENLE]: "duzenle",
+  [IZIN_KODLARI.DOSYA_ETIKET_ATA]: "etiket",
+  [IZIN_KODLARI.DOSYA_ETIKET_YONET]: "etiket",
+  [IZIN_KODLARI.DOSYA_BAGLANTI_EKLE]: "baglanti",
+  [IZIN_KODLARI.DOSYA_BAGLANTI_KALDIR]: "baglanti",
+  [IZIN_KODLARI.DOSYA_SURUM_YUKLE]: "surum",
+  [IZIN_KODLARI.DOSYA_KENDI_SIL]: "silme",
+  [IZIN_KODLARI.DOSYA_BASKA_SIL]: "silme",
+  [IZIN_KODLARI.DOSYA_GERI_YUKLE]: "silme",
+  [IZIN_KODLARI.DOSYA_KALICI_SIL]: "silme",
+  [IZIN_KODLARI.DOSYA_TOPLU_ISLEM]: "toplu",
+  [IZIN_KODLARI.DOSYA_DISA_AKTAR]: "toplu",
+  [IZIN_KODLARI.DOSYA_GUVENLIK_YONET]: "guvenlik",
+  // DOSYA_OKU/YUKLE/INDIR/ONIZLE — alt-kategori yok (temel)
+
   // KART / kontrol-listesi
   [IZIN_KODLARI.KART_KONTROL_OLUSTUR]: "kontrol-listesi",
   [IZIN_KODLARI.KART_KONTROL_DUZENLE]: "kontrol-listesi",
@@ -406,6 +477,7 @@ export const KATEGORI_BASLIKLARI: Record<IzinKategorisi, string> = {
   [IzinKategorisi.ROL]: "Rol & Yetki",
   [IzinKategorisi.AUDIT]: "Denetim",
   [IzinKategorisi.AYAR]: "Sistem Ayarları",
+  [IzinKategorisi.DOSYA]: "Dosya",
 };
 
 export const ALT_KATEGORI_BASLIKLARI: Record<string, string> = {
@@ -421,6 +493,13 @@ export const ALT_KATEGORI_BASLIKLARI: Record<string, string> = {
   onay: "Onay",
   yonetim: "Yönetim",
   hata: "Hata Logu",
+  // ADR-0028 — Dosya alt-kategorileri
+  duzenle: "Düzenle",
+  baglanti: "Bağlantı",
+  surum: "Sürüm",
+  silme: "Silme",
+  toplu: "Toplu & Dışa Aktarma",
+  guvenlik: "Güvenlik",
 };
 
 // ============================================================
@@ -675,6 +754,96 @@ export const IZIN_TANIMLARI: Partial<
     aciklama: "Başka bir kullanıcının yüklediği eklentiyi silme (moderasyon)",
   },
 
+  // ─────────── DOSYA / temel (ADR-0028) ───────────
+  [IZIN_KODLARI.DOSYA_OKU]: {
+    ad: "Dosyaları Görüntüle",
+    aciklama: "Erişebildiği dosyaların listesini ve metadata'sını görme",
+  },
+  [IZIN_KODLARI.DOSYA_YUKLE]: {
+    ad: "Dosya Yükle",
+    aciklama: "Bir karta, projeye veya listeye yeni dosya yükleme",
+  },
+  [IZIN_KODLARI.DOSYA_INDIR]: {
+    ad: "Dosyayı İndir",
+    aciklama: "Erişebildiği dosyanın binary içeriğini indirme",
+  },
+  [IZIN_KODLARI.DOSYA_ONIZLE]: {
+    ad: "Dosyayı Önizle",
+    aciklama: "Görsel/PDF/metin dosyalarını tarayıcı içinde açma",
+  },
+
+  // ─────────── DOSYA / düzenle ───────────
+  [IZIN_KODLARI.DOSYA_AD_DUZENLE]: {
+    ad: "Dosya Adını Düzenle",
+    aciklama: "Yüklenmiş bir dosyanın görünen adını değiştirme",
+  },
+  [IZIN_KODLARI.DOSYA_ACIKLAMA_DUZENLE]: {
+    ad: "Dosya Açıklamasını Düzenle",
+    aciklama: "Dosyaya açıklama ekleme veya değiştirme",
+  },
+  [IZIN_KODLARI.DOSYA_GIZLILIK_DUZENLE]: {
+    ad: "Dosya Gizliliğini Düzenle",
+    aciklama: "Dosyayı NORMAL/HASSAS/GIZLI olarak işaretleme",
+  },
+
+  // ─────────── DOSYA / etiket ───────────
+  [IZIN_KODLARI.DOSYA_ETIKET_ATA]: {
+    ad: "Dosyaya Etiket Ata",
+    aciklama: "Var olan dosya etiketlerini bir dosyaya ekleme/çıkarma",
+  },
+  [IZIN_KODLARI.DOSYA_ETIKET_YONET]: {
+    ad: "Dosya Etiketlerini Yönet",
+    aciklama: "Dosya etiketi oluşturma, düzenleme ve silme",
+  },
+
+  // ─────────── DOSYA / bağlantı ───────────
+  [IZIN_KODLARI.DOSYA_BAGLANTI_EKLE]: {
+    ad: "Dosyayı Bir Kaynağa Bağla",
+    aciklama: "Bir dosyayı karta, projeye veya listeye bağlama",
+  },
+  [IZIN_KODLARI.DOSYA_BAGLANTI_KALDIR]: {
+    ad: "Dosya Bağlantısını Kaldır",
+    aciklama: "Bir dosyanın bir kaynaktan bağlantısını çıkarma (dosya kalır)",
+  },
+
+  // ─────────── DOSYA / sürüm ───────────
+  [IZIN_KODLARI.DOSYA_SURUM_YUKLE]: {
+    ad: "Yeni Dosya Sürümü Yükle",
+    aciklama: "Var olan dosyanın üzerine yeni sürüm yükleme",
+  },
+
+  // ─────────── DOSYA / silme ───────────
+  [IZIN_KODLARI.DOSYA_KENDI_SIL]: {
+    ad: "Kendi Dosyanı Sil",
+    aciklama: "Kullanıcının kendisinin yüklediği dosyayı çöp kutusuna gönderme",
+  },
+  [IZIN_KODLARI.DOSYA_BASKA_SIL]: {
+    ad: "Başkasının Dosyasını Sil",
+    aciklama: "Başka bir kullanıcının yüklediği dosyayı silme (moderasyon)",
+  },
+  [IZIN_KODLARI.DOSYA_GERI_YUKLE]: {
+    ad: "Silinmiş Dosyayı Geri Yükle",
+    aciklama: "Çöp kutusundaki dosyayı geri getirme",
+  },
+  [IZIN_KODLARI.DOSYA_KALICI_SIL]: {
+    ad: "Dosyayı Kalıcı Olarak Sil",
+    aciklama: "Storage'dan ve veritabanından geri dönüşsüz silme (yalnız makam)",
+  },
+
+  // ─────────── DOSYA / toplu & güvenlik ───────────
+  [IZIN_KODLARI.DOSYA_TOPLU_ISLEM]: {
+    ad: "Dosyalarda Toplu İşlem",
+    aciklama: "Birden fazla dosyada toplu silme/etiketleme/indirme",
+  },
+  [IZIN_KODLARI.DOSYA_GUVENLIK_YONET]: {
+    ad: "Dosya Güvenlik Yönetimi",
+    aciklama: "Karantina/HASSAS/GIZLI dosyaları görme, virüs tarama akışını yönetme",
+  },
+  [IZIN_KODLARI.DOSYA_DISA_AKTAR]: {
+    ad: "Dosya Listesini Dışa Aktar",
+    aciklama: "Filtreye uyan dosya metadata'sını CSV olarak dışa aktarma",
+  },
+
   // ─────────── KART / kontrol-listesi ───────────
   [IZIN_KODLARI.KART_KONTROL_OLUSTUR]: {
     ad: "Kontrol Listesi Oluştur",
@@ -906,6 +1075,36 @@ const TUM_KART_IZINLERI: IzinKodu[] = TUM_IZIN_KODLARI.filter(
   (k) => IZIN_KATEGORI[k] === IzinKategorisi.KART,
 );
 
+const TUM_DOSYA_IZINLERI: IzinKodu[] = TUM_IZIN_KODLARI.filter(
+  (k) => IZIN_KATEGORI[k] === IzinKategorisi.DOSYA,
+);
+
+// ADR-0028 — PERSONEL temel dosya işleri yapabilir; gizlilik/kalıcı silme
+// /güvenlik yönetimi/dışa aktarma yetkili rollere bırakılır.
+const PERSONEL_DOSYA: IzinKodu[] = [
+  IZIN_KODLARI.DOSYA_OKU,
+  IZIN_KODLARI.DOSYA_YUKLE,
+  IZIN_KODLARI.DOSYA_INDIR,
+  IZIN_KODLARI.DOSYA_ONIZLE,
+  IZIN_KODLARI.DOSYA_AD_DUZENLE,
+  IZIN_KODLARI.DOSYA_ACIKLAMA_DUZENLE,
+  IZIN_KODLARI.DOSYA_ETIKET_ATA,
+  IZIN_KODLARI.DOSYA_BAGLANTI_EKLE,
+  IZIN_KODLARI.DOSYA_SURUM_YUKLE,
+  IZIN_KODLARI.DOSYA_KENDI_SIL,
+];
+
+const BIRIM_AMIRI_DOSYA: IzinKodu[] = [
+  ...PERSONEL_DOSYA,
+  IZIN_KODLARI.DOSYA_GIZLILIK_DUZENLE,
+  IZIN_KODLARI.DOSYA_ETIKET_YONET,
+  IZIN_KODLARI.DOSYA_BAGLANTI_KALDIR,
+  IZIN_KODLARI.DOSYA_BASKA_SIL,
+  IZIN_KODLARI.DOSYA_GERI_YUKLE,
+  IZIN_KODLARI.DOSYA_TOPLU_ISLEM,
+  IZIN_KODLARI.DOSYA_DISA_AKTAR,
+];
+
 // PERSONEL için "iş yapan" minimum: kart yaz + yorum + eklenti + checklist madde işaretle.
 // KART_TAMAMLA ADR-0018 ile çıkarıldı — sadece SUPER_ADMIN + KAYMAKAM kart kapatabilir.
 const PERSONEL_KART: IzinKodu[] = [
@@ -962,6 +1161,7 @@ export const VARSAYILAN_ROL_IZINLERI: Record<string, IzinKodu[]> = {
     ...TUM_PROJE_IZINLERI,
     ...TUM_LISTE_IZINLERI,
     ...TUM_KART_IZINLERI,
+    ...TUM_DOSYA_IZINLERI,
     IZIN_KODLARI.KULLANICI_DAVET_GONDER,
     IZIN_KODLARI.KULLANICI_DAVET_IPTAL,
     IZIN_KODLARI.KULLANICI_DAVET_YENIDEN,
@@ -1002,6 +1202,7 @@ export const VARSAYILAN_ROL_IZINLERI: Record<string, IzinKodu[]> = {
     IZIN_KODLARI.PROJE_YETKILI_DAVET_GONDER,
     ...TUM_LISTE_IZINLERI,
     ...BIRIM_AMIRI_KART,
+    ...BIRIM_AMIRI_DOSYA,
     IZIN_KODLARI.KULLANICI_DAVET_GONDER,
     IZIN_KODLARI.KULLANICI_DAVET_IPTAL,
     IZIN_KODLARI.KULLANICI_DAVET_YENIDEN,
@@ -1009,6 +1210,7 @@ export const VARSAYILAN_ROL_IZINLERI: Record<string, IzinKodu[]> = {
   ],
   [ROL_KODLARI.PERSONEL]: [
     ...PERSONEL_KART,
+    ...PERSONEL_DOSYA,
     IZIN_KODLARI.AKTIVITE_OKU,
   ],
 };
