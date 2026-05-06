@@ -877,6 +877,15 @@ function aktiviteOzetle(
       return { ...ortak, ...yorumMesaji(a, islem, yorumMentionKisiMap) };
     case "Eklenti":
       return { ...ortak, ...eklentiMesaji(a, islem) };
+    case "Dosya":
+      // ADR-0028 — yeni Dosya modeli; eklentiMesaji ile aynı kategori/cümle
+      // (UI ve translation parite). Backfill sonrası eski Eklenti event'leri
+      // de bu üretici akışa düştüğünde aynı görünür.
+      return { ...ortak, ...eklentiMesaji(a, islem) };
+    case "DosyaSurumu":
+      return { ...ortak, ...dosyaSurumuMesaji(a, islem) };
+    case "DosyaBaglantisi":
+      return { ...ortak, ...dosyaBaglantisiMesaji(a, islem) };
     case "KontrolListesi":
       return { ...ortak, ...kontrolListesiMesaji(a, islem) };
     case "KontrolMaddesi":
@@ -1301,6 +1310,65 @@ function eklentiMesaji(
     };
   }
   return { kategori: "eklenti", mesaj: "dosyayı güncelledi", detay: null };
+}
+
+// ADR-0028 — Dosya sürüm ve bağlantı aktivite mesajları.
+function dosyaSurumuMesaji(
+  a: HamAktivite,
+  islem: AktiviteOzeti["islem"],
+): Pick<AktiviteOzeti, "kategori" | "mesaj" | "detay"> {
+  const surumNo = jsonAlan<number>(a.yeni_veri, "surum_no");
+  const ad =
+    jsonAlan<string>(a.yeni_veri, "ad") ??
+    jsonAlan<string>(a.eski_veri, "ad") ??
+    null;
+  if (islem === "CREATE") {
+    return {
+      kategori: "eklenti",
+      mesaj: surumNo
+        ? `dosyanın yeni sürümünü (v${surumNo}) yükledi`
+        : "dosyanın yeni sürümünü yükledi",
+      detay: ad,
+    };
+  }
+  return {
+    kategori: "eklenti",
+    mesaj: "dosya sürümünü güncelledi",
+    detay: ad,
+  };
+}
+
+function dosyaBaglantisiMesaji(
+  a: HamAktivite,
+  islem: AktiviteOzeti["islem"],
+): Pick<AktiviteOzeti, "kategori" | "mesaj" | "detay"> {
+  const kaynakTip =
+    jsonAlan<string>(a.yeni_veri, "kaynak_tip") ??
+    jsonAlan<string>(a.eski_veri, "kaynak_tip") ??
+    null;
+  const tipMetin =
+    kaynakTip === "KART"
+      ? "karta"
+      : kaynakTip === "LISTE"
+        ? "listeye"
+        : kaynakTip === "PROJE"
+          ? "projeye"
+          : "kaynağa";
+  if (islem === "CREATE") {
+    return {
+      kategori: "eklenti",
+      mesaj: `dosyayı ${tipMetin} bağladı`,
+      detay: null,
+    };
+  }
+  if (islem === "DELETE") {
+    return {
+      kategori: "eklenti",
+      mesaj: `dosyanın ${tipMetin.replace("a", "")} bağlantısını kaldırdı`,
+      detay: null,
+    };
+  }
+  return { kategori: "eklenti", mesaj: "dosya bağlantısını güncelledi", detay: null };
 }
 
 function kontrolListesiMesaji(

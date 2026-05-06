@@ -1237,6 +1237,13 @@ enum BildirimTipi {
   ETIKET_DEGISTI
   // Kart kapağı/renk değişti (kart üyelerine, düşük öncelik)
   KAPAK_DEGISTI
+  // ADR-0028 — yeni dosya yönetimi bildirim tipleri.
+  // EKLENTI_YUKLENDI alias olarak korunur; yeni event'ler bu değerleri kullanır.
+  // Tetikleyiciler F9'da bağlanacak (şimdilik sadece şema rezervi).
+  DOSYA_YUKLENDI
+  DOSYA_SILINDI
+  DOSYA_BAGLANDI
+  DOSYA_ONIZLEME_HAZIR
 }
 
 model Bildirim {

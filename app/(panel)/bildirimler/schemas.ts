@@ -25,6 +25,11 @@ export const BILDIRIM_TIPLERI = [
   "DAVET_KABUL_EDILDI",
   "ETIKET_DEGISTI",
   "KAPAK_DEGISTI",
+  // ADR-0028 — yeni dosya yönetimi bildirim tipleri (tetikleyiciler F9'da)
+  "DOSYA_YUKLENDI",
+  "DOSYA_SILINDI",
+  "DOSYA_BAGLANDI",
+  "DOSYA_ONIZLEME_HAZIR",
 ] as const;
 
 export const bildirimTipiSemasi = z.enum(BILDIRIM_TIPLERI);

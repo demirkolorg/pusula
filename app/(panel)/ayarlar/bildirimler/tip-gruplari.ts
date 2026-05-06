@@ -107,6 +107,23 @@ export const TIP_METNI: Record<BildirimTipi, TipMetni> = {
     baslik: "Kapak/renk değişti",
     aciklama: "Yetkili olduğunuz bir kartın kapağı veya rengi güncellendiğinde",
   },
+  // ADR-0028 — yeni dosya yönetimi bildirimleri (tetikleyiciler F9'da)
+  DOSYA_YUKLENDI: {
+    baslik: "Dosya yüklendi",
+    aciklama: "Yetkili olduğunuz bir kaynağa yeni dosya yüklendiğinde",
+  },
+  DOSYA_SILINDI: {
+    baslik: "Dosya silindi",
+    aciklama: "Yetkili olduğunuz bir kaynaktaki dosya silindiğinde",
+  },
+  DOSYA_BAGLANDI: {
+    baslik: "Dosya bağlandı",
+    aciklama: "Mevcut bir dosya yetkili olduğunuz kaynağa bağlandığında",
+  },
+  DOSYA_ONIZLEME_HAZIR: {
+    baslik: "Dosya önizleme hazır",
+    aciklama: "Yüklediğiniz büyük dosyanın önizleme/thumbnail'i tamamlandığında",
+  },
 };
 
 export const TERCIH_GRUPLARI: ReadonlyArray<TercihGrubu> = [
@@ -155,6 +172,16 @@ export const TERCIH_GRUPLARI: ReadonlyArray<TercihGrubu> = [
       "DAVET_KABUL_EDILDI",
       "ETIKET_DEGISTI",
       "KAPAK_DEGISTI",
+    ],
+  },
+  {
+    baslik: "Dosya (ADR-0028)",
+    aciklama: "Dosya yükleme, silme, bağlama ve önizleme bildirimleri",
+    tipler: [
+      "DOSYA_YUKLENDI",
+      "DOSYA_SILINDI",
+      "DOSYA_BAGLANDI",
+      "DOSYA_ONIZLEME_HAZIR",
     ],
   },
 ];

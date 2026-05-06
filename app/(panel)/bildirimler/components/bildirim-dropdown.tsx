@@ -93,6 +93,11 @@ const TIP_IKON: Record<
   DAVET_KABUL_EDILDI: MailCheckIcon,
   ETIKET_DEGISTI: TagIcon,
   KAPAK_DEGISTI: ImageIcon,
+  // ADR-0028 — yeni dosya yönetimi bildirimleri
+  DOSYA_YUKLENDI: PaperclipIcon,
+  DOSYA_SILINDI: PaperclipIcon,
+  DOSYA_BAGLANDI: PaperclipIcon,
+  DOSYA_ONIZLEME_HAZIR: PaperclipIcon,
 };
 
 const TIP_RENK: Record<BildirimTipi, string> = {
@@ -119,6 +124,11 @@ const TIP_RENK: Record<BildirimTipi, string> = {
   DAVET_KABUL_EDILDI: "bg-emerald-100 text-emerald-700",
   ETIKET_DEGISTI: "bg-purple-100 text-purple-700",
   KAPAK_DEGISTI: "bg-slate-100 text-slate-700",
+  // ADR-0028
+  DOSYA_YUKLENDI: "bg-blue-100 text-blue-700",
+  DOSYA_SILINDI: "bg-red-100 text-red-700",
+  DOSYA_BAGLANDI: "bg-emerald-100 text-emerald-700",
+  DOSYA_ONIZLEME_HAZIR: "bg-slate-100 text-slate-700",
 };
 
 export function BildirimDropdown() {

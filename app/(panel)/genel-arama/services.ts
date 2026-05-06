@@ -181,16 +181,33 @@ async function aramaTumTablolar(
   }
 
   if (tipDahilMi("eklenti")) {
+    // ADR-0028 / F8b — Arama yeni Dosya tablosundan; eski Eklenti tablosu
+    // F4 sonrası read-only. UI tarafı "eklenti" tipini geriye dönük uyum
+    // için koruyor. Kart bağlantısı DosyaBaglantisi üzerinden çekilir
+    // (birincil bağlantı tercih, denormalize kart_id).
     parcalar.push(Prisma.sql`
-      SELECT 'eklenti' AS tip, e.id::text AS id, e.ad AS baslik, NULL AS detay,
-             ts_rank(e.arama_vektoru, to_tsquery('pusula_turkish', ${tsq})) AS rank,
-             e.kart_id::text AS parent_a, NULL AS parent_b
-      FROM "Eklenti" e
-      INNER JOIN "Kart" k4 ON k4.id = e.kart_id
-      INNER JOIN "Liste" l4 ON l4.id = k4.liste_id
-      WHERE e.arama_vektoru @@ to_tsquery('pusula_turkish', ${tsq})
-        AND e.silindi_mi = FALSE
-        AND ${makam ? Prisma.sql`TRUE` : Prisma.sql`l4.proje_id IN (${Prisma.join(erisilebilirProjeIdleri.map((id) => Prisma.sql`${id}::uuid`))})`}
+      SELECT 'eklenti' AS tip, d.id::text AS id, d.ad AS baslik, NULL AS detay,
+             ts_rank(d.arama_vektoru, to_tsquery('pusula_turkish', ${tsq})) AS rank,
+             (
+               SELECT db.kart_id::text
+               FROM "DosyaBaglantisi" db
+               WHERE db.dosya_id = d.id AND db.kart_id IS NOT NULL
+               ORDER BY db.birincil_mi DESC, db.olusturma_zamani ASC
+               LIMIT 1
+             ) AS parent_a,
+             NULL AS parent_b
+      FROM "Dosya" d
+      WHERE d.arama_vektoru @@ to_tsquery('pusula_turkish', ${tsq})
+        AND d.silindi_mi = FALSE
+        AND ${
+          makam
+            ? Prisma.sql`TRUE`
+            : Prisma.sql`EXISTS (
+                SELECT 1 FROM "DosyaBaglantisi" db
+                WHERE db.dosya_id = d.id
+                  AND db.proje_id IN (${Prisma.join(erisilebilirProjeIdleri.map((id) => Prisma.sql`${id}::uuid`))})
+              )`
+        }
     `);
   }
 
