@@ -81,12 +81,10 @@ export function KartModalEklerListesi({ kartId }: Props) {
           toast.hata(`'${f.name}' yüklenemedi.`);
           continue;
         }
+        // ADR-0028 / F5 — yeni 2-aşamalı upload: server-side oturum_id ile onay.
         const onayR = await yuklemeOnaylaEylem({
           kart_id: kartId,
-          ad: f.name,
-          mime: f.type || "application/octet-stream",
-          boyut: f.size,
-          depolama_yolu: baslatR.veri.depolama_yolu,
+          oturum_id: baslatR.veri.oturum_id,
         });
         if (!onayR.basarili) {
           toast.hata(onayR.hata);

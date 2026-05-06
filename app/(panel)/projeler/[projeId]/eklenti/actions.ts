@@ -1,5 +1,9 @@
 "use server";
 
+// ADR-0028 / F5 — Kart eklenti compatibility action wrapper.
+// Eski action imzaları korunur; içerik yeni `dosyalar` modülünün service
+// fonksiyonlarına delege edilir. Yeni Eklenti tablosu yazımı YOK.
+
 import { eylem, EylemHatasi } from "@/lib/action-wrapper";
 import { yetkiZorunlu, IZIN_KODLARI } from "@/lib/permissions";
 import { yetkiZorunluKart } from "@/lib/yetki";
@@ -21,15 +25,9 @@ import {
   yuklemeOnayla as yuklemeOnaylaSrv,
 } from "./services";
 
-function birimIdAl(ctx: { oturum: { kullaniciId?: string } | null }): string {
-  const id = ctx.oturum?.kullaniciId;
-  if (!id) {
-    throw new EylemHatasi("Oturum yok.", HATA_KODU.GIRIS_YOK);
-  }
-  return id;
-}
-
-function kullaniciIdAl(ctx: { oturum: { kullaniciId?: string } | null }): string {
+function kullaniciIdAl(ctx: {
+  oturum: { kullaniciId?: string } | null;
+}): string {
   const id = ctx.oturum?.kullaniciId;
   if (!id) throw new EylemHatasi("Oturum yok.", HATA_KODU.GIRIS_YOK);
   return id;
@@ -40,7 +38,7 @@ export const eklentileriListeleEylem = eylem({
   girdi: kartEklentileriListeleSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:read", girdi.kart_id);
-    return kartEklentileriniListele(birimIdAl(ctx), girdi.kart_id);
+    return kartEklentileriniListele(kullaniciIdAl(ctx), girdi.kart_id);
   },
 });
 
@@ -51,7 +49,6 @@ export const yuklemeBaslatEylem = eylem({
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.kart_id);
 
-    // Kural 73: upload rate limit — 10/dk/kullanıcı
     const kullaniciId = kullaniciIdAl(ctx);
     if (!uploadLimiter.tryConsume(kullaniciId)) {
       throw new EylemHatasi(
@@ -59,7 +56,7 @@ export const yuklemeBaslatEylem = eylem({
         HATA_KODU.YETKISIZ,
       );
     }
-    return yuklemeBaslatSrv(birimIdAl(ctx), girdi);
+    return yuklemeBaslatSrv(kullaniciId, girdi);
   },
 });
 
@@ -67,35 +64,31 @@ export const yuklemeOnaylaEylem = eylem({
   ad: "eklenti:yukleme-onayla",
   girdi: yuklemeOnaylaSemasi,
   calistir: async (girdi, ctx) => {
-    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.kart_id);
-    const yukleyenId = kullaniciIdAl(ctx);
-    const e = await yuklemeOnaylaSrv(birimIdAl(ctx), yukleyenId, girdi);
+    const kullaniciId = kullaniciIdAl(ctx);
+    const sonuc = await yuklemeOnaylaSrv(kullaniciId, girdi);
     tetikleEklentiYuklendi({
-      eklentiId: e.id,
+      eklentiId: sonuc.id,
       kartId: girdi.kart_id,
-      yukleyenId,
-      ad: e.ad,
+      yukleyenId: kullaniciId,
+      ad: "",
     }).catch(() => {});
-    return e;
+    return sonuc;
   },
 });
 
 export const eklentiIndirEylem = eylem({
   ad: "eklenti:indir",
   girdi: eklentiIndirSemasi,
-  calistir: async (girdi, ctx) => {
-    const birimId = birimIdAl(ctx);
-    return eklentiIndirURL(birimId, girdi.id);
-  },
+  calistir: async (girdi, ctx) =>
+    eklentiIndirURL(kullaniciIdAl(ctx), girdi.id),
 });
 
 export const eklentiSilEylem = eylem({
   ad: "eklenti:sil",
   girdi: eklentiSilSemasi,
   calistir: async (girdi, ctx) => {
-    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
-    await eklentiSilSrv(birimIdAl(ctx), kullaniciIdAl(ctx), girdi.id);
+    await eklentiSilSrv(kullaniciIdAl(ctx), girdi.id);
     return { id: girdi.id };
   },
 });

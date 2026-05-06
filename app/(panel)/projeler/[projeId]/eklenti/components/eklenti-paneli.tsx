@@ -66,13 +66,10 @@ export function EklentiPaneli({ kartId, projeId }: Props) {
           toast.hata(`'${f.name}' yüklenemedi (storage hatası).`);
           continue;
         }
-        // 3) Metadata'yı DB'ye yaz
+        // 3) Metadata'yı DB'ye yaz (ADR-0028 / F5 yeni 2-aşamalı upload)
         const onayR = await yuklemeOnaylaEylem({
           kart_id: kartId,
-          ad: f.name,
-          mime: f.type || "application/octet-stream",
-          boyut: f.size,
-          depolama_yolu: baslatR.veri.depolama_yolu,
+          oturum_id: baslatR.veri.oturum_id,
         });
         if (!onayR.basarili) {
           toast.hata(onayR.hata);
@@ -298,12 +295,10 @@ export function EklentiSidebarButonu({ kartId }: { kartId: string }) {
         toast.hata(`'${f.name}' yüklenemedi.`);
         continue;
       }
+      // ADR-0028 / F5 — yeni 2-aşamalı upload: oturum_id ile onay
       const onayR = await yuklemeOnaylaEylem({
         kart_id: kartId,
-        ad: f.name,
-        mime: f.type || "application/octet-stream",
-        boyut: f.size,
-        depolama_yolu: baslatR.veri.depolama_yolu,
+        oturum_id: baslatR.veri.oturum_id,
       });
       if (!onayR.basarili) {
         toast.hata(onayR.hata);
