@@ -32,6 +32,15 @@ export const KAYNAK_TIP_LABEL: Record<string, string> = {
   Kart: "Kart",
   Yorum: "Yorum",
   Eklenti: "Eklenti",
+  // ADR-0028 — yeni dosya yönetimi kaynakları (ham audit yüzeyinde de
+  // okunur etiket; aktivite akışı için ayrıca etiketler.ts daha kullanıcı dostu).
+  Dosya: "Dosya",
+  DosyaSurumu: "Dosya Sürümü",
+  DosyaBaglantisi: "Dosya Bağlantısı",
+  DosyaEtiketi: "Dosya Etiketi",
+  DosyaEtiketBaglantisi: "Dosya Etiket Bağı",
+  DosyaYuklemeOturumu: "Dosya Yükleme Oturumu",
+  DosyaErisimLogu: "Dosya Erişim Logu",
   KontrolListesi: "Kontrol Listesi",
   KontrolMaddesi: "Madde",
   Etiket: "Etiket",

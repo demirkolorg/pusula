@@ -12,6 +12,11 @@ const KAYNAK_TIP_ETIKETLERI: Record<string, string> = {
   Kart: "Kart",
   Yorum: "Yorum",
   Eklenti: "Dosya eki",
+  // ADR-0028 — yeni dosya yönetimi kaynakları
+  Dosya: "Dosya",
+  DosyaSurumu: "Sürüm",
+  DosyaBaglantisi: "Bağlantı",
+  DosyaEtiketi: "Dosya etiketi",
   KontrolListesi: "Kontrol listesi",
   KontrolMaddesi: "Kontrol maddesi",
   Etiket: "Etiket",

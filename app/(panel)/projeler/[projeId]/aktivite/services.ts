@@ -1301,15 +1301,57 @@ function eklentiMesaji(
         null,
     };
   }
-  // Rename — yeni "dosya yeniden adlandır" özelliği eklendiğinde tetiklenir.
+  // ADR-0028 — diff bazlı zenginleştirilmiş UPDATE mesajları. Aktivite akışı
+  // "dosyayı güncelledi" gibi belirsiz cümle yerine ne değiştiğini gösterir.
+  const ad = jsonAlan<string>(a.yeni_veri, "ad") ?? null;
+
+  if (diff?.silindi_mi?.yeni === false) {
+    return {
+      kategori: "eklenti",
+      mesaj: "dosyayı geri yükledi",
+      detay: ad,
+    };
+  }
   if (diff?.ad) {
     return {
       kategori: "eklenti",
       mesaj: "dosyanın adını değiştirdi",
-      detay: jsonAlan<string>(a.yeni_veri, "ad") ?? null,
+      detay: ad,
     };
   }
-  return { kategori: "eklenti", mesaj: "dosyayı güncelledi", detay: null };
+  if (diff?.aciklama) {
+    return {
+      kategori: "eklenti",
+      mesaj: "dosyanın açıklamasını güncelledi",
+      detay: ad,
+    };
+  }
+  if (diff?.gizlilik) {
+    const yeniGizlilik = String(diff.gizlilik.yeni ?? "").toUpperCase();
+    const gizlilikEtiket =
+      yeniGizlilik === "GIZLI"
+        ? "Gizli"
+        : yeniGizlilik === "HASSAS"
+          ? "Hassas"
+          : "Normal";
+    return {
+      kategori: "eklenti",
+      mesaj: `dosyanın gizliliğini ${gizlilikEtiket} olarak ayarladı`,
+      detay: ad,
+    };
+  }
+  if (diff?.aktif_surum_id) {
+    return {
+      kategori: "eklenti",
+      mesaj: "dosyanın aktif sürümünü değiştirdi",
+      detay: ad,
+    };
+  }
+  if (diff?.indirme_sayisi || diff?.son_indirme_zamani) {
+    // İndirme sayacı güncellemesi kullanıcı eylemi olarak gürültü; idari mesaj.
+    return { kategori: "eklenti", mesaj: "dosyayı indirdi", detay: ad };
+  }
+  return { kategori: "eklenti", mesaj: "dosyayı güncelledi", detay: ad };
 }
 
 // ADR-0028 — Dosya sürüm ve bağlantı aktivite mesajları.
@@ -1346,7 +1388,8 @@ function dosyaBaglantisiMesaji(
     jsonAlan<string>(a.yeni_veri, "kaynak_tip") ??
     jsonAlan<string>(a.eski_veri, "kaynak_tip") ??
     null;
-  const tipMetin =
+  // -e durum ekli (yönelme): "karta", "listeye", "projeye"
+  const yonelme =
     kaynakTip === "KART"
       ? "karta"
       : kaynakTip === "LISTE"
@@ -1354,17 +1397,26 @@ function dosyaBaglantisiMesaji(
         : kaynakTip === "PROJE"
           ? "projeye"
           : "kaynağa";
+  // -ın iyelik eki: "kartın", "listenin", "projenin"
+  const iyelik =
+    kaynakTip === "KART"
+      ? "kartın"
+      : kaynakTip === "LISTE"
+        ? "listenin"
+        : kaynakTip === "PROJE"
+          ? "projenin"
+          : "kaynağın";
   if (islem === "CREATE") {
     return {
       kategori: "eklenti",
-      mesaj: `dosyayı ${tipMetin} bağladı`,
+      mesaj: `dosyayı ${yonelme} bağladı`,
       detay: null,
     };
   }
   if (islem === "DELETE") {
     return {
       kategori: "eklenti",
-      mesaj: `dosyanın ${tipMetin.replace("a", "")} bağlantısını kaldırdı`,
+      mesaj: `dosyanın ${iyelik} bağlantısını kaldırdı`,
       detay: null,
     };
   }
