@@ -19,6 +19,7 @@ import { useKurumAyariStore } from "@/lib/stores/kurum-ayari-store";
 import { MENU_KODLARI, type MenuKodu } from "@/lib/sidebar-yetki";
 import {
   ListChecksIcon,
+  FilesIcon,
   ShieldCheckIcon,
   Building2Icon,
   ClipboardCheckIcon,
@@ -50,6 +51,12 @@ const TUM_GRUPLAR: IcMenuGrup[] = [
         title: "Projeler",
         url: "/projeler",
         icon: <ListChecksIcon />,
+      },
+      {
+        kod: MENU_KODLARI.DOSYALAR,
+        title: "Dosyalar",
+        url: "/dosyalar",
+        icon: <FilesIcon />,
       },
       {
         kod: MENU_KODLARI.AKTIVITE_GUNLUGU,

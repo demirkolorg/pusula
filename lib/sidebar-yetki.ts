@@ -18,6 +18,7 @@ import { ROL_KODLARI } from "./roller";
 
 export const MENU_KODLARI = {
   PROJELER: "projeler",
+  DOSYALAR: "dosyalar",
   AKTIVITE_GUNLUGU: "aktivite-gunlugu",
   ONAYLAR: "onaylar",
   COP_KUTUSU: "cop-kutusu",
@@ -40,6 +41,7 @@ type IzinGereksinimi = readonly string[] | null;
 
 export const MENU_IZIN_HARITASI: Readonly<Record<MenuKodu, IzinGereksinimi>> = {
   [MENU_KODLARI.PROJELER]: null,
+  [MENU_KODLARI.DOSYALAR]: [IZIN_KODLARI.DOSYA_OKU],
   [MENU_KODLARI.AKTIVITE_GUNLUGU]: [IZIN_KODLARI.AKTIVITE_OKU],
   [MENU_KODLARI.ONAYLAR]: [IZIN_KODLARI.KART_TAMAMLA],
   [MENU_KODLARI.COP_KUTUSU]: null,
