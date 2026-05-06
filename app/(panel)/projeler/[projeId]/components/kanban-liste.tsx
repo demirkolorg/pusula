@@ -15,6 +15,7 @@ import { ListeTipi } from "@prisma/client";
 import {
   ArchiveIcon,
   MoreHorizontalIcon,
+  PanelLeftCloseIcon,
   Plus,
   PencilIcon,
   ShieldCheckIcon,
@@ -28,6 +29,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { tempId, tempIdMi } from "@/lib/temp-id";
 import type { ListeOzeti } from "../services";
@@ -40,6 +46,7 @@ import {
 } from "../hooks/detay-sorgulari";
 import type { KanbanYetkileri } from "./kanban-pano";
 import { YetkililerPaneliPopover } from "../yetkili/components/yetkililer-paneli";
+import { KanbanListeDar } from "./kanban-liste-dar";
 
 type Props = {
   liste: ListeOzeti;
@@ -51,6 +58,12 @@ type Props = {
     yukseklik: number | null;
   } | null;
   onKartAc: (kartId: string) => void;
+  daraltilmisMi: boolean;
+  daralt: () => void;
+  genislet: () => void;
+  // Pano üzerinde kart sürükleniyor mu? Daraltılmış mod component'ine
+  // iletilir → "buraya bırakamazsın" görsel ipucu.
+  kartSurukleniyor: boolean;
 };
 
 function KartDropPlaceholder({ yukseklik }: { yukseklik: number | null }) {
@@ -73,6 +86,10 @@ export function KanbanListe({
   yetkiler,
   kartPlaceholder,
   onKartAc,
+  daraltilmisMi,
+  daralt,
+  genislet,
+  kartSurukleniyor,
 }: Props) {
   // KartMini'ye geçilen granüler yetki objesini her render yeniden üretmemek
   // için memoize — KanbanYetkileri kararlı, dolayısıyla turning-key sabit.
@@ -130,10 +147,12 @@ export function KanbanListe({
   // Liste body'si droppable — kartların düşürüleceği bölge.
   // Boş listeye de düşürmek için zorunlu (sortable kart kümesi alone yetmiyor).
   // ADR-0009 — Arşiv listesi de drop hedefi (kart oraya sürüklenince arşivlenir).
+  // Daraltılmış listeye drop kapalı: kullanıcı önce genişletmeli (plan kararı).
+  // collisionDetection (kanban-pano.tsx) ek defansif filtre ile bunu pekiştirir.
   const bodyDroppable = useDroppable({
     id: `liste-body-${liste.id}`,
     data: bodyDroppableData,
-    disabled: taslak || !yetkiler.kartTasi,
+    disabled: taslak || !yetkiler.kartTasi || daraltilmisMi,
   });
 
   // Liste drop sonrası soldan akmasın: listelerde dnd-kit layout transition'ını
@@ -192,6 +211,26 @@ export function KanbanListe({
         style={stil}
         className="border-primary/60 bg-primary/5 h-32 w-72 shrink-0 self-start rounded-lg border border-dashed"
         aria-hidden
+      />
+    );
+  }
+
+  // Daraltılmış mod: drag yokken dikey rotated, dar (w-12) görünüm.
+  // useSortable ref/listener'ları KanbanListeDar'a iletilir → daraltılmış halde
+  // de yatay sürüklenebilir kalır (plan kararı). Sistem ARŞİV daraltılmaz —
+  // header butonu zaten gizli.
+  if (daraltilmisMi) {
+    return (
+      <KanbanListeDar
+        liste={liste}
+        sortableProps={{
+          setNodeRef: sortable.setNodeRef,
+          attributes: sortable.attributes,
+          listeners: sortable.listeners,
+          style: stil,
+        }}
+        onGenislet={genislet}
+        kartSurukleniyor={kartSurukleniyor}
       />
     );
   }
@@ -281,6 +320,31 @@ export function KanbanListe({
               </Button>
             }
           />
+        )}
+        {/* Daralt butonu — UI tercihi, yetki gerekmiyor (Kural 138). Sistem
+            ARŞİV listesinde gizli (drop hedefi olarak görünür kalmalı).
+            stopPropagation: drag handle bu blokta, butonun tıklaması drag'i
+            tetiklemesin. */}
+        {!taslak && !sistemArsivMi && !duzenlemeAcik && (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label="Listeyi daralt"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    daralt();
+                  }}
+                />
+              }
+            >
+              <PanelLeftCloseIcon className="size-4" />
+            </TooltipTrigger>
+            <TooltipContent side="top">Listeyi daralt</TooltipContent>
+          </Tooltip>
         )}
         {!taslak &&
           !sistemArsivMi &&

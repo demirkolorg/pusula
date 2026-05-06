@@ -28,8 +28,19 @@ import {
 } from "@dnd-kit/sortable";
 import { restrictToWindowEdges } from "@dnd-kit/modifiers";
 import { getEventCoordinates, useEvent } from "@dnd-kit/utilities";
-import { Plus } from "lucide-react";
+import {
+  ChevronsLeftRightEllipsisIcon,
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
+  Plus,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { tempId } from "@/lib/temp-id";
 import type { ListeKartOzeti, ListeOzeti, ProjeDetayOzeti } from "../services";
@@ -43,6 +54,8 @@ import {
   useProjeDetay,
 } from "../hooks/detay-sorgulari";
 import { useProjeDetayRealtime } from "../hooks/use-detay-realtime";
+import { useDaraltilmisListeler } from "../hooks/use-daraltilmis-listeler";
+import { gecerliListelereKirp } from "./kanban-daralt";
 import { KartModal } from "./kart-modal";
 import { useQueryClient } from "@tanstack/react-query";
 import { ListeTipi } from "@prisma/client";
@@ -201,6 +214,50 @@ export function KanbanPano({ projeId, ilkVeri, yetkiler }: Props) {
     [gorunurListeler],
   );
 
+  // Daralt durumu (localStorage, cross-tab sync). Set referansı
+  // useSyncExternalStore snapshot cache'i sayesinde içerik değişmediği sürece
+  // stable → callback dep'leri ve dnd-kit context gereksiz invalide olmaz.
+  const {
+    daraltilmisListeler,
+    daralt,
+    genislet,
+    tumunuDaralt,
+    tumunuGenislet,
+    yaz: yazDaralt,
+  } = useDaraltilmisListeler(projeId);
+
+  // Toplu daralt/genişlet — sistem ARŞİV hariç (drop hedefi olarak görünür
+  // kalmalı). gorunurListeler zaten ARŞİV'i boşken filtreler; biz burada
+  // ek olarak ARŞİV'i hiçbir zaman daraltmıyoruz.
+  const daraltilabilirIdler = React.useMemo(
+    () =>
+      detay.listeler
+        .filter((l) => l.tip !== ListeTipi.ARSIV)
+        .map((l) => l.id),
+    [detay.listeler],
+  );
+  const tumuDaraltilmisMi =
+    daraltilabilirIdler.length > 0 &&
+    daraltilabilirIdler.every((id) => daraltilmisListeler.has(id));
+  const hicDaraltilmamis = daraltilmisListeler.size === 0;
+
+  // Silinen liste id'si Set'te kalmasın — aynı id'li yeni liste için
+  // "geçmiş ruh" daraltılmış görünmesin. yazDaralt hook'un kendi dispatch'i
+  // (snapshot cache + dinleyici notify) ile çağrıldığı için sonraki render
+  // doğru Set'i alır.
+  React.useEffect(() => {
+    const gecerliIdler = new Set(detay.listeler.map((l) => l.id));
+    let kirliVar = false;
+    for (const id of daraltilmisListeler) {
+      if (!gecerliIdler.has(id)) {
+        kirliVar = true;
+        break;
+      }
+    }
+    if (!kirliVar) return;
+    yazDaralt(gecerliListelereKirp(daraltilmisListeler, gecerliIdler));
+  }, [detay.listeler, daraltilmisListeler, yazDaralt]);
+
   // Sürüklenen kartın "şu an" hangi listede / hangi pozisyonda olduğunu izlemek için.
   // onDragOver sırasında bu güncellenir, görsel feedback verir.
   // dragOver idempotency — aynı hedef üstündeyken setQueryData'yı tekrar tekrar
@@ -264,8 +321,15 @@ export function KanbanPano({ projeId, ilkVeri, yetkiler }: Props) {
         // sonra o liste içindeki kartlardan en yakın merkeze sahip olanı seç.
         // Bu pattern dnd-kit multi-container örneğinin sadeleştirilmiş hali —
         // pointer 1px titremesi `closestCenter` ile absorb edilir.
+        // Daraltılmış liste body droppable'ları kart drag hedefinden çıkarılır
+        // (kart bırakılamaz — kullanıcı önce genişletmeli). useDroppable
+        // disabled flag'i ilk savunma; bu filtre defansif ek katman.
         const sadeceListeBody = args.droppableContainers.filter(
-          (d) => d.data.current?.tip === "liste-body",
+          (d) =>
+            d.data.current?.tip === "liste-body" &&
+            !daraltilmisListeler.has(
+              (d.data.current?.liste_id as string | undefined) ?? "",
+            ),
         );
 
         // Pointer hangi listenin body'sinde?
@@ -302,7 +366,7 @@ export function KanbanPano({ projeId, ilkVeri, yetkiler }: Props) {
 
       return [];
     },
-    [],
+    [daraltilmisListeler],
   );
 
   const dragBaslat = React.useCallback((e: DragStartEvent) => {
@@ -585,8 +649,50 @@ export function KanbanPano({ projeId, ilkVeri, yetkiler }: Props) {
     return <div className="flex h-full gap-3 overflow-x-auto pb-4" aria-hidden />;
   }
 
+  // Toolbar görünür mü? En az bir daraltılabilir liste varsa anlamlı.
+  const toolbarGorunur = daraltilabilirIdler.length > 0;
+  const kartSurukleniyor = aktifDrag?.tip === "kart";
+
   return (
     <>
+      {/* Pano toolbar — sağ üst, "Tümünü daralt / genişlet" tek dropdown.
+          Solo aksiyon olduğu için DropdownMenu yerine iki ayrı buton da
+          olabilir; tek menü ekran alanı tasarrufu sağlar. */}
+      {toolbarGorunur && (
+        <div className="mb-2 flex justify-end">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  aria-label="Liste görünüm seçenekleri"
+                />
+              }
+            >
+              <ChevronsLeftRightEllipsisIcon className="size-4" />
+              <span className="ml-1 text-xs">Görünüm</span>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                disabled={tumuDaraltilmisMi}
+                onClick={() => tumunuDaralt(daraltilabilirIdler)}
+              >
+                <PanelLeftCloseIcon className="size-4" />
+                Tümünü daralt
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={hicDaraltilmamis}
+                onClick={() => tumunuGenislet(daraltilabilirIdler)}
+              >
+                <PanelLeftOpenIcon className="size-4" />
+                Tümünü genişlet
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
+
       <DndContext
         sensors={sensorlar}
         collisionDetection={collisionDetection}
@@ -611,6 +717,10 @@ export function KanbanPano({ projeId, ilkVeri, yetkiler }: Props) {
                   kartPlaceholder?.liste_id === l.id ? kartPlaceholder : null
                 }
                 onKartAc={(id) => setAcikKartId(id)}
+                daraltilmisMi={daraltilmisListeler.has(l.id)}
+                daralt={() => daralt(l.id)}
+                genislet={() => genislet(l.id)}
+                kartSurukleniyor={kartSurukleniyor}
               />
             ))}
           </SortableContext>
