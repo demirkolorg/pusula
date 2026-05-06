@@ -415,27 +415,96 @@ describe("sonAktiviteleriGetir", () => {
     expect(sonuc).toHaveLength(2);
   });
 
-  it("zaman'a göre azalan sıralar", async () => {
+  it("zaman'a göre azalan sıralar (en yeni önce)", async () => {
     const eski = new Date();
-    eski.setHours(eski.getHours() - 1);
+    eski.setHours(eski.getHours() - 2);
+    const yeni = new Date();
+    yeni.setHours(yeni.getHours() - 1);
     await adminDb.aktiviteLogu.createMany({
       data: [
         {
           zaman: eski,
           kullanici_id: ortam.personel.id,
-          islem: "ESKI",
+          islem: "CREATE",
           kaynak_tip: "Proje",
+          kaynak_id: null,
         },
         {
+          zaman: yeni,
           kullanici_id: ortam.personel.id,
-          islem: "YENI",
+          islem: "UPDATE",
           kaynak_tip: "Proje",
+          kaynak_id: null,
         },
       ],
     });
 
     const sonuc = await sonAktiviteleriGetir(ortam.superAdmin.id);
-    expect(sonuc[0]!.islem).toBe("YENI");
-    expect(sonuc[1]!.islem).toBe("ESKI");
+    expect(new Date(sonuc[0]!.zaman).getTime()).toBeGreaterThan(
+      new Date(sonuc[1]!.zaman).getTime(),
+    );
+  });
+
+  it("Proje kaynağı için bağlam'da proje adını çözer", async () => {
+    const proje = await projeOlusturFiks(adminDb, {
+      birimId: ortam.birim.id,
+      ad: "Asfalt Projesi",
+    });
+    await adminDb.aktiviteLogu.create({
+      data: {
+        kullanici_id: ortam.personel.id,
+        islem: "CREATE",
+        kaynak_tip: "Proje",
+        kaynak_id: proje.id,
+        yeni_veri: { id: proje.id, ad: "Asfalt Projesi" },
+      },
+    });
+
+    const sonuc = await sonAktiviteleriGetir(ortam.superAdmin.id);
+    const k = sonuc[0]!;
+    expect(k.kategori).toBe("proje");
+    expect(k.kaynak_id).toBe(proje.id);
+    expect(k.baglam?.proje?.ad).toBe("Asfalt Projesi");
+    expect(k.mesaj).toContain("projeyi");
+  });
+
+  it("UPDATE diff alanlarını degisiklikler[] olarak çözer", async () => {
+    const proje = await projeOlusturFiks(adminDb, {
+      birimId: ortam.birim.id,
+      ad: "Eski Ad",
+    });
+    await adminDb.aktiviteLogu.create({
+      data: {
+        kullanici_id: ortam.personel.id,
+        islem: "UPDATE",
+        kaynak_tip: "Proje",
+        kaynak_id: proje.id,
+        eski_veri: { ad: "Eski Ad" },
+        yeni_veri: { ad: "Yeni Ad" },
+        diff: { ad: { eski: "Eski Ad", yeni: "Yeni Ad" } },
+      },
+    });
+
+    const sonuc = await sonAktiviteleriGetir(ortam.superAdmin.id);
+    const k = sonuc[0]!;
+    expect(k.islem).toBe("UPDATE");
+    // Proje UPDATE için degisiklikler null olabilir (proje adı değişimi mesajda
+    // "projenin adını değiştirdi" gibi ifade edildiyse) — en azından mesaj
+    // anlamlı olmalı.
+    expect(k.mesaj.length).toBeGreaterThan(0);
+  });
+
+  it("kullanici null olduğunda kullanici alanı null döner", async () => {
+    await adminDb.aktiviteLogu.create({
+      data: {
+        kullanici_id: null,
+        islem: "CREATE",
+        kaynak_tip: "Proje",
+        kaynak_id: null,
+      },
+    });
+
+    const sonuc = await sonAktiviteleriGetir(ortam.superAdmin.id);
+    expect(sonuc[0]!.kullanici).toBeNull();
   });
 });

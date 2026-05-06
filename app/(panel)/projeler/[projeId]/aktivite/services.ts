@@ -367,7 +367,10 @@ export async function projeAktiviteleriniListele(
 // Ortak: ham aktivitelerden id setlerini topla, join'le ve özetle.
 // kart + proje servisleri arasında DRY kazanımı (id toplama + map kurulum
 // pattern'i tek noktada).
-async function zenginlestirVeOzetle(
+// Public — ana sayfa "Son Aktiviteler" widget'ı da bu fonksiyonu kullanır:
+// kullanıcı bağlamına göre filtrelenmiş ham audit kayıtlarını user-friendly
+// `AktiviteOzeti[]`'na çevirir (mesaj + diff + baglam çözümü).
+export async function zenginlestirVeOzetle(
   ham: Array<{
     id: bigint;
     zaman: Date;
@@ -665,7 +668,9 @@ function birimGoruntu(k: {
 // TR mesaj üretici — kaynak_tip + islem → kullanıcıya gösterilen metin
 // =====================================================================
 
-type HamAktivite = {
+// Public — ana sayfa servisi `aktiviteLogu.findMany` sonucunu doğrudan
+// `zenginlestirVeOzetle` fonksiyonuna geçirebilsin diye export edilir.
+export type HamAktivite = {
   id: bigint;
   zaman: Date;
   kullanici_id: string | null;

@@ -40,10 +40,13 @@ describe("sidebar-yetki — menuGorunurMu", () => {
     expect(menuGorunurMu(MENU_KODLARI.AYAR_HATA_LOGLARI, izinler)).toBe(false);
   });
 
-  it("Kullanıcılar menüsü 3 izinden herhangi biriyle görünür (OR)", () => {
+  it("Kullanıcılar menüsü 4 izinden herhangi biriyle görünür (OR)", () => {
+    // ADR-0025 — onay-bekleyenler bu sayfaya entegre edildiği için
+    // KULLANICI_ONAYLA da menü görünürlüğünü tetikler.
     const sadeceDuzenle = new Set([IZIN_KODLARI.KULLANICI_DUZENLE]);
     const sadeceDavet = new Set([IZIN_KODLARI.KULLANICI_DAVET_GONDER]);
     const sadeceSil = new Set([IZIN_KODLARI.KULLANICI_SIL]);
+    const sadeceOnay = new Set([IZIN_KODLARI.KULLANICI_ONAYLA]);
     expect(
       menuGorunurMu(MENU_KODLARI.AYAR_KULLANICILAR, sadeceDuzenle),
     ).toBe(true);
@@ -51,6 +54,9 @@ describe("sidebar-yetki — menuGorunurMu", () => {
       true,
     );
     expect(menuGorunurMu(MENU_KODLARI.AYAR_KULLANICILAR, sadeceSil)).toBe(true);
+    expect(menuGorunurMu(MENU_KODLARI.AYAR_KULLANICILAR, sadeceOnay)).toBe(
+      true,
+    );
     expect(menuGorunurMu(MENU_KODLARI.AYAR_KULLANICILAR, bosSet)).toBe(false);
   });
 

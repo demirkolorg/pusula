@@ -14,7 +14,6 @@ import {
   kullaniciSilSemasi,
 } from "./schemas";
 import {
-  bekleyenKullanicilariListele,
   davetOlustur,
   kullanicilariListele,
   kullaniciyiGeriYukle,
@@ -105,14 +104,6 @@ export const davetGonderEylem = eylem({
   },
 });
 
-export const bekleyenKullanicilariListeleEylem = eylem({
-  ad: "kullanici:bekleyenler",
-  calistir: async (_g, ctx) => {
-    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KULLANICI_ONAYLA);
-    return bekleyenKullanicilariListele();
-  },
-});
-
 export const kullaniciOnaylaEylem = eylem({
   ad: "kullanici:onayla",
   girdi: kullaniciOnaylaSemasi,
@@ -123,7 +114,6 @@ export const kullaniciOnaylaEylem = eylem({
     }
     await kullaniciyiOnayla(girdi.id, ctx.oturum.kullaniciId);
     revalidatePath("/ayarlar/kullanicilar");
-    revalidatePath("/ayarlar/onay-bekleyenler");
     return { id: girdi.id };
   },
 });
@@ -137,7 +127,7 @@ export const kullaniciReddetEylem = eylem({
       throw new EylemHatasi("Oturum yok.", HATA_KODU.GIRIS_YOK);
     }
     await kullaniciyiReddet(girdi.id, ctx.oturum.kullaniciId, girdi.sebep);
-    revalidatePath("/ayarlar/onay-bekleyenler");
+    revalidatePath("/ayarlar/kullanicilar");
     return { id: girdi.id };
   },
 });

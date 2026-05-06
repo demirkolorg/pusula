@@ -93,12 +93,6 @@ const TUM_GRUPLAR: IcMenuGrup[] = [
         icon: <UsersIcon />,
       },
       {
-        kod: MENU_KODLARI.AYAR_ONAY_BEKLEYENLER,
-        title: "Onay Bekleyenler",
-        url: "/ayarlar/onay-bekleyenler",
-        icon: <Layers3Icon />,
-      },
-      {
         kod: MENU_KODLARI.AYAR_ROLLER,
         title: "Roller",
         url: "/ayarlar/roller",

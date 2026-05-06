@@ -11,6 +11,7 @@ import {
   projeOlusturEylem,
   projeSilEylem,
 } from "../actions";
+import { sablondanProjeOlusturEylem } from "@/app/(panel)/ayarlar/sablonlar/sablondan-proje";
 import type { ProjeKart } from "../services";
 import type {
   ProjeArsiv,
@@ -19,6 +20,14 @@ import type {
   ProjeOlustur,
   ProjeSil,
 } from "../schemas";
+
+export type SablondanProjeGirdi = {
+  sablon_id: string;
+  ad: string;
+  aciklama?: string | null;
+  kapak_renk?: string | null;
+  kapak_ikon?: string | null;
+};
 
 export const PROJE_QUERY_KEY = "projeler";
 
@@ -130,6 +139,47 @@ export function useProjeGeriYukle(anahtar: ListeAnahtari) {
       return liste.filter((p) => p.id !== vars.id);
     },
     hataMesaji: "Proje geri yüklenemedi",
+  });
+}
+
+// Şablondan proje — geçici ID + optimistic, server'dan gelince ID swap.
+// Liste sayısı invalidate sonrası düzelir.
+export function useSablondanProjeOlustur(anahtar: ListeAnahtari) {
+  return useOptimisticMutation<
+    SablondanProjeGirdi & { id_taslak: string },
+    { id: string }
+  >({
+    queryKey: anahtar,
+    mutationFn: async ({ id_taslak: _idTaslak, ...girdi }) => {
+      const r = await sablondanProjeOlusturEylem(girdi);
+      if (!r.basarili) throw new Error(r.hata);
+      return r.veri;
+    },
+    optimistic: (eski, vars) => {
+      const liste = (eski as ProjeKart[] | undefined) ?? [];
+      const taslak: ProjeKart = {
+        id: vars.id_taslak,
+        ad: vars.ad,
+        aciklama: vars.aciklama ?? null,
+        kapak_renk: vars.kapak_renk ?? null,
+        kapak_ikon: vars.kapak_ikon ?? null,
+        yildizli_mi: false,
+        arsiv_mi: false,
+        silindi_mi: false,
+        sira: "zzz",
+        yetkili_sayisi: 1,
+        liste_sayisi: 0,
+        olusturma_zamani: new Date(),
+      };
+      return [...liste, taslak];
+    },
+    swap: (eski, vars, yanit) => {
+      const liste = (eski as ProjeKart[] | undefined) ?? [];
+      return liste.map((p) =>
+        p.id === vars.id_taslak ? { ...p, id: yanit.id } : p,
+      );
+    },
+    hataMesaji: "Şablondan proje oluşturulamadı",
   });
 }
 

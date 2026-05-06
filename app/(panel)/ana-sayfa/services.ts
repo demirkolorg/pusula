@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { kullaniciErisimBilgisi } from "@/lib/yetki";
+import { zenginlestirVeOzetle } from "@/app/(panel)/projeler/[projeId]/aktivite/services";
 import type {
   AnaSayfaMetrik,
   BenimKartSatirim,
@@ -244,6 +245,9 @@ export async function sonAktiviteleriGetir(
           ],
         };
 
+  // Ham audit kayıtlarını çek — `zenginlestirVeOzetle` user-friendly
+  // `AktiviteOzeti[]` üretir (mesaj + alan diff'leri + proje/liste/kart bağlamı).
+  // Proje aktivite modülüyle aynı tip/UI = tutarlılık.
   const kayitlar = await db.aktiviteLogu.findMany({
     where: kosul,
     orderBy: { zaman: "desc" },
@@ -251,34 +255,17 @@ export async function sonAktiviteleriGetir(
     select: {
       id: true,
       zaman: true,
+      kullanici_id: true,
       islem: true,
       kaynak_tip: true,
       kaynak_id: true,
-      kullanici_id: true,
+      yeni_veri: true,
+      eski_veri: true,
+      diff: true,
     },
   });
 
-  // Kullanıcı isimleri için tek seferde toplu çek (N+1 yok).
-  const kullaniciIdleri = Array.from(
-    new Set(kayitlar.map((k) => k.kullanici_id).filter((id): id is string => !!id)),
-  );
-  const kullanicilar =
-    kullaniciIdleri.length === 0
-      ? []
-      : await db.kullanici.findMany({
-          where: { id: { in: kullaniciIdleri } },
-          select: { id: true, ad: true, soyad: true },
-        });
-  const kullaniciHaritasi = new Map(kullanicilar.map((k) => [k.id, k]));
-
-  return kayitlar.map((k) => ({
-    id: k.id.toString(),
-    zaman: k.zaman,
-    islem: k.islem,
-    kaynak_tip: k.kaynak_tip,
-    kaynak_id: k.kaynak_id,
-    kullanici: k.kullanici_id ? kullaniciHaritasi.get(k.kullanici_id) ?? null : null,
-  }));
+  return zenginlestirVeOzetle(kayitlar);
 }
 
 // ============================================================

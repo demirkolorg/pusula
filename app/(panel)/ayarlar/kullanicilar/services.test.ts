@@ -17,8 +17,8 @@ vi.mock("@/lib/mail", () => ({
 }));
 
 import {
-  bekleyenKullanicilariListele,
   davetOlustur,
+  kullanicilariListele,
   kullaniciyiGuncelle,
   kullaniciyiOnayla,
   kullaniciyiReddet,
@@ -104,51 +104,6 @@ afterAll(async () => {
 beforeEach(async () => {
   await truncateAll(adminDb);
   ortam = await ortamKur(adminDb);
-});
-
-describe("bekleyenKullanicilariListele", () => {
-  it("sadece BEKLIYOR durumundaki silinmemiş kullanıcıları döner", async () => {
-    await bekleyenKullaniciOlustur({
-      birimId: ortam.birim.id,
-      email: "bekleyen1@test.local",
-    });
-    await bekleyenKullaniciOlustur({
-      birimId: ortam.birim.id,
-      email: "bekleyen2@test.local",
-    });
-
-    const liste = await bekleyenKullanicilariListele();
-    expect(liste).toHaveLength(2);
-    expect(liste.map((k) => k.email).sort()).toEqual([
-      "bekleyen1@test.local",
-      "bekleyen2@test.local",
-    ]);
-  });
-
-  it("ONAYLANDI ve REDDEDILDI durumlarını dışarıda bırakır", async () => {
-    const o = await bekleyenKullaniciOlustur({
-      birimId: ortam.birim.id,
-      email: "onayli@test.local",
-    });
-    const r = await bekleyenKullaniciOlustur({
-      birimId: ortam.birim.id,
-      email: "reddedildi@test.local",
-    });
-    await kullaniciyiOnayla(o.id, ortam.superAdmin.id);
-    await kullaniciyiReddet(r.id, ortam.superAdmin.id, "spam");
-
-    const liste = await bekleyenKullanicilariListele();
-    expect(liste).toHaveLength(0);
-  });
-
-  it("birim bilgisini içerir", async () => {
-    await bekleyenKullaniciOlustur({
-      birimId: ortam.birim.id,
-      email: "x@test.local",
-    });
-    const liste = await bekleyenKullanicilariListele();
-    expect(liste[0]?.birim?.id).toBe(ortam.birim.id);
-  });
 });
 
 describe("makam rol politikası", () => {
@@ -371,6 +326,141 @@ describe("makam rol politikası", () => {
         kart_baglamlari: [],
       }),
     ).rejects.toThrow("geçerli değil");
+  });
+});
+
+describe("kullanicilariListele — onay alanları", () => {
+  it("BEKLIYOR durumundaki kullanıcı listede onay_durumu+red_sebebi ile döner", async () => {
+    const k = await bekleyenKullaniciOlustur({
+      birimId: ortam.birim.id,
+      email: "bekleyen-liste@test.local",
+      ad: "Aday",
+      soyad: "Personel",
+    });
+
+    const sonuc = await kullanicilariListele({
+      sayfa: 1,
+      sayfaBoyutu: 20,
+      arama: "bekleyen-liste",
+    });
+
+    const satir = sonuc.kayitlar.find((x) => x.id === k.id);
+    expect(satir).toBeDefined();
+    expect(satir?.onay_durumu).toBe("BEKLIYOR");
+    expect(satir?.aktif).toBe(false);
+    expect(satir?.red_sebebi).toBeNull();
+  });
+
+  it("REDDEDILDI kullanıcı red_sebebi ve onay_zamani ile döner", async () => {
+    const k = await bekleyenKullaniciOlustur({
+      birimId: ortam.birim.id,
+      email: "reddedilmis-liste@test.local",
+    });
+    await kullaniciyiReddet(k.id, ortam.superAdmin.id, "Sahte e-posta.");
+
+    const sonuc = await kullanicilariListele({
+      sayfa: 1,
+      sayfaBoyutu: 20,
+      arama: "reddedilmis-liste",
+    });
+
+    const satir = sonuc.kayitlar.find((x) => x.id === k.id);
+    expect(satir?.onay_durumu).toBe("REDDEDILDI");
+    expect(satir?.red_sebebi).toBe("Sahte e-posta.");
+    expect(satir?.onay_zamani).toBeInstanceOf(Date);
+    expect(satir?.aktif).toBe(false);
+  });
+
+  it("ONAYLANDI + aktif=true kullanıcı normal şekilde listelenir", async () => {
+    const k = await onayliKullaniciOlustur({
+      birimId: ortam.birim.id,
+      email: "aktif-liste@test.local",
+    });
+
+    const sonuc = await kullanicilariListele({
+      sayfa: 1,
+      sayfaBoyutu: 20,
+      arama: "aktif-liste",
+    });
+
+    const satir = sonuc.kayitlar.find((x) => x.id === k.id);
+    expect(satir?.onay_durumu).toBe("ONAYLANDI");
+    expect(satir?.aktif).toBe(true);
+    expect(satir?.red_sebebi).toBeNull();
+  });
+
+  it("BEKLIYOR kullanıcılar listenin başında sıralanır (ADR-0025)", async () => {
+    // Aynı arama prefix'iyle hem ONAYLANDI hem BEKLIYOR kullanıcı oluştur,
+    // BEKLIYOR olan listenin başında olmalı (Prisma enum ASC: BEKLIYOR < ONAYLANDI).
+    await onayliKullaniciOlustur({
+      birimId: ortam.birim.id,
+      email: "siralama-onayli@test.local",
+    });
+    const bekleyen = await bekleyenKullaniciOlustur({
+      birimId: ortam.birim.id,
+      email: "siralama-bekleyen@test.local",
+      ad: "Zeki",
+      soyad: "Yılmaz",
+    });
+
+    const sonuc = await kullanicilariListele({
+      sayfa: 1,
+      sayfaBoyutu: 20,
+      arama: "siralama-",
+    });
+
+    expect(sonuc.kayitlar.length).toBeGreaterThanOrEqual(2);
+    // BEKLIYOR kayıt "Zeki" alfabetik olarak en sona düşeceği halde,
+    // onay_durumu ASC sıralaması onu başa taşıdı.
+    expect(sonuc.kayitlar[0]?.id).toBe(bekleyen.id);
+    expect(sonuc.kayitlar[0]?.onay_durumu).toBe("BEKLIYOR");
+  });
+
+  it("onay_durumu filtresi sadece o durumu döner", async () => {
+    await bekleyenKullaniciOlustur({
+      birimId: ortam.birim.id,
+      email: "filtre-bekleyen@test.local",
+    });
+    await onayliKullaniciOlustur({
+      birimId: ortam.birim.id,
+      email: "filtre-onayli@test.local",
+    });
+
+    const sadeceBekleyen = await kullanicilariListele({
+      sayfa: 1,
+      sayfaBoyutu: 20,
+      onay_durumu: "BEKLIYOR",
+      arama: "filtre-",
+    });
+
+    expect(sadeceBekleyen.kayitlar.length).toBeGreaterThanOrEqual(1);
+    for (const s of sadeceBekleyen.kayitlar) {
+      expect(s.onay_durumu).toBe("BEKLIYOR");
+    }
+  });
+
+  it("bekleyenSayisi filtreden bağımsız toplam bekleyen sayısını döner", async () => {
+    await bekleyenKullaniciOlustur({
+      birimId: ortam.birim.id,
+      email: "sayac-1@test.local",
+    });
+    await bekleyenKullaniciOlustur({
+      birimId: ortam.birim.id,
+      email: "sayac-2@test.local",
+    });
+    await onayliKullaniciOlustur({
+      birimId: ortam.birim.id,
+      email: "sayac-onayli@test.local",
+    });
+
+    // Sayfa 'onayli' filtreli olsa bile bekleyenSayisi tüm bekleyenleri sayar.
+    const sonuc = await kullanicilariListele({
+      sayfa: 1,
+      sayfaBoyutu: 20,
+      arama: "sayac-onayli",
+    });
+
+    expect(sonuc.bekleyenSayisi).toBe(2);
   });
 });
 

@@ -28,7 +28,7 @@ export default async function DenetimSayfasi() {
   return (
     <div className="flex flex-1 flex-col gap-4">
       <div>
-        <h1 className="text-2xl font-semibold">Denetim Logu</h1>
+        <h1 className="text-2xl font-semibold">Denetim Günlüğü</h1>
         <p className="text-muted-foreground mt-1 text-sm">
           Sistemdeki tüm değişiklikler — kim, ne, ne zaman, nasıl.
         </p>

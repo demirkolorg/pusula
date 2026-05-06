@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import type { KullaniciOnayDurumu, Prisma } from "@prisma/client";
 import React from "react";
 import { db } from "@/lib/db";
 import { mailGonder, mailHtmlRender } from "@/lib/mail";
@@ -28,6 +28,9 @@ export type KullaniciSatiri = {
   telefon: string | null;
   aktif: boolean;
   silindi_mi: boolean;
+  onay_durumu: KullaniciOnayDurumu;
+  red_sebebi: string | null;
+  onay_zamani: Date | null;
   son_giris_zamani: Date | null;
   birim_id: string | null;
   birim_ad: string | null;
@@ -37,7 +40,11 @@ export type KullaniciSatiri = {
 
 export async function kullanicilariListele(
   girdi: KullaniciListe,
-): Promise<{ kayitlar: KullaniciSatiri[]; toplam: number }> {
+): Promise<{
+  kayitlar: KullaniciSatiri[];
+  toplam: number;
+  bekleyenSayisi: number;
+}> {
   const where: Prisma.KullaniciWhereInput = { silindi_mi: false };
   if (girdi.arama) {
     const idler = await aramaUuidIdleri({
@@ -46,7 +53,8 @@ export async function kullanicilariListele(
       arama: girdi.arama,
     });
     if (idler !== null) {
-      if (idler.length === 0) return { kayitlar: [], toplam: 0 };
+      if (idler.length === 0)
+        return { kayitlar: [], toplam: 0, bekleyenSayisi: 0 };
       where.id = { in: idler };
     }
   }
@@ -55,12 +63,23 @@ export async function kullanicilariListele(
   if (girdi.rolId) {
     where.roller = { some: { rol_id: girdi.rolId } };
   }
+  if (girdi.onay_durumu) where.onay_durumu = girdi.onay_durumu;
 
-  const [toplam, satirlar] = await db.$transaction([
+  const [toplam, bekleyenSayisi, satirlar] = await db.$transaction([
     db.kullanici.count({ where }),
+    // Filtreden bağımsız toplam bekleyen sayısı — sayaç chip'i için.
+    db.kullanici.count({
+      where: { silindi_mi: false, onay_durumu: "BEKLIYOR" },
+    }),
     db.kullanici.findMany({
       where,
-      orderBy: [{ ad: "asc" }, { soyad: "asc" }],
+      // Prisma enum ASC: BEKLIYOR < ONAYLANDI < REDDEDILDI (alfabetik) →
+      // onay bekleyenler listenin başında görünür (UX, ADR-0025).
+      orderBy: [
+        { onay_durumu: "asc" },
+        { ad: "asc" },
+        { soyad: "asc" },
+      ],
       skip: (girdi.sayfa - 1) * girdi.sayfaBoyutu,
       take: girdi.sayfaBoyutu,
       select: {
@@ -72,6 +91,9 @@ export async function kullanicilariListele(
         telefon: true,
         aktif: true,
         silindi_mi: true,
+        onay_durumu: true,
+        red_sebebi: true,
+        onay_zamani: true,
         son_giris_zamani: true,
         birim_id: true,
         birim: { select: { ad: true, tip: true } },
@@ -82,6 +104,7 @@ export async function kullanicilariListele(
 
   return {
     toplam,
+    bekleyenSayisi,
     kayitlar: satirlar.map((k) => ({
       id: k.id,
       ad: k.ad,
@@ -91,6 +114,9 @@ export async function kullanicilariListele(
       telefon: k.telefon,
       aktif: k.aktif,
       silindi_mi: k.silindi_mi,
+      onay_durumu: k.onay_durumu,
+      red_sebebi: k.red_sebebi,
+      onay_zamani: k.onay_zamani,
       son_giris_zamani: k.son_giris_zamani,
       birim_id: k.birim_id,
       birim_ad: k.birim?.ad ?? null,
@@ -577,23 +603,6 @@ export async function kartDavetBaglamiKaldir(
 ): Promise<void> {
   await db.davetKartBaglami.deleteMany({
     where: { davet_id: davetId, kart_id: kartId },
-  });
-}
-
-export async function bekleyenKullanicilariListele() {
-  return db.kullanici.findMany({
-    where: { onay_durumu: "BEKLIYOR", silindi_mi: false },
-    orderBy: { olusturma_zamani: "desc" },
-    select: {
-      id: true,
-      ad: true,
-      soyad: true,
-      email: true,
-      telefon: true,
-      unvan: true,
-      olusturma_zamani: true,
-      birim: { select: { id: true, ad: true, tip: true } },
-    },
   });
 }
 

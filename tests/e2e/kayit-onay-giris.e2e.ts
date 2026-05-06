@@ -46,28 +46,27 @@ test.describe.serial("Kayıt → Onay → Giriş akışı", () => {
     await expect(page).toHaveURL(/\/giris/);
   });
 
-  test("yetkili kullanıcı onay-bekleyenler sayfasından onaylar", async ({
+  test("yetkili kullanıcı kullanıcılar sayfasından onaylar", async ({
     page,
   }) => {
     await girisYap(page, SUPER_ADMIN);
-    await page.goto("/ayarlar/onay-bekleyenler");
+    await page.goto("/ayarlar/kullanicilar");
 
-    await expect(page.getByText(/onay bekleyen kay/i)).toBeVisible();
+    // Onay bekleyen kayıt listede görünür (ADR-0025).
+    await expect(page.getByText(/^Kullanıcılar$/)).toBeVisible();
 
-    // Bekleyen kayıt görünmeli
+    // Hedef kullanıcıyı arama ile filtrele (sayfalama gürültüsü olmadan)
+    await page.locator('input[placeholder*="ara"]').fill(benzersiz);
     await expect(page.getByText(benzersiz)).toBeVisible({ timeout: 10_000 });
 
-    // Onayla butonuna tıkla (kart içinde)
-    const kart = page
-      .locator("div")
-      .filter({ has: page.getByText(benzersiz) })
-      .last();
-    await kart.getByRole("button", { name: /^Onayla$/i }).click();
+    // Bekleyen satırın durum etiketi "Onay Bekliyor"
+    await expect(page.getByText("Onay Bekliyor")).toBeVisible();
 
-    // Liste güncellenince kayıt gözükmemeli (optimistic update)
-    await expect(page.getByText(benzersiz)).not.toBeVisible({
-      timeout: 5_000,
-    });
+    // Satır içi Onayla butonuna tıkla (optimistic — durum anında değişmeli)
+    await page.getByRole("button", { name: /^Onayla$/i }).first().click();
+
+    // Optimistic update: durum etiketi "Aktif"e dönmeli
+    await expect(page.getByText("Aktif")).toBeVisible({ timeout: 5_000 });
   });
 
   test("onaylanan kullanıcı giriş yapabilir", async ({ page }) => {

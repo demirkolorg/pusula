@@ -10,22 +10,25 @@ export default async function KullanicilarSayfasi() {
   if (!oturum?.user) redirect("/giris");
 
   const kullaniciId = (oturum.user as { id: string }).id;
-  const [duzenleyebilir, davetEdebilir, silebilir] = await Promise.all([
-    izinVarMi(kullaniciId, IZIN_KODLARI.KULLANICI_DUZENLE),
-    izinVarMi(kullaniciId, IZIN_KODLARI.KULLANICI_DAVET),
-    izinVarMi(kullaniciId, IZIN_KODLARI.KULLANICI_SIL),
-  ]);
+  const [duzenleyebilir, davetEdebilir, silebilir, onaylayabilir] =
+    await Promise.all([
+      izinVarMi(kullaniciId, IZIN_KODLARI.KULLANICI_DUZENLE),
+      izinVarMi(kullaniciId, IZIN_KODLARI.KULLANICI_DAVET),
+      izinVarMi(kullaniciId, IZIN_KODLARI.KULLANICI_SIL),
+      izinVarMi(kullaniciId, IZIN_KODLARI.KULLANICI_ONAYLA),
+    ]);
 
   return (
     <div className="flex flex-1 flex-col gap-4">
       <div>
         <h1 className="text-2xl font-semibold">Kullanıcılar</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Birim personelini ve rollerini yönetin.
+          Birim personelini ve rollerini yönetin. Onay bekleyen kayıtlar listede
+          görünür; satır içinden onaylayabilir veya reddedebilirsiniz.
         </p>
       </div>
       <KullanicilarIstemci
-        yetkiler={{ duzenleyebilir, davetEdebilir, silebilir }}
+        yetkiler={{ duzenleyebilir, davetEdebilir, silebilir, onaylayabilir }}
         aktifKullaniciId={kullaniciId}
       />
     </div>

@@ -1,14 +1,14 @@
 "use client";
 
 // Proje Şablonları yönetim sayfası — kart-grid liste.
-// v1: sistem şablonları görüntüleme + kullanıcı şablon silme.
-// v1.1: kullanıcı şablon oluştur/düzenle dialog (paralel session ile
-// çakışmasını önlemek için ileride).
+// Sistem şablonları görüntüleme + kullanıcı şablon oluştur/düzenle/sil.
 
 import { useState } from "react";
 import { DynamicIcon } from "lucide-react/dynamic";
 import {
   FolderKanbanIcon,
+  PencilIcon,
+  PlusIcon,
   ShieldCheckIcon,
   Trash2Icon,
 } from "lucide-react";
@@ -26,7 +26,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useSablonlar, useSablonSil } from "../hooks/sablon-sorgulari";
 import type { SablonOzet } from "../services";
-import { kapakArkaplanSinifi } from "@/lib/kapak-renk";
+import { kapakKutusuSiniflari } from "@/lib/kapak-renk";
+import { cn } from "@/lib/utils";
+import { SablonFormDialog } from "./sablon-form";
 
 type Props = {
   kullaniciId: string;
@@ -36,15 +38,27 @@ export function SablonlarIstemci({ kullaniciId }: Props) {
   const { data: sablonlar, isLoading } = useSablonlar();
   const sil = useSablonSil();
   const [silinecek, setSilinecek] = useState<SablonOzet | null>(null);
+  const [duzenlenecek, setDuzenlenecek] = useState<SablonOzet | null>(null);
+  const [yeniDialogAcik, setYeniDialogAcik] = useState(false);
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold">Proje Şablonları</h1>
-        <p className="text-muted-foreground text-sm">
-          Sistem şablonları (sabit) ve kendi oluşturduğun şablonlar. Yeni proje
-          oluştururken şablon seçerek hazır liste yapısıyla başlayabilirsin.
-        </p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Proje Şablonları</h1>
+          <p className="text-muted-foreground text-sm">
+            Sistem şablonları (sabit) ve kendi oluşturduğun şablonlar. Yeni
+            proje oluştururken şablon seçerek hazır liste yapısıyla
+            başlayabilirsin.
+          </p>
+        </div>
+        <Button
+          onClick={() => setYeniDialogAcik(true)}
+          className="shrink-0"
+        >
+          <PlusIcon className="mr-1.5 h-4 w-4" />
+          Yeni Şablon
+        </Button>
       </div>
 
       {isLoading ? (
@@ -65,10 +79,23 @@ export function SablonlarIstemci({ kullaniciId }: Props) {
               sablon={s}
               kullaniciSahip={s.olusturan_id === kullaniciId}
               onSil={() => setSilinecek(s)}
+              onDuzenle={() => setDuzenlenecek(s)}
             />
           ))}
         </div>
       )}
+
+      <SablonFormDialog
+        acik={yeniDialogAcik}
+        kapat={() => setYeniDialogAcik(false)}
+        baslangic={null}
+      />
+
+      <SablonFormDialog
+        acik={duzenlenecek !== null}
+        kapat={() => setDuzenlenecek(null)}
+        baslangic={duzenlenecek}
+      />
 
       <AlertDialog
         open={silinecek !== null}
@@ -104,23 +131,25 @@ function SablonKart({
   sablon,
   kullaniciSahip,
   onSil,
+  onDuzenle,
 }: {
   sablon: SablonOzet;
-  // Sahibi mi? (silme butonu için)
   kullaniciSahip: boolean;
   onSil: () => void;
+  onDuzenle: () => void;
 }) {
-  // ProjeSablonu içinde olusturan_id alanını listele service select'inde
-  // tutmuyoruz; yetki UI seviyesinde sahip flag'i ile geliyor.
-  void sablon; // tip uyumu için
-  const renkClass = kapakArkaplanSinifi(sablon.kapak_renk ?? null);
+  const kutuSinifi = kapakKutusuSiniflari(sablon.kapak_renk ?? null);
   const ikonAdi = sablon.kapak_ikon || "folder-kanban";
+  const duzenlenebilir = !sablon.sistem_mi && kullaniciSahip;
 
   return (
     <div className="bg-card flex flex-col gap-3 rounded-lg border p-4 transition-colors hover:border-foreground/30">
       <div className="flex items-start gap-3">
         <div
-          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-lg ${renkClass}`}
+          className={cn(
+            "flex h-12 w-12 shrink-0 items-center justify-center rounded-lg",
+            kutuSinifi,
+          )}
         >
           <DynamicIcon
             name={ikonAdi as never}
@@ -173,8 +202,12 @@ function SablonKart({
         )}
       </div>
 
-      {!sablon.sistem_mi && kullaniciSahip && (
-        <div className="flex justify-end">
+      {duzenlenebilir && (
+        <div className="flex justify-end gap-1">
+          <Button size="sm" variant="ghost" onClick={onDuzenle}>
+            <PencilIcon className="mr-1.5 h-3.5 w-3.5" />
+            Düzenle
+          </Button>
           <Button size="sm" variant="ghost" onClick={onSil}>
             <Trash2Icon className="text-destructive mr-1.5 h-3.5 w-3.5" />
             <span className="text-destructive">Sil</span>

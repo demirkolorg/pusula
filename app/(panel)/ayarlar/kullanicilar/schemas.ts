@@ -12,6 +12,9 @@ export const kullaniciListeSemasi = z.object({
   birimId: z.string().uuid().optional().nullable(),
   rolId: z.string().uuid().optional().nullable(),
   aktif: z.boolean().optional(),
+  // ADR-0025 — onay-bekleyenler sayfası bu listeye entegre edildiği için
+  // hızlı filtreleme ihtiyacı: sadece bekleyenleri (veya reddedilenleri) göster.
+  onay_durumu: z.enum(["BEKLIYOR", "ONAYLANDI", "REDDEDILDI"]).optional(),
 });
 
 export const kullaniciGuncelleSemasi = z.object({

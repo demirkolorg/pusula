@@ -4,6 +4,7 @@ import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { ChevronLeftIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,7 +19,6 @@ import {
 } from "@/components/ui/responsive-dialog";
 import { toast } from "@/lib/toast";
 import { tempId } from "@/lib/temp-id";
-import { cn } from "@/lib/utils";
 import {
   KAPAK_RENK_TOKENLERI,
   kapakArkaplanSinifi,
@@ -27,18 +27,20 @@ import {
 import { ikonMu } from "@/lib/kapak-ikon";
 import { ProjeFormIkonBolumu } from "./proje-form-ikon-bolumu";
 import { ProjeFormRenkBolumu } from "./proje-form-renk-bolumu";
-import { useProjeGuncelle, useProjeOlustur, projelerKey } from "../hooks/proje-sorgulari";
+import { ProjeSablonSecim } from "./proje-sablon-secim";
+import {
+  projelerKey,
+  useProjeGuncelle,
+  useProjeOlustur,
+  useSablondanProjeOlustur,
+} from "../hooks/proje-sorgulari";
 import type { ProjeKart } from "../services";
+import type { SablonOzet } from "@/app/(panel)/ayarlar/sablonlar/services";
 
 const formSemasi = z.object({
   ad: z.string().min(2, "Ad en az 2 karakter").max(200),
   aciklama: z.string().max(2000).optional(),
-  kapak_renk: z
-    .enum(KAPAK_RENK_TOKENLERI)
-    .optional()
-    .or(z.literal("")),
-  // Lucide ikon ismi — boş string = seçilmedi.
-  // Geçerlilik runtime'da `ikonMu` ile zorunlu (server-side schema kati).
+  kapak_renk: z.enum(KAPAK_RENK_TOKENLERI).optional().or(z.literal("")),
   kapak_ikon: z.string().max(64).optional().or(z.literal("")),
 });
 
@@ -55,16 +57,23 @@ type Props = {
 export function ProjeFormSheet({ acik, kapat, baslangic, filtre, arama }: Props) {
   const anahtar = projelerKey(filtre, arama);
   const olustur = useProjeOlustur(anahtar);
+  const sablondanOlustur = useSablondanProjeOlustur(anahtar);
   const guncelle = useProjeGuncelle(anahtar);
 
-  const baslangicRenk = (
+  // Düzenleme modunda şablon seçim adımı atlanır.
+  const duzenleme = baslangic !== null;
+  const [secilenSablon, setSecilenSablon] = React.useState<SablonOzet | null>(
+    null,
+  );
+
+  const baslangicRenk =
     baslangic?.kapak_renk &&
     (KAPAK_RENK_TOKENLERI as readonly string[]).includes(baslangic.kapak_renk)
       ? (baslangic.kapak_renk as KapakRenk)
-      : ""
-  );
-
-  const baslangicIkon = ikonMu(baslangic?.kapak_ikon) ? baslangic.kapak_ikon : "";
+      : "";
+  const baslangicIkon = ikonMu(baslangic?.kapak_ikon)
+    ? baslangic.kapak_ikon
+    : "";
 
   const form = useForm<FormVeri>({
     resolver: zodResolver(formSemasi),
@@ -76,21 +85,39 @@ export function ProjeFormSheet({ acik, kapat, baslangic, filtre, arama }: Props)
     },
   });
 
+  // Dialog her açılışta state'i sıfırla.
   React.useEffect(() => {
+    if (!acik) return;
+    setSecilenSablon(null);
     form.reset({
       ad: baslangic?.ad ?? "",
       aciklama: baslangic?.aciklama ?? "",
       kapak_renk: baslangicRenk,
       kapak_ikon: baslangicIkon,
     });
-  }, [baslangic, baslangicRenk, baslangicIkon, form]);
+  }, [acik, baslangic, baslangicRenk, baslangicIkon, form]);
 
   const seciliRenk = form.watch("kapak_renk");
   const seciliIkon = form.watch("kapak_ikon") ?? "";
 
+  // Şablon seçilince form'a şablonun renk/ikon'unu varsayılan olarak yansıt.
+  const sablonSec = (s: SablonOzet) => {
+    setSecilenSablon(s);
+    if (
+      s.kapak_renk &&
+      (KAPAK_RENK_TOKENLERI as readonly string[]).includes(s.kapak_renk)
+    ) {
+      form.setValue("kapak_renk", s.kapak_renk as KapakRenk);
+    }
+    if (ikonMu(s.kapak_ikon)) {
+      form.setValue("kapak_ikon", s.kapak_ikon ?? "");
+    }
+  };
+
   const gonder = form.handleSubmit((veri) => {
     const ikonGonder = ikonMu(veri.kapak_ikon) ? veri.kapak_ikon : null;
-    if (baslangic) {
+
+    if (duzenleme && baslangic) {
       guncelle.mutate(
         {
           id: baslangic.id,
@@ -106,10 +133,14 @@ export function ProjeFormSheet({ acik, kapat, baslangic, filtre, arama }: Props)
           },
         },
       );
-    } else {
-      olustur.mutate(
+      return;
+    }
+
+    if (secilenSablon) {
+      sablondanOlustur.mutate(
         {
           id_taslak: tempId(),
+          sablon_id: secilenSablon.id,
           ad: veri.ad,
           aciklama: veri.aciklama || null,
           kapak_renk: veri.kapak_renk || null,
@@ -117,75 +148,129 @@ export function ProjeFormSheet({ acik, kapat, baslangic, filtre, arama }: Props)
         },
         {
           onSuccess: () => {
-            toast.basari("Proje oluşturuldu");
+            toast.basari("Proje şablondan oluşturuldu");
             kapat();
           },
         },
       );
+      return;
     }
+
+    olustur.mutate(
+      {
+        id_taslak: tempId(),
+        ad: veri.ad,
+        aciklama: veri.aciklama || null,
+        kapak_renk: veri.kapak_renk || null,
+        kapak_ikon: ikonGonder,
+      },
+      {
+        onSuccess: () => {
+          toast.basari("Proje oluşturuldu");
+          kapat();
+        },
+      },
+    );
   });
 
-  const yukleniyor = olustur.isPending || guncelle.isPending;
+  const yukleniyor =
+    olustur.isPending || sablondanOlustur.isPending || guncelle.isPending;
+
+  // Adım belirle: düzenlemede direkt detay; oluşturmada şablon seçilmediyse
+  // adım 1 (şablon seç), seçildiyse adım 2 (detay).
+  const adim: "sablon" | "detay" = duzenleme || secilenSablon ? "detay" : "sablon";
+
+  // Şablon seçim adımı geniş (kart-grid + liste önizlemesi),
+  // detay adımı dar (form alanları).
+  const genislikSinifi =
+    adim === "sablon" ? "w-full sm:max-w-3xl" : "w-full sm:max-w-lg";
 
   return (
     <ResponsiveDialog open={acik} onOpenChange={(a) => !a && kapat()}>
-      <ResponsiveDialogContent className="w-full sm:max-w-md">
+      <ResponsiveDialogContent className={genislikSinifi}>
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>
-            {baslangic ? "Projeyi Düzenle" : "Yeni Proje"}
+            {duzenleme
+              ? "Projeyi Düzenle"
+              : adim === "sablon"
+                ? "Şablon Seç"
+                : "Yeni Proje"}
           </ResponsiveDialogTitle>
           <ResponsiveDialogDescription>
-            {baslangic
+            {duzenleme
               ? "Proje bilgilerini güncelleyin."
-              : "Yeni proje oluşturup ilk listeleri ekleyin."}
+              : adim === "sablon"
+                ? "Hazır liste yapısıyla başlamak için bir şablon seçin."
+                : secilenSablon
+                  ? `Şablon: ${secilenSablon.ad}`
+                  : "Yeni proje oluştur."}
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
-        <form onSubmit={gonder} className="grid gap-4 px-4 py-2">
-          <div className="grid gap-2">
-            <Label htmlFor="ad">Proje Adı</Label>
-            <Input
-              id="ad"
-              {...form.register("ad")}
-              placeholder="Örn. Mart Ayı Hizmet Takibi"
-              autoFocus
-            />
-            {form.formState.errors.ad && (
-              <p className="text-destructive text-xs">
-                {form.formState.errors.ad.message}
-              </p>
-            )}
+        {adim === "sablon" ? (
+          <div className="px-4 py-2">
+            <ProjeSablonSecim onSec={sablonSec} />
           </div>
+        ) : (
+          <form onSubmit={gonder} className="grid gap-4 px-4 py-2">
+            <div className="grid gap-2">
+              <Label htmlFor="ad">Proje Adı</Label>
+              <Input
+                id="ad"
+                {...form.register("ad")}
+                placeholder="Örn. Mart Ayı Hizmet Takibi"
+                autoFocus
+              />
+              {form.formState.errors.ad && (
+                <p className="text-destructive text-xs">
+                  {form.formState.errors.ad.message}
+                </p>
+              )}
+            </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="aciklama">Açıklama (opsiyonel)</Label>
-            <Textarea
-              id="aciklama"
-              rows={3}
-              {...form.register("aciklama")}
-              placeholder="Bu proje neyi takip ediyor?"
+            <div className="grid gap-2">
+              <Label htmlFor="aciklama">Açıklama (opsiyonel)</Label>
+              <Textarea
+                id="aciklama"
+                rows={3}
+                {...form.register("aciklama")}
+                placeholder="Bu proje neyi takip ediyor?"
+              />
+            </div>
+
+            <ProjeFormRenkBolumu
+              deger={seciliRenk ?? ""}
+              onSec={(yeni) => form.setValue("kapak_renk", yeni)}
             />
-          </div>
 
-          <ProjeFormRenkBolumu
-            deger={seciliRenk ?? ""}
-            onSec={(yeni) => form.setValue("kapak_renk", yeni)}
-          />
-
-          <ProjeFormIkonBolumu
-            deger={seciliIkon}
-            onSec={(yeni) => form.setValue("kapak_ikon", yeni ?? "")}
-            zeminRenkSinifi={kapakArkaplanSinifi(seciliRenk || null)}
-          />
-        </form>
+            <ProjeFormIkonBolumu
+              deger={seciliIkon}
+              onSec={(yeni) => form.setValue("kapak_ikon", yeni ?? "")}
+              zeminRenkSinifi={kapakArkaplanSinifi(seciliRenk || null)}
+            />
+          </form>
+        )}
 
         <ResponsiveDialogFooter>
+          {adim === "detay" && !duzenleme && secilenSablon && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setSecilenSablon(null)}
+              className="mr-auto"
+            >
+              <ChevronLeftIcon className="mr-1 h-4 w-4" />
+              Geri
+            </Button>
+          )}
           <Button type="button" variant="outline" onClick={kapat}>
             İptal
           </Button>
-          <Button onClick={gonder} disabled={yukleniyor}>
-            {baslangic ? "Kaydet" : "Oluştur"}
-          </Button>
+          {adim === "detay" && (
+            <Button onClick={gonder} disabled={yukleniyor}>
+              {duzenleme ? "Kaydet" : "Oluştur"}
+            </Button>
+          )}
         </ResponsiveDialogFooter>
       </ResponsiveDialogContent>
     </ResponsiveDialog>

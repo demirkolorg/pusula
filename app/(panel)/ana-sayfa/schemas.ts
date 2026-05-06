@@ -34,23 +34,10 @@ export const benimKartSatirimSemasi = z.object({
 
 export type BenimKartSatirim = z.infer<typeof benimKartSatirimSemasi>;
 
-// Son aktivite satırı — AktiviteLogu kaydından üretilir.
-export const sonAktiviteSatiriSemasi = z.object({
-  id: z.string(),
-  zaman: z.date(),
-  islem: z.string(),
-  kaynak_tip: z.string(),
-  kaynak_id: z.string().nullable(),
-  kullanici: z
-    .object({
-      id: z.string().uuid(),
-      ad: z.string(),
-      soyad: z.string(),
-    })
-    .nullable(),
-});
-
-export type SonAktiviteSatiri = z.infer<typeof sonAktiviteSatiriSemasi>;
+// Ana sayfa "Son Aktiviteler" widget'ı, proje aktivite modülünün olgun
+// `AktiviteOzeti` tipini paylaşır (mesaj + diff + bağlam = aynı yapı).
+// Tek kaynaktan render ile UI tutarlılığı sağlanır (denetim/proje/ana sayfa).
+export type { AktiviteOzeti as SonAktiviteSatiri } from "@/app/(panel)/projeler/[projeId]/aktivite/services";
 
 // Son ziyaret edilen proje satırı — ProjeZiyareti üzerinden çekilir.
 export const sonZiyaretProjeSatiriSemasi = z.object({

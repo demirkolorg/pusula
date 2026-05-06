@@ -170,6 +170,22 @@ export function kapakKenarSinifi(
   return tokenMi(deger) ? KENAR_SINIFLARI[deger] : null;
 }
 
+/**
+ * Avatar / ikon container kutuları için: arkaplan + kontrastlı foreground
+ * class'larını birleştirir. Lucide ikonları `currentColor` kullandığı için
+ * parent'a verilen `text-...-foreground` ikona inherit olur.
+ *
+ * Token geçersizse `fallback` döner (default: nötr `bg-muted` + foreground).
+ * Inline renk yazımını engeller (Kontrol U.1).
+ */
+export function kapakKutusuSiniflari(
+  deger: string | null | undefined,
+  fallback: string = "bg-muted text-muted-foreground",
+): string {
+  if (!tokenMi(deger)) return fallback;
+  return `${ARKAPLAN_SINIFLARI[deger]} ${ARKAPLAN_USTU_METIN_SINIFLARI[deger]}`;
+}
+
 /** Token için Türkçe etiket. Bilinmeyen değerlerde `null`. */
 export function kapakEtiketi(deger: string | null | undefined): string | null {
   return tokenMi(deger) ? ETIKETLER[deger] : null;

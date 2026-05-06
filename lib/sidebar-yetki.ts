@@ -23,7 +23,6 @@ export const MENU_KODLARI = {
   AYAR_BILDIRIMLER: "ayar.bildirimler",
   AYAR_BIRIMLER: "ayar.birimler",
   AYAR_KULLANICILAR: "ayar.kullanicilar",
-  AYAR_ONAY_BEKLEYENLER: "ayar.onay-bekleyenler",
   AYAR_ROLLER: "ayar.roller",
   AYAR_SABLONLAR: "ayar.sablonlar",
   AYAR_DENETIM: "ayar.denetim",
@@ -44,12 +43,14 @@ export const MENU_IZIN_HARITASI: Readonly<Record<MenuKodu, IzinGereksinimi>> = {
   [MENU_KODLARI.AYAR_GENEL]: [IZIN_KODLARI.AYAR_KURUM_DUZENLE],
   [MENU_KODLARI.AYAR_BILDIRIMLER]: null,
   [MENU_KODLARI.AYAR_BIRIMLER]: [IZIN_KODLARI.BIRIM_YONET],
+  // Onay bekleyen kayıtların yönetimi de bu sayfaya entegre olduğu için
+  // KULLANICI_ONAYLA izni de menü görünürlüğünü tetikler (ADR-0025).
   [MENU_KODLARI.AYAR_KULLANICILAR]: [
     IZIN_KODLARI.KULLANICI_DUZENLE,
     IZIN_KODLARI.KULLANICI_DAVET,
     IZIN_KODLARI.KULLANICI_SIL,
+    IZIN_KODLARI.KULLANICI_ONAYLA,
   ],
-  [MENU_KODLARI.AYAR_ONAY_BEKLEYENLER]: [IZIN_KODLARI.KULLANICI_ONAYLA],
   [MENU_KODLARI.AYAR_ROLLER]: [IZIN_KODLARI.ROL_YONET],
   [MENU_KODLARI.AYAR_SABLONLAR]: null,
   [MENU_KODLARI.AYAR_DENETIM]: [IZIN_KODLARI.DENETIM_OKU],
