@@ -38,6 +38,7 @@ import { KartModalKontrolBlogu } from "./kart-modal-kontrol-blogu";
 import { KartModalYanPanel } from "./kart-modal-yan-panel";
 import { KartTamamlamaOneriBanner } from "./kart-tamamlama-oneri-banner";
 import {
+  kontrolListesiYasakHesapla,
   oneriDurumuHesapla,
   tamamlamaYasakHesapla,
 } from "../kart-tamamla-kontrol";
@@ -205,17 +206,21 @@ function KartModalIcerik({
     redSebebi: kart.tamamlanma_red_sebebi,
   });
 
-  // ADR-0018 — yetki + kontrol listesi durumuna göre yasak; KartModalBaslik
-  // tooltip ve disabled durumu için kullanır. Aynı hesap server'da DB sayımı
-  // ile tekrar uygulanır (ek savunma).
-  const tamamlamaYasak = tamamlamaYasakHesapla({
-    yetkiVar: kartTamamla,
-    yeniDurum: !kart.tamamlandi_mi,
-    kontrol: {
-      toplam: kart.madde_toplam,
-      tamamlanan: kart.madde_tamamlanan,
-    },
-  });
+  // ADR-0018 + 0019 — Yetkili kullanıcı için yetki + kontrol listesi yasağı;
+  // yetkisiz kullanıcı için sadece kontrol listesi yasağı (öneri akışı).
+  // KartModalBaslik tooltip ve disabled durumu için kullanır. Aynı hesap
+  // server'da DB sayımı ile tekrar uygulanır (ek savunma).
+  const kontrolDurum = {
+    toplam: kart.madde_toplam,
+    tamamlanan: kart.madde_tamamlanan,
+  };
+  const tamamlamaYasak = kartTamamla
+    ? tamamlamaYasakHesapla({
+        yetkiVar: true,
+        yeniDurum: !kart.tamamlandi_mi,
+        kontrol: kontrolDurum,
+      })
+    : kontrolListesiYasakHesapla({ kontrol: kontrolDurum });
 
   const baglantiKopyala = () => {
     try {

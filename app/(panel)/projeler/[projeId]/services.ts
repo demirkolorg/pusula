@@ -788,6 +788,24 @@ export async function kartTamamlamaOneri(
     );
   }
 
+  // ADR-0018 — Sert blok: "Tamamlandığını bildir" de bir kart kapatma yoludur.
+  // Kontrol listesi yarımken doğrudan tamamlama (`kartGuncelle`) ve onay
+  // (`kartTamamlamaOnay`) bloklanıyor; öneri yolu da aynı kuralı uygulamalı.
+  // Aksi halde yetkili kullanıcıya yarım kontrol listesiyle öneri ulaşır,
+  // onay aşamasında reddolur — gereksiz bildirim trafiği + yanlış sinyal.
+  const eksik = await db.kontrolMaddesi.count({
+    where: {
+      kontrol_listesi: { kart_id: girdi.id },
+      tamamlandi_mi: false,
+    },
+  });
+  if (eksik > 0) {
+    throw new EylemHatasi(
+      "Kontrol listesindeki tüm maddeler tamamlanmadan kart kapatılamaz.",
+      HATA_KODU.CAKISMA,
+    );
+  }
+
   await db.kart.update({
     where: { id: girdi.id },
     data: {

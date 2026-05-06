@@ -110,11 +110,20 @@ export function KartTamamlaToggle({
       return {
         aria,
         tooltipBaslik: aria,
-        tooltipDetay: null,
+        // Kontrol listesi yarımsa öneri verilemez — kullanıcı sebebi tooltip'te
+        // okur; tıklarsa toast.uyari ile aynı mesaj gösterilir (ADR-0018 + 0019
+        // ortak ön koşul).
+        tooltipDetay: yasak?.mesaj ?? null,
         icerik: <Circle className={ikonSinifi} strokeWidth={1.75} />,
         sinifSet: "text-muted-foreground hover:text-foreground hover:bg-muted",
-        onClick: () => onAksiyon({ tip: "oneri-ver" }),
-        disabled: false,
+        onClick: () => {
+          if (yasak) {
+            toast.uyari(yasak.mesaj);
+            return;
+          }
+          onAksiyon({ tip: "oneri-ver" });
+        },
+        disabled: yasak !== null,
       };
     }
 
@@ -144,10 +153,15 @@ export function KartTamamlaToggle({
 
     // modu.tip === "reddedildi" (yetkisiz kullanıcı; yetkili `aktif`'e düşer)
     const aria = "Tamamlama önerisi reddedildi — yeniden bildir";
+    // Yeniden öneri akışı da kontrol listesi yarımken bloklanır — aksi halde
+    // kullanıcı reddedildi sonrası yarım kontrol listesi ile yine öneri
+    // gönderir (server zaten reddeder, ama UX için önden uyar).
+    const yasakDetay = yasak?.mesaj ?? null;
+    const sebepDetay = modu.sebep ? `Sebep: ${modu.sebep}` : null;
     return {
       aria,
       tooltipBaslik: aria,
-      tooltipDetay: modu.sebep ? `Sebep: ${modu.sebep}` : null,
+      tooltipDetay: yasakDetay ?? sebepDetay,
       icerik: (
         <CircleX
           className={cn(ikonSinifi, "text-red-600 dark:text-red-400")}
@@ -156,8 +170,14 @@ export function KartTamamlaToggle({
       ),
       sinifSet:
         "text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300",
-      onClick: () => onAksiyon({ tip: "oneri-ver" }),
-      disabled: false,
+      onClick: () => {
+        if (yasak) {
+          toast.uyari(yasak.mesaj);
+          return;
+        }
+        onAksiyon({ tip: "oneri-ver" });
+      },
+      disabled: yasak !== null,
     };
   }, [tamamlandi, modu, yasak, ikonSinifi, onAksiyon]);
 

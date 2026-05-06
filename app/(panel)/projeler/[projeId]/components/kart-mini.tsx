@@ -35,6 +35,7 @@ import {
 } from "../hooks/detay-sorgulari";
 import {
   gecikmisMi,
+  kontrolListesiYasakHesapla,
   oneriDurumuHesapla,
   tamamlamaYasakHesapla,
 } from "../kart-tamamla-kontrol";
@@ -84,26 +85,31 @@ export function KartMini({
   const anahtar = React.useMemo(() => projeDetayKey(projeId), [projeId]);
   const kartGuncelle = useKartGuncelle(anahtar);
   const tamamlamaOner = useKartTamamlamaOner(anahtar);
-  // ADR-0018 — yetki + kontrol listesi durumuna göre yasak hesabı.
-  // Helper saf fonksiyon (test edilebilir); aynı hesap server'da kontrol
-  // listesi DB sayımı ile tekrar uygulanır (sert blok savunma katmanı).
-  const tamamlamaYasak = React.useMemo(
-    () =>
-      tamamlamaYasakHesapla({
-        yetkiVar: baglamYetkileri.tamamla,
+  // ADR-0018 + 0019 — Yetkili: yetki + kontrol listesi yasağı (`tamamla`
+  // toggle "aktif" mod). Yetkisiz: sadece kontrol listesi yasağı (öneri akışı
+  // — `kart:read` yeterli). Helper'lar saf (test edilebilir); server bu
+  // kontrolü DB sayımı ile tekrar uygular (sert blok savunma katmanı).
+  const tamamlamaYasak = React.useMemo(() => {
+    const kontrol = {
+      toplam: kart.madde_toplam,
+      tamamlanan: kart.madde_tamamlanan,
+    };
+    if (baglamYetkileri.tamamla) {
+      return tamamlamaYasakHesapla({
+        yetkiVar: true,
         yeniDurum: !kart.tamamlandi_mi,
-        kontrol: {
-          toplam: kart.madde_toplam,
-          tamamlanan: kart.madde_tamamlanan,
-        },
-      }),
-    [
-      baglamYetkileri.tamamla,
-      kart.tamamlandi_mi,
-      kart.madde_toplam,
-      kart.madde_tamamlanan,
-    ],
-  );
+        kontrol,
+      });
+    }
+    // Yetkisiz kullanıcı + kart kapalı (öneri akışı); kart zaten açıksa
+    // toggle "aktif" mod'a düşer ve bu yasak değerlendirilmez.
+    return kontrolListesiYasakHesapla({ kontrol });
+  }, [
+    baglamYetkileri.tamamla,
+    kart.tamamlandi_mi,
+    kart.madde_toplam,
+    kart.madde_tamamlanan,
+  ]);
   // ADR-0019 — Toggle modunu öneri durumu + yetkiye göre hesapla.
   const toggleModu = React.useMemo(
     () =>

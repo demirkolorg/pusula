@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   gecikmisMi,
+  kontrolListesiYasakHesapla,
   oneriDurumuHesapla,
   tamamlamaYasakHesapla,
 } from "./kart-tamamla-kontrol";
@@ -61,6 +62,38 @@ describe("tamamlamaYasakHesapla", () => {
       kontrol: { toplam: 3, tamamlanan: 3 },
     });
     expect(sonuc?.sebep).toBe("yetki-yok");
+  });
+});
+
+describe("kontrolListesiYasakHesapla (yetkisiz öneri akışı için)", () => {
+  it("kontrol listesi yarım → kontrol-yarim yasağı (eksik sayısı mesajda)", () => {
+    const sonuc = kontrolListesiYasakHesapla({
+      kontrol: { toplam: 4, tamamlanan: 1 },
+    });
+    expect(sonuc?.sebep).toBe("kontrol-yarim");
+    expect(sonuc?.mesaj).toContain("3");
+  });
+
+  it("kontrol listesi tam → serbest", () => {
+    const sonuc = kontrolListesiYasakHesapla({
+      kontrol: { toplam: 3, tamamlanan: 3 },
+    });
+    expect(sonuc).toBeNull();
+  });
+
+  it("boş kontrol listesi → serbest (madde yoksa blok yok)", () => {
+    const sonuc = kontrolListesiYasakHesapla({
+      kontrol: { toplam: 0, tamamlanan: 0 },
+    });
+    expect(sonuc).toBeNull();
+  });
+
+  it("hiçbir madde tamamlanmadıysa → kontrol-yarim (eksik = toplam)", () => {
+    const sonuc = kontrolListesiYasakHesapla({
+      kontrol: { toplam: 5, tamamlanan: 0 },
+    });
+    expect(sonuc?.sebep).toBe("kontrol-yarim");
+    expect(sonuc?.mesaj).toContain("5");
   });
 });
 

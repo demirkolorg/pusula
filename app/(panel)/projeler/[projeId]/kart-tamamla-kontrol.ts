@@ -16,6 +16,28 @@ export type TamamlamaYasak = {
   mesaj: string;
 };
 
+// Kart kapatma akışının her iki yolu için ortak ön koşul: kontrol listesi
+// tamamlanmamışsa kart kapatılamaz (doğrudan toggle ile veya yetkili onayıyla
+// veya yetkisiz "Tamamlandığını bildir" önerisi ile). Yetki bağımsız sebep
+// — UI bu helper'ı yetki bağlamına göre kullanır:
+//  - Yetkili: `tamamlamaYasakHesapla` üzerinden (yetki + kontrol).
+//  - Yetkisiz öneri akışı: bu helper doğrudan (kontrol-yarim tek sebep).
+export function kontrolListesiYasakHesapla(args: {
+  kontrol: KontrolDurum;
+}): TamamlamaYasak | null {
+  if (
+    args.kontrol.toplam > 0 &&
+    args.kontrol.tamamlanan < args.kontrol.toplam
+  ) {
+    const eksik = args.kontrol.toplam - args.kontrol.tamamlanan;
+    return {
+      sebep: "kontrol-yarim",
+      mesaj: `Kontrol listesinde ${eksik} madde tamamlanmadan kart kapatılamaz.`,
+    };
+  }
+  return null;
+}
+
 export function tamamlamaYasakHesapla(args: {
   yetkiVar: boolean;
   // Kart kapanırken (true → false geçişi yasak DEĞİL — sadece açma engellenir).
@@ -33,17 +55,7 @@ export function tamamlamaYasakHesapla(args: {
   // Yeniden açma (true → false) hiçbir zaman bloklanmaz.
   if (!args.yeniDurum) return null;
   // Kart açıkken (false → true) kontrol listesi yarım ise sert blok.
-  if (
-    args.kontrol.toplam > 0 &&
-    args.kontrol.tamamlanan < args.kontrol.toplam
-  ) {
-    const eksik = args.kontrol.toplam - args.kontrol.tamamlanan;
-    return {
-      sebep: "kontrol-yarim",
-      mesaj: `Kontrol listesinde ${eksik} madde tamamlanmadan kart kapatılamaz.`,
-    };
-  }
-  return null;
+  return kontrolListesiYasakHesapla({ kontrol: args.kontrol });
 }
 
 // Kart bitiş tarihinin geçmiş olup olmadığını saf hesap.
