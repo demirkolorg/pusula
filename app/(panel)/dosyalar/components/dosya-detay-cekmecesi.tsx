@@ -106,12 +106,16 @@ function DetayIcerigi({
   dosyaId: string;
   onSilindi: () => void;
 }) {
+  // Dosya değiştiğinde sekmeyi default'a sıfırla — derived state pattern
+  // (React docs: "Resetting all state when a prop changes"). useEffect +
+  // setState yerine render içinde id değişimini yakala; cascading render
+  // riski yok (guard ile tek geçişte sınırlı).
+  const [oncekiDetayId, setOncekiDetayId] = React.useState(detay.id);
   const [aktifSekme, setAktifSekme] = React.useState<Sekme>("onizleme");
-
-  // Dosya değiştiğinde sekmeyi default'a sıfırla
-  React.useEffect(() => {
+  if (oncekiDetayId !== detay.id) {
+    setOncekiDetayId(detay.id);
     setAktifSekme("onizleme");
-  }, [detay.id]);
+  }
 
   return (
     <div className="flex flex-col gap-3 p-4">
@@ -165,14 +169,21 @@ function DosyaBaslik({
   const [aciklamaInput, setAciklamaInput] = React.useState(
     detay.aciklama ?? "",
   );
+  // Derived state from props: dosya değişince input alanlarını sunucu
+  // değerleriyle senkronla. useEffect+setState yerine render içinde guard
+  // (React docs: "Resetting all state when a prop changes" pattern).
+  const [oncekiSenkronAnahtari, setOncekiSenkronAnahtari] = React.useState(
+    `${detay.id}|${detay.ad}|${detay.aciklama ?? ""}`,
+  );
+  const yeniSenkronAnahtari = `${detay.id}|${detay.ad}|${detay.aciklama ?? ""}`;
+  if (oncekiSenkronAnahtari !== yeniSenkronAnahtari) {
+    setOncekiSenkronAnahtari(yeniSenkronAnahtari);
+    setAdInput(detay.ad);
+    setAciklamaInput(detay.aciklama ?? "");
+  }
 
   const adMut = useDosyaAdGuncelle(dosyaId);
   const aciklamaMut = useDosyaAciklamaGuncelle(dosyaId);
-
-  React.useEffect(() => {
-    setAdInput(detay.ad);
-    setAciklamaInput(detay.aciklama ?? "");
-  }, [detay.id, detay.ad, detay.aciklama]);
 
   return (
     <div className="flex flex-col gap-2">
