@@ -25,6 +25,9 @@ export type AdayKisiYetkili = {
   soyad: string;
   email: string;
   birim_ad: string | null;
+  // Why birim_yetkili: kişinin birimi liste veya üst proje birim
+  // yetkililerinde varsa zaten erişimi var; UI tekrar eklenmesini engeller.
+  birim_yetkili: boolean;
 };
 
 async function projeyiDogrula(projeId: string): Promise<void> {
@@ -231,44 +234,64 @@ export async function listeAdayKisileriAra(
   listeId: string,
   q?: string,
 ): Promise<AdayKisiYetkili[]> {
-  await listeyiDogrula(listeId);
+  const liste = await listeyiDogrula(listeId);
   const arama = q?.trim();
-  const adaylar = await db.kullanici.findMany({
-    where: {
-      aktif: true,
-      silindi_mi: false,
-      onay_durumu: "ONAYLANDI",
-      liste_yetkileri: { none: { liste_id: listeId } },
-      ...(arama
-        ? {
-            OR: [
-              { ad: { contains: arama, mode: "insensitive" } },
-              { soyad: { contains: arama, mode: "insensitive" } },
-              { email: { contains: arama, mode: "insensitive" } },
-              { birim: { ad: { contains: arama, mode: "insensitive" } } },
-              {
-                birim: { kisa_ad: { contains: arama, mode: "insensitive" } },
-              },
-            ],
-          }
-        : {}),
-    },
-    orderBy: [{ ad: "asc" }, { soyad: "asc" }],
-    take: 20,
-    select: {
-      id: true,
-      ad: true,
-      soyad: true,
-      email: true,
-      birim: { select: { ad: true, kisa_ad: true } },
-    },
-  });
+  // Why çoklu birim kaynağı: listeye erişim için liste veya üst proje birim
+  // yetkililerinden biri yeterli (zincirleme paylaşım — ADR-0008).
+  const [adaylar, listeBirimleri, projeBirimleri] = await Promise.all([
+    db.kullanici.findMany({
+      where: {
+        aktif: true,
+        silindi_mi: false,
+        onay_durumu: "ONAYLANDI",
+        liste_yetkileri: { none: { liste_id: listeId } },
+        ...(arama
+          ? {
+              OR: [
+                { ad: { contains: arama, mode: "insensitive" } },
+                { soyad: { contains: arama, mode: "insensitive" } },
+                { email: { contains: arama, mode: "insensitive" } },
+                { birim: { ad: { contains: arama, mode: "insensitive" } } },
+                {
+                  birim: { kisa_ad: { contains: arama, mode: "insensitive" } },
+                },
+              ],
+            }
+          : {}),
+      },
+      orderBy: [{ ad: "asc" }, { soyad: "asc" }],
+      take: 20,
+      select: {
+        id: true,
+        ad: true,
+        soyad: true,
+        email: true,
+        birim_id: true,
+        birim: { select: { ad: true, kisa_ad: true } },
+      },
+    }),
+    db.listeBirimi.findMany({
+      where: { liste_id: listeId },
+      select: { birim_id: true },
+    }),
+    db.projeBirimi.findMany({
+      where: { proje_id: liste.proje_id },
+      select: { birim_id: true },
+    }),
+  ]);
+  const yetkiliBirimSet = new Set<string>([
+    ...listeBirimleri.map((b) => b.birim_id),
+    ...projeBirimleri.map((b) => b.birim_id),
+  ]);
   return adaylar.map((aday) => ({
     id: aday.id,
     ad: aday.ad,
     soyad: aday.soyad,
     email: aday.email,
     birim_ad: aday.birim?.kisa_ad ?? aday.birim?.ad ?? null,
+    birim_yetkili: aday.birim_id
+      ? yetkiliBirimSet.has(aday.birim_id)
+      : false,
   }));
 }
 

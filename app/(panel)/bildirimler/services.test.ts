@@ -96,7 +96,70 @@ describe("bildirimUret", () => {
       tip: "KART_YETKILI_ATAMA",
       baslik: "X",
     });
+    // personel + makam (superAdmin) — üreten superAdmin dışlanır → 1
     expect(r).toHaveLength(1);
+  });
+
+  // ADR-0022 — Makam (SUPER_ADMIN/KAYMAKAM) tüm bildirim akışına otomatik dahil
+  it("SUPER_ADMIN ve KAYMAKAM alıcı listesinde olmasa bile otomatik eklenir", async () => {
+    const kaymakamRol = await adminDb.rol.findUniqueOrThrow({
+      where: { kod: "KAYMAKAM" },
+    });
+    const kaymakam = await adminDb.kullanici.create({
+      data: {
+        birim_id: ortam.birim.id,
+        email: "kaymakam.test@pusula.local",
+        parola_hash: "x",
+        ad: "Kay",
+        soyad: "Makam",
+        aktif: true,
+        onay_durumu: "ONAYLANDI",
+        roller: { create: { rol_id: kaymakamRol.id } },
+      },
+      select: { id: true },
+    });
+
+    // Alıcı sadece personel; üreten digerKullanici (makam değil).
+    const r = await bildirimUret({
+      alici_idler: [ortam.personel.id],
+      ureten_id: ortam.digerKullanici.id,
+      tip: "YORUM_EKLENDI",
+      baslik: "Test",
+    });
+    const aliciIdler = r.map((x) => x.alici_id).sort();
+    expect(aliciIdler).toEqual(
+      [ortam.personel.id, ortam.superAdmin.id, kaymakam.id].sort(),
+    );
+  });
+
+  it("üreten makam ise kendine bildirim atılmaz", async () => {
+    const r = await bildirimUret({
+      alici_idler: [ortam.personel.id],
+      ureten_id: ortam.superAdmin.id,
+      tip: "YORUM_EKLENDI",
+      baslik: "Test",
+    });
+    // SuperAdmin üreten → dışlanır. Sadece personel kalır.
+    expect(r.map((x) => x.alici_id)).toEqual([ortam.personel.id]);
+  });
+
+  it("makam in_app tercihini kapatırsa otomatik dahil edilmez", async () => {
+    await adminDb.bildirimTercih.create({
+      data: {
+        kullanici_id: ortam.superAdmin.id,
+        tip: "YORUM_EKLENDI",
+        in_app_acik: false,
+        email_acik: false,
+      },
+    });
+    const r = await bildirimUret({
+      alici_idler: [ortam.personel.id],
+      ureten_id: ortam.digerKullanici.id,
+      tip: "YORUM_EKLENDI",
+      baslik: "Test",
+    });
+    // SuperAdmin tercihi kapalı → tercih süzgecinden eler. Personel kalır.
+    expect(r.map((x) => x.alici_id)).toEqual([ortam.personel.id]);
   });
 });
 

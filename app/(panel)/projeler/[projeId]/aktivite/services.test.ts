@@ -169,6 +169,31 @@ describe("Yorum aktiviteleri", () => {
     });
   });
 
+  it("Yorum CREATE mention UUID'lerini aktivite detayında ada çevirir", async () => {
+    await aktiviteEkle({
+      kullaniciId: ortam.superAdmin.id,
+      islem: "CREATE",
+      kaynakTip: "Yorum",
+      yeniVeri: {
+        id: "y1",
+        kart_id: kart.id,
+        icerik: `Selam @${ortam.personel.id}`,
+      },
+    });
+
+    const r = await kartAktiviteleriniListele(ortam.birim.id, {
+      kart_id: kart.id,
+      limit: 50,
+    });
+    const personel = await adminDb.kullanici.findUniqueOrThrow({
+      where: { id: ortam.personel.id },
+      select: { ad: true, soyad: true },
+    });
+    const gorunenAd = `${personel.ad} ${personel.soyad}`;
+    expect(r[0]!.detay).toBe(`Selam @${gorunenAd}`);
+    expect(r[0]!.detay).not.toContain(ortam.personel.id);
+  });
+
   it("Yorum UPDATE diff.silindi_mi=true → 'yorumunu sildi'", async () => {
     await aktiviteEkle({
       kullaniciId: ortam.superAdmin.id,
@@ -614,6 +639,106 @@ describe("Proje aktiviteleri", () => {
     expect(yabanci).toBeUndefined();
     const kendi = r.find((a) => a.detay === "Bu projenin yorumu");
     expect(kendi).toBeDefined();
+  });
+
+  it("Bağlam: kart aktivitesinde proje, liste ve kart bilgisi dolu döner", async () => {
+    const liste = await adminDb.liste.findFirst({
+      where: { proje_id: projeId },
+      select: { id: true, ad: true },
+    });
+    const proje = await adminDb.proje.findUnique({
+      where: { id: projeId },
+      select: { ad: true },
+    });
+    const k = await adminDb.kart.findUnique({
+      where: { id: kart.id },
+      select: { baslik: true },
+    });
+    await aktiviteEkle({
+      kullaniciId: ortam.superAdmin.id,
+      islem: "UPDATE",
+      kaynakTip: "Kart",
+      kaynakId: kart.id,
+      diff: { baslik: { eski: "X", yeni: "Y" } },
+    });
+    const r = await projeAktiviteleriniListele(ortam.birim.id, {
+      proje_id: projeId,
+    });
+    const a = r.find((x) => x.kaynak_id === kart.id);
+    expect(a?.baglam?.proje?.id).toBe(projeId);
+    expect(a?.baglam?.proje?.ad).toBe(proje!.ad);
+    expect(a?.baglam?.liste?.id).toBe(liste!.id);
+    expect(a?.baglam?.liste?.ad).toBe(liste!.ad);
+    expect(a?.baglam?.kart?.id).toBe(kart.id);
+    expect(a?.baglam?.kart?.baslik).toBe(k!.baslik);
+  });
+
+  it("Bağlam: yorum aktivitesinde kart_id JSON üzerinden bağlam çözülür", async () => {
+    await aktiviteEkle({
+      kullaniciId: ortam.superAdmin.id,
+      islem: "CREATE",
+      kaynakTip: "Yorum",
+      yeniVeri: { kart_id: kart.id, icerik: "Test yorum" },
+    });
+    const r = await projeAktiviteleriniListele(ortam.birim.id, {
+      proje_id: projeId,
+    });
+    const yorum = r.find((x) => x.detay === "Test yorum");
+    expect(yorum?.baglam?.kart?.id).toBe(kart.id);
+    expect(yorum?.baglam?.liste).not.toBeNull();
+  });
+
+  it("Bağlam: kontrol maddesi → kontrol_listesi → kart bağlamı zincirle çözülür", async () => {
+    const kl = await adminDb.kontrolListesi.create({
+      data: { kart_id: kart.id, ad: "L", sira: "M" },
+    });
+    await aktiviteEkle({
+      kullaniciId: ortam.superAdmin.id,
+      islem: "CREATE",
+      kaynakTip: "KontrolMaddesi",
+      yeniVeri: { kontrol_listesi_id: kl.id, metin: "yap" },
+    });
+    const r = await projeAktiviteleriniListele(ortam.birim.id, {
+      proje_id: projeId,
+    });
+    const km = r.find((x) => x.kategori === "kontrol-maddesi");
+    expect(km?.baglam?.kart?.id).toBe(kart.id);
+  });
+
+  it("Bağlam: ProjeYetkilisi aktivitesinde proje dolu, liste/kart null", async () => {
+    await aktiviteEkle({
+      kullaniciId: ortam.superAdmin.id,
+      islem: "CREATE",
+      kaynakTip: "ProjeYetkilisi",
+      yeniVeri: {
+        proje_id: projeId,
+        kullanici_id: ortam.personel.id,
+      },
+    });
+    const r = await projeAktiviteleriniListele(ortam.birim.id, {
+      proje_id: projeId,
+    });
+    const a = r.find((x) => x.kategori === "yetkili");
+    expect(a?.baglam?.proje?.id).toBe(projeId);
+    expect(a?.baglam?.liste).toBeNull();
+    expect(a?.baglam?.kart).toBeNull();
+  });
+
+  it("Bağlam: Proje CREATE → proje dolu, liste/kart null", async () => {
+    await aktiviteEkle({
+      kullaniciId: ortam.superAdmin.id,
+      islem: "CREATE",
+      kaynakTip: "Proje",
+      kaynakId: projeId,
+      yeniVeri: { id: projeId, ad: "Proje X" },
+    });
+    const r = await projeAktiviteleriniListele(ortam.birim.id, {
+      proje_id: projeId,
+    });
+    const a = r.find((x) => x.kategori === "proje" && x.islem === "CREATE");
+    expect(a?.baglam?.proje?.id).toBe(projeId);
+    expect(a?.baglam?.liste).toBeNull();
+    expect(a?.baglam?.kart).toBeNull();
   });
 
   it("limit default 200 — sadece ilk batch döner", async () => {

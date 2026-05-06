@@ -63,8 +63,7 @@ export function DenetimDiffDiyalog({ kayit, kapat }: Props) {
               {kayit.kullanici_ad ?? "Sistem"}
             </span>
             <span className="text-muted-foreground block font-mono text-xs">
-              {kayit.http_metod} {kayit.http_yol} · IP: {kayit.ip ?? "—"} ·
-              req: {kayit.request_id ?? "—"}
+              {kayit.http_metod} {kayit.http_yol} · IP: {kayit.ip ?? "—"}
             </span>
           </DialogDescription>
         </DialogHeader>

@@ -71,8 +71,7 @@ export function HataDetayDiyalog({
             </span>
             <span className="text-muted-foreground block font-mono text-xs">
               {kayit.http_metod ? `${kayit.http_metod} ` : ""}
-              {kayit.url ?? ""} · IP: {kayit.ip ?? "—"} · req:{" "}
-              {kayit.request_id ?? "—"}
+              {kayit.url ?? ""} · IP: {kayit.ip ?? "—"}
             </span>
           </DialogDescription>
         </DialogHeader>

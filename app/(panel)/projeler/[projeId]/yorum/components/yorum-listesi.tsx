@@ -4,9 +4,12 @@ import * as React from "react";
 import { Loader2, PencilIcon, Trash2Icon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useMentionInput } from "@/hooks/use-mention-input";
+import { mentionlariDuzenlemeMetnineCevir } from "@/lib/mention-format";
 import { tempIdMi } from "@/lib/temp-id";
 import { useOturumKullanicisi } from "@/hooks/use-oturum";
 import { MentionliMetin, type KisiMap } from "@/lib/mention";
+import { MentionDropdown } from "../../components/mention-dropdown";
 import { KisiAvatar } from "../../yetkili/components/kisi-avatar";
 import {
   tempId,
@@ -122,20 +125,34 @@ function YorumSatiri({
   duzenleyebilirMi: boolean;
   kisiMap: KisiMap;
 }) {
+  const duzenlemeMetni = React.useMemo(
+    () => mentionlariDuzenlemeMetnineCevir(yorum.icerik, kisiMap),
+    [yorum.icerik, kisiMap],
+  );
   const [duzenliyor, setDuzenliyor] = React.useState(false);
-  const [icerik, setIcerik] = React.useState(yorum.icerik);
+  const [icerik, setIcerik] = React.useState(duzenlemeMetni.metin);
   const guncelle = useYorumGuncelle(kartId);
   const sil = useYorumSil(kartId);
   const taslak = tempIdMi(yorum.id);
+  const {
+    durum: mentionDurum,
+    textareaRef,
+    onMetinDegisti,
+    onKlavye,
+    secimYap,
+    iptal,
+    cozumle,
+  } = useMentionInput(icerik, setIcerik, duzenlemeMetni.cozumlemeMapi);
 
   const kaydet = async (e: React.FormEvent) => {
     e.preventDefault();
     const t = icerik.trim();
-    if (!t || t === yorum.icerik) {
+    const kaydedilecek = cozumle(t);
+    if (!t || kaydedilecek === yorum.icerik) {
       setDuzenliyor(false);
       return;
     }
-    await guncelle.mutateAsync({ id: yorum.id, icerik: t });
+    await guncelle.mutateAsync({ id: yorum.id, icerik: kaydedilecek });
     setDuzenliyor(false);
   };
 
@@ -165,13 +182,28 @@ function YorumSatiri({
 
         {duzenliyor ? (
           <form onSubmit={kaydet} className="mt-1 flex flex-col gap-1.5">
-            <Textarea
-              rows={2}
-              value={icerik}
-              onChange={(e) => setIcerik(e.target.value)}
-              autoFocus
-              className="min-h-14 resize-none"
-            />
+            <div className="relative">
+              <MentionDropdown
+                kartId={kartId}
+                query={mentionDurum.query}
+                acik={mentionDurum.acik}
+                onSec={secimYap}
+                onIptal={iptal}
+              />
+              <Textarea
+                ref={textareaRef}
+                rows={2}
+                value={icerik}
+                onChange={onMetinDegisti}
+                onKeyDown={(e) => {
+                  onKlavye(e);
+                  if (mentionDurum.acik) return;
+                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") kaydet(e);
+                }}
+                autoFocus
+                className="min-h-14 resize-none"
+              />
+            </div>
             <div className="flex gap-2">
               <Button type="submit" size="sm" disabled={guncelle.isPending}>
                 Kaydet
@@ -181,7 +213,7 @@ function YorumSatiri({
                 size="sm"
                 variant="ghost"
                 onClick={() => {
-                  setIcerik(yorum.icerik);
+                  setIcerik(duzenlemeMetni.metin);
                   setDuzenliyor(false);
                 }}
               >
@@ -199,7 +231,10 @@ function YorumSatiri({
                 <button
                   type="button"
                   className="hover:text-foreground inline-flex items-center gap-0.5 underline-offset-2 hover:underline"
-                  onClick={() => setDuzenliyor(true)}
+                  onClick={() => {
+                    setIcerik(duzenlemeMetni.metin);
+                    setDuzenliyor(true);
+                  }}
                 >
                   <PencilIcon className="size-2.5" /> Düzenle
                 </button>

@@ -47,6 +47,10 @@ export type YetkiliKisiAdayi = {
   soyad: string;
   email: string;
   birim_ad: string | null;
+  // Why birim_yetkili: kişinin birimi proje/liste/kart birim yetkilileri
+  // arasındaysa zaten erişimi var; ekstra kişi yetkisi gereksiz. UI bu
+  // flag'e göre rozet/uyarı gösterir, eklenmesini engeller.
+  birim_yetkili: boolean;
 };
 
 export type BekleyenDavetOzeti = {

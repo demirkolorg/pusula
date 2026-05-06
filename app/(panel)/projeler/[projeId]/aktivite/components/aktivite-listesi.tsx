@@ -9,6 +9,7 @@ import {
   FilePlus2Icon,
   FolderKanbanIcon,
   InfoIcon,
+  KanbanSquareIcon,
   ListChecksIcon,
   ListIcon,
   Loader2Icon,
@@ -31,7 +32,16 @@ import { KisiAvatar } from "../../yetkili/components/kisi-avatar";
 import type { AktiviteOzeti } from "../services";
 import { aktiviteDiff, type DiffSegment } from "../aktivite-diff";
 
-const KATEGORI_ETIKET: Record<AktiviteOzeti["kategori"], string> = {
+// Aktivite kullanıcısı yoksa "Sistem" — audit middleware bypass'lı yazımlar
+// (seed, migration, cron) için fallback. Hem satır header'ı hem detay
+// görünümü aynı isim formatını paylaşır.
+export function aktiviteKullaniciAdi(aktivite: AktiviteOzeti): string {
+  return aktivite.kullanici
+    ? `${aktivite.kullanici.ad} ${aktivite.kullanici.soyad}`.trim()
+    : "Sistem";
+}
+
+export const KATEGORI_ETIKET: Record<AktiviteOzeti["kategori"], string> = {
   proje: "Proje",
   liste: "Liste",
   kart: "Kart",
@@ -77,6 +87,15 @@ type Props = {
   // "projede yapılan" şeklinde değişir.
   bosBaslik?: string;
   bosAciklama?: string;
+  // Bağlam göstergesi — proje aktivite modalında true; her satırda olayın
+  // hangi liste / kartla ilgili olduğunu chip olarak gösterir. Kart modalında
+  // false (kart zaten bağlamda).
+  baglamGoster?: boolean;
+  // Detay görüntüleme handler'ı. Verilirse satır kendi diyaloğunu açmaz;
+  // parent (örn. ProjeAktiviteModal) master-detail görünümünü yönetir ve
+  // nested-dialog problemini önler. Verilmezse satır içeride dialog açar
+  // (kart modalındaki gibi geriye uyumlu davranış).
+  onDetayAc?: (aktivite: AktiviteOzeti) => void;
 };
 
 // Kural 8: Intl.DateTimeFormat tr-TR + Europe/Istanbul + dd.MM.yyyy HH:mm
@@ -97,7 +116,7 @@ const TARIH_TAM = new Intl.DateTimeFormat("tr-TR", {
   timeZone: "Europe/Istanbul",
 });
 
-const KATEGORI_IKON: Record<
+export const KATEGORI_IKON: Record<
   AktiviteOzeti["kategori"],
   React.ComponentType<{ className?: string }>
 > = {
@@ -122,6 +141,8 @@ export function AktiviteListesi({
   kisiMap,
   bosBaslik = "Henüz aktivite yok.",
   bosAciklama = "Yapılan her değişiklik (atama, tarih, etiket, yorum, durum, kontrol maddesi, eklenti, ilişki) burada zaman çizelgesinde görünür.",
+  baglamGoster = false,
+  onDetayAc,
 }: Props) {
   if (yukleniyor) {
     return (
@@ -155,7 +176,12 @@ export function AktiviteListesi({
       <ul className="relative flex flex-col gap-5">
         {data?.map((a) => (
           <li key={a.id}>
-            <AktiviteSatiri aktivite={a} kisiMap={kisiMap} />
+            <AktiviteSatiri
+              aktivite={a}
+              kisiMap={kisiMap}
+              baglamGoster={baglamGoster}
+              onDetayAc={onDetayAc ? () => onDetayAc(a) : undefined}
+            />
           </li>
         ))}
       </ul>
@@ -166,14 +192,19 @@ export function AktiviteListesi({
 function AktiviteSatiri({
   aktivite,
   kisiMap,
+  baglamGoster,
+  onDetayAc,
 }: {
   aktivite: AktiviteOzeti;
   kisiMap: KisiMap;
+  baglamGoster: boolean;
+  onDetayAc?: () => void;
 }) {
   const Ikon = KATEGORI_IKON[aktivite.kategori];
-  const adSoyad = aktivite.kullanici
-    ? `${aktivite.kullanici.ad} ${aktivite.kullanici.soyad}`.trim()
-    : "Sistem";
+  const adSoyad = aktiviteKullaniciAdi(aktivite);
+  // Lokal dialog state — sadece onDetayAc verilmediği zaman kullanılır
+  // (kart modalı gibi geriye uyumlu kullanımlarda). Hook her zaman çağrılır
+  // (rules-of-hooks); kullanım koşullu.
   const [detayAcik, setDetayAcik] = React.useState(false);
   // Sadece yorum kategorisinde detay = ham yorum içeriği — mention parse et.
   const detayMentionlu = aktivite.kategori === "yorum";
@@ -222,7 +253,9 @@ function AktiviteSatiri({
               variant="ghost"
               size="icon"
               className="text-muted-foreground/70 hover:text-foreground hover:bg-muted size-6 rounded-full"
-              onClick={() => setDetayAcik(true)}
+              onClick={() =>
+                onDetayAc ? onDetayAc() : setDetayAcik(true)
+              }
               aria-label="Aktivite detayını gör"
               title="Detay"
             >
@@ -252,46 +285,98 @@ function AktiviteSatiri({
           )}
         </p>
 
-        {/* Değişiklikler artık inline gösterilmiyor — tam diff için Detay
-            butonu modal'ı açar (gürültüyü azaltır, satır kompakt kalır). */}
+        {/* Bağlam chip satırı — proje aktivite modalında gösterilir.
+            "hangi liste, hangi kart" bilgisi olmadan proje timeline'ı
+            soyut kalır. Kart modalında gösterilmez (kart zaten bağlamda). */}
+        {baglamGoster && aktivite.baglam && (
+          <BaglamSatiri baglam={aktivite.baglam} />
+        )}
       </div>
 
-      <AktiviteDetayDiyalog
-        aktivite={aktivite}
-        kullanici={adSoyad}
-        kisiMap={kisiMap}
-        acik={detayAcik}
-        onAcikDegisti={setDetayAcik}
-      />
+      {/* Geriye uyumlu lokal dialog — sadece parent onDetayAc vermediğinde */}
+      {!onDetayAc && (
+        <AktiviteDetayDiyalog
+          aktivite={aktivite}
+          kisiMap={kisiMap}
+          acik={detayAcik}
+          onAcikDegisti={setDetayAcik}
+        />
+      )}
+    </div>
+  );
+}
+
+// Bağlam chip'leri — "Liste › Kart" şeklinde sıkıştırılmış göster.
+// Hem liste hem kart varsa: [📋 Liste] › [🪪 Kart başlığı]
+// Sadece liste varsa: [📋 Liste]
+// Kart varsa ama liste yok (silinmiş): [🪪 Kart] (silinmiş liste'yi gizle)
+// Sadece kart_id var ad yok: [🪪 (silinmiş kart)]
+function BaglamSatiri({
+  baglam,
+}: {
+  baglam: NonNullable<AktiviteOzeti["baglam"]>;
+}) {
+  const { liste, kart } = baglam;
+  if (!liste && !kart) return null;
+  return (
+    <div className="text-muted-foreground/85 flex flex-wrap items-center gap-x-1 gap-y-1 text-[11px]">
+      {liste && (
+        <span
+          className="border-border/60 bg-background inline-flex max-w-[180px] items-center gap-1 truncate rounded-md border px-1.5 py-0.5"
+          title={liste.ad ?? "(silinmiş liste)"}
+        >
+          <ListIcon className="text-muted-foreground/70 size-3 shrink-0" aria-hidden />
+          <span className="truncate">
+            {liste.ad ?? (
+              <span className="italic opacity-70">(silinmiş liste)</span>
+            )}
+          </span>
+        </span>
+      )}
+      {liste && kart && (
+        <span className="text-muted-foreground/40" aria-hidden>
+          ›
+        </span>
+      )}
+      {kart && (
+        <span
+          className="border-border/60 bg-background inline-flex max-w-[260px] items-center gap-1 truncate rounded-md border px-1.5 py-0.5"
+          title={kart.baslik ?? "(silinmiş kart)"}
+        >
+          <ActivityIcon className="text-muted-foreground/70 size-3 shrink-0" aria-hidden />
+          <span className="truncate">
+            {kart.baslik ?? (
+              <span className="italic opacity-70">(silinmiş kart)</span>
+            )}
+          </span>
+        </span>
+      )}
     </div>
   );
 }
 
 // Tam aktivite detayı — meta grid (kullanıcı, ID'ler, işlem, kategori, tarih)
 // + olay özeti + değişiklikler (KIRPMA YOK: değerler tam halde gösterilir).
+//
+// İki kullanım modu:
+// 1. Bağımsız diyalog → AktiviteDetayDiyalog (kart modal yan paneli, geriye
+//    uyumluluk). Üst dialog'un içinde değil; nested-dialog problemi yok.
+// 2. Master-detail tek dialog → ProjeAktiviteModal kendi container'ında
+//    yalnızca AktiviteDetayIcerik'i render eder; geri butonuyla listeye döner.
+//    Bu sayede iki ResponsiveDialog'un üst üste portal'a yığılmasından
+//    doğan z-index/scroll-lock/escape sıra çakışması ortadan kalkar.
 function AktiviteDetayDiyalog({
   aktivite,
-  kullanici,
   kisiMap,
   acik,
   onAcikDegisti,
 }: {
   aktivite: AktiviteOzeti;
-  kullanici: string;
   kisiMap: KisiMap;
   acik: boolean;
   onAcikDegisti: (a: boolean) => void;
 }) {
   const Ikon = KATEGORI_IKON[aktivite.kategori];
-  const islemEtiket = ISLEM_ETIKET[aktivite.islem];
-  const kategoriEtiket = KATEGORI_ETIKET[aktivite.kategori];
-  // Audit log'da kullanici_id null olduğunda kayıt bir kullanıcıya bağlı
-  // değildir (seed, migration, cron, audit-bypass'lı sistem yazımı).
-  // Bu bir hata değil; tasarımsal olarak "Sistem aksiyonu" diye gösterilir
-  // ve "Kullanıcı ID" alanı kaldırılır (—  yanıltıcı).
-  const sistemAksiyonu = !aktivite.kullanici;
-  const detayMentionlu = aktivite.kategori === "yorum";
-
   return (
     <ResponsiveDialog open={acik} onOpenChange={onAcikDegisti}>
       <ResponsiveDialogContent className="sm:max-w-3xl">
@@ -313,8 +398,37 @@ function AktiviteDetayDiyalog({
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
-        <div className="-mr-2 max-h-[70vh] space-y-4 overflow-y-auto pr-2">
-          {/* Olay özeti */}
+        <div className="-mr-2 max-h-[70vh] overflow-y-auto pr-2">
+          <AktiviteDetayIcerik aktivite={aktivite} kisiMap={kisiMap} />
+        </div>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
+  );
+}
+
+// Saf içerik (header'sız) — diyaloğun gövdesi. ProjeAktiviteModal master-detail
+// görünümünde ve AktiviteDetayDiyalog içinde aynı içeriği render eder.
+export function AktiviteDetayIcerik({
+  aktivite,
+  kisiMap,
+}: {
+  aktivite: AktiviteOzeti;
+  kisiMap: KisiMap;
+}) {
+  const Ikon = KATEGORI_IKON[aktivite.kategori];
+  const islemEtiket = ISLEM_ETIKET[aktivite.islem];
+  const kategoriEtiket = KATEGORI_ETIKET[aktivite.kategori];
+  // Audit log'da kullanici_id null olduğunda kayıt bir kullanıcıya bağlı
+  // değildir (seed, migration, cron, audit-bypass'lı sistem yazımı).
+  // Bu bir hata değil; tasarımsal olarak "Sistem aksiyonu" diye gösterilir
+  // ve "Kullanıcı ID" alanı kaldırılır (—  yanıltıcı).
+  const sistemAksiyonu = !aktivite.kullanici;
+  const detayMentionlu = aktivite.kategori === "yorum";
+  const kullanici = aktiviteKullaniciAdi(aktivite);
+
+  return (
+    <div className="space-y-4">
+      {/* Olay özeti */}
           <div className="border-border/70 bg-muted/40 rounded-lg border p-3">
             <div className="text-muted-foreground/80 mb-1 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide">
               <Ikon
@@ -384,6 +498,60 @@ function AktiviteDetayDiyalog({
               }
             />
             <MetaSatiri etiket="Kategori" deger={kategoriEtiket} />
+            {aktivite.baglam?.proje && (
+              <MetaSatiri
+                etiket="Proje"
+                deger={
+                  <span className="inline-flex items-center gap-1.5">
+                    <KanbanSquareIcon
+                      className="text-muted-foreground/70 size-3.5 shrink-0"
+                      aria-hidden
+                    />
+                    {aktivite.baglam.proje.ad ?? (
+                      <span className="text-muted-foreground italic">
+                        (silinmiş proje)
+                      </span>
+                    )}
+                  </span>
+                }
+              />
+            )}
+            {aktivite.baglam?.liste && (
+              <MetaSatiri
+                etiket="Liste"
+                deger={
+                  <span className="inline-flex items-center gap-1.5">
+                    <ListIcon
+                      className="text-muted-foreground/70 size-3.5 shrink-0"
+                      aria-hidden
+                    />
+                    {aktivite.baglam.liste.ad ?? (
+                      <span className="text-muted-foreground italic">
+                        (silinmiş liste)
+                      </span>
+                    )}
+                  </span>
+                }
+              />
+            )}
+            {aktivite.baglam?.kart && (
+              <MetaSatiri
+                etiket="Kart"
+                deger={
+                  <span className="inline-flex items-center gap-1.5">
+                    <ActivityIcon
+                      className="text-muted-foreground/70 size-3.5 shrink-0"
+                      aria-hidden
+                    />
+                    {aktivite.baglam.kart.baslik ?? (
+                      <span className="text-muted-foreground italic">
+                        (silinmiş kart)
+                      </span>
+                    )}
+                  </span>
+                }
+              />
+            )}
           </dl>
 
           {/* Değişiklikler — KIRPMA YOK */}
@@ -442,9 +610,7 @@ function AktiviteDetayDiyalog({
               .
             </div>
           )}
-        </div>
-      </ResponsiveDialogContent>
-    </ResponsiveDialog>
+    </div>
   );
 }
 
@@ -554,7 +720,7 @@ function DiffParcasi({
   );
 }
 
-function kategoriArkaplan(kategori: AktiviteOzeti["kategori"]): string {
+export function kategoriArkaplan(kategori: AktiviteOzeti["kategori"]): string {
   switch (kategori) {
     case "yorum":
       return "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300";
@@ -576,7 +742,7 @@ function kategoriArkaplan(kategori: AktiviteOzeti["kategori"]): string {
   }
 }
 
-function kategoriYazi(kategori: AktiviteOzeti["kategori"]): string {
+export function kategoriYazi(kategori: AktiviteOzeti["kategori"]): string {
   switch (kategori) {
     case "yorum":
       return "text-blue-600 dark:text-blue-400";

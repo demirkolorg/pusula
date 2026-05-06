@@ -216,16 +216,38 @@ export type BildirimUretGirdi = {
   meta?: Record<string, unknown> | null;
 };
 
+// ADR-0022 — Makam katmanı (SUPER_ADMIN + KAYMAKAM) tüm bildirim
+// tetikleyicilerinde otomatik alıcı olarak union edilir. Kural 50a'nın
+// "makam tüm projelere erişir" politikasının bildirim katmanına yansıması:
+// bu kullanıcılar atama/üyelik filtresinden bağımsız tüm akışı görmelidir.
+// Tek noktadan kontrol — yeni tetikleyici eklendiğinde otomatik kapsar.
+async function makamAliciIdler(): Promise<string[]> {
+  const liste = await db.kullanici.findMany({
+    where: {
+      aktif: true,
+      silindi_mi: false,
+      onay_durumu: "ONAYLANDI",
+      roller: {
+        some: { rol: { kod: { in: ["SUPER_ADMIN", "KAYMAKAM"] } } },
+      },
+    },
+    select: { id: true },
+  });
+  return liste.map((k) => k.id);
+}
+
 export async function bildirimUret(
   girdi: BildirimUretGirdi,
 ): Promise<{ id: string; alici_id: string }[]> {
-  if (girdi.alici_idler.length === 0) return [];
   metrikArttir("bildirim.uretildi.toplam");
   metrikArttir("bildirim.tipi", 1, { tip: girdi.tip });
+  // Makam alıcıları otomatik union — tüm bildirim akışı SUPER_ADMIN/KAYMAKAM'a
+  // gider. Üreten dışlama aşağıda bunları da kapsar (kendine bildirim yok).
+  const makamlar = await makamAliciIdler();
   // Tekilleştir + üreteni dışla (kendine bildirim atma)
-  const benzersiz = Array.from(new Set(girdi.alici_idler)).filter(
-    (id) => id !== girdi.ureten_id,
-  );
+  const benzersiz = Array.from(
+    new Set([...girdi.alici_idler, ...makamlar]),
+  ).filter((id) => id !== girdi.ureten_id);
   if (benzersiz.length === 0) return [];
 
   // Faz 5.3 + Adım 2 — Susturma süzgeçleri (kart-bazlı + proje-bazlı):
@@ -320,9 +342,10 @@ export async function bildirimUret(
 // Önceki: doğrudan mailGonder; şimdiki: BildirimMailKuyrugu BEKLIYOR.
 // Cron her 5dk alıcı bazında grupla + tek mail (digest) gönderir.
 async function emailKanaliYayinla(girdi: BildirimUretGirdi): Promise<void> {
-  const benzersiz = Array.from(new Set(girdi.alici_idler)).filter(
-    (id) => id !== girdi.ureten_id,
-  );
+  const makamlar = await makamAliciIdler();
+  const benzersiz = Array.from(
+    new Set([...girdi.alici_idler, ...makamlar]),
+  ).filter((id) => id !== girdi.ureten_id);
   if (benzersiz.length === 0) return;
   const susturmadanGecen = await susturmaSuzgeci(
     benzersiz,

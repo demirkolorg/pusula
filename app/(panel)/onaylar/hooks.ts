@@ -35,8 +35,13 @@ export function useBekleyenKartOnerileri(projeId: string | null) {
     },
     initialPageParam: null as { zaman: Date; id: string } | null,
     getNextPageParam: (sayfa) => sayfa.sonrakiCursor,
-    // Realtime ile invalidate; manuel refetch yok.
-    staleTime: Infinity,
+    // Why: kart durumu projeler/kart-modal'dan da değişebiliyor (manuel
+    // tamamlama, silme, arşivleme); o akışlar sayım/listeleme cache'ini
+    // invalidate etmediği için staleTime: Infinity sayım != liste mismatch
+    // bug'ı yaratıyordu (badge=1, liste boş). 30sn + mount'ta refetch ile
+    // sayfa açılışında her zaman sunucu doğrulaması alınır.
+    staleTime: 30_000,
+    refetchOnMount: "always",
   });
 }
 
@@ -55,16 +60,17 @@ export function useBekleyenMaddeOnerileri(projeId: string | null) {
     },
     initialPageParam: null as { zaman: Date; id: string } | null,
     getNextPageParam: (sayfa) => sayfa.sonrakiCursor,
-    staleTime: Infinity,
+    staleTime: 30_000,
+    refetchOnMount: "always",
   });
 }
 
-// Sidebar badge — sayfa açık olmasa bile sık güncellenir; staleTime 60s.
-// MVP: realtime socket subscription yok (kullanıcı birden fazla proje room'una
-// subscribe olmazsa server emit'i kayıp). Onay/Red ETKİSİ kendi sayfanda
-// invalidate edilir (onaylar-sayfa.tsx); diğer kullanıcılar için 60s
-// staleTime + refetchOnWindowFocus yeterli MVP. Future: dedikleri kullanıcı
-// için bir "user-onay-room" socket emit'i eklenip burada subscribe edilir.
+// Sidebar badge — sayfa açık olmasa bile sık güncellenir.
+// Why: kart manuel tamamlama / silme / arşivleme akışlarında bu cache
+// invalidate edilmiyordu → badge stale kalıyordu (DB=0 ama badge=1). 30sn
+// staleTime + refetchOnMount ile her sayfa geçişinde fresh sayım garanti.
+// Future: dedikleri kullanıcı için "user-onay-room" socket emit'i eklenince
+// burada subscribe edilebilir.
 export function useBekleyenOneriSayimi() {
   return useQuery({
     queryKey: bekleyenSayimKey,
@@ -73,8 +79,7 @@ export function useBekleyenOneriSayimi() {
       if (!r.basarili) throw new Error(r.hata);
       return r.veri;
     },
-    // Sidebar badge için 60sn staleTime — daha sık invalidate gerekirse
-    // socket realtime tetikler.
-    staleTime: 60_000,
+    staleTime: 30_000,
+    refetchOnMount: "always",
   });
 }

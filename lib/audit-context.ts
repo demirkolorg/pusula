@@ -60,12 +60,33 @@ export const HASSAS_ALANLAR = new Set([
   "access_token",
 ]);
 
+// Why: Date / Buffer / Uint8Array / Map / Set / RegExp / Error gibi yaprak
+// objeler `Object.entries` ile traverse edilirse own enumerable property
+// içermediklerinden BOŞ POJO `{}` olur — Date kaybolur, audit diff'inde
+// `eski: {}` vs `yeni: {}` her güncellemede eşit görünüp diff'e EKLENMEZ
+// (örn. bitiş tarihini değiştirme aktivitesi "kartı güncelledi" generic
+// fallback'ine düşer). Bu "yaprak" tipleri olduğu gibi geçir; jsonGuvenli
+// (audit-middleware) ileride ISO string / base64 / vs. normalizasyonunu
+// kendi yapar.
+function yaprakObjeMi(v: unknown): boolean {
+  return (
+    v instanceof Date ||
+    v instanceof RegExp ||
+    v instanceof Error ||
+    v instanceof Map ||
+    v instanceof Set ||
+    v instanceof Uint8Array ||
+    (typeof Buffer !== "undefined" && Buffer.isBuffer(v))
+  );
+}
+
 export function maskeleHassas<T>(deger: T): T {
   if (deger === null || deger === undefined) return deger;
   if (Array.isArray(deger)) {
     return deger.map((e) => maskeleHassas(e)) as unknown as T;
   }
   if (typeof deger === "object") {
+    if (yaprakObjeMi(deger)) return deger;
     const sonuc: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(deger as Record<string, unknown>)) {
       if (HASSAS_ALANLAR.has(k)) {

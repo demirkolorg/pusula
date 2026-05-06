@@ -15,6 +15,17 @@ function setup(baslangicMetin = "") {
   });
 }
 
+function setupMapli(
+  baslangicMetin: string,
+  mentionMap: ReadonlyMap<string, string>,
+) {
+  return renderHook(() => {
+    const [metin, setMetin] = React.useState(baslangicMetin);
+    const m = useMentionInput(metin, setMetin, mentionMap);
+    return { metin, setMetin, ...m };
+  });
+}
+
 // Textarea ChangeEvent simülasyonu — value + selectionStart belirler
 function changeEvent(value: string, caret = value.length) {
   return {
@@ -161,6 +172,15 @@ describe("useMentionInput", () => {
     const { result } = setup();
     const cozulen = result.current.cozumle("Sadece düz metin @kimse-yok");
     expect(cozulen).toBe("Sadece düz metin @kimse-yok");
+  });
+
+  it("başlangıç mention map'iyle düzenleme metnini UUID'ye çevirir", () => {
+    const { result } = setupMapli(
+      "Selam @Ahmet Yılmaz",
+      new Map([["Ahmet Yılmaz", "00000000-0000-0000-0000-000000000001"]]),
+    );
+    const cozulen = result.current.cozumle(result.current.metin);
+    expect(cozulen).toBe("Selam @00000000-0000-0000-0000-000000000001");
   });
 
   it("ortada @ — caret pozisyonuna duyarlı", () => {

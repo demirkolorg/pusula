@@ -44,8 +44,38 @@ export const sosyalYardimProjesi: ProjeSeed = {
             },
           ],
           yorumlar: [
-            { yazan: "sydvSosyalCalisan", icerik: "Komşusunun verdiği bilgilere göre vatandaş ekonomik anlamda zor durumda.", gunFarki: -2 },
-            { yazan: "asdmAmir", icerik: "Aile yanına yerleştirme seçeneği de değerlendirilebilir, görüşeceğim.", gunFarki: -1 },
+            {
+              yazan: "sydvSosyalCalisan",
+              icerik:
+                "Hane ziyaretini bugün gerçekleştirdim. Vatandaş 78 yaşında, eklem ağrıları nedeniyle pazara çıkamıyor; komşuları gönüllü olarak alışverişine yardım ediyor ama düzensiz. Ekonomik durumu yetersiz, emekli aylığı dışında geliri yok. @<asdmAmir> evde bakım hizmeti uygun mu?",
+              gunFarki: -3,
+              saat: 16,
+            },
+            {
+              yazan: "asdmAmir",
+              icerik:
+                "Evde bakım hizmeti uygun. Aile yanına yerleştirme seçeneğini de görüştüm; çocukları İstanbul'da, vatandaş 'evimi bırakmak istemiyorum' dedi — saygı duyuyoruz. Haftada 3 gün 4 saat olacak şekilde planlayalım, hizmet sağlayıcı SYDV-Belediye ortak kooperatifi.",
+              gunFarki: -2,
+              saat: 10,
+              yanit: 0,
+            },
+            {
+              yazan: "sydvSosyalCalisan",
+              icerik:
+                "Mütevelli heyetine bu hafta sunuyorum. Aşı takvimi ve sağlık raporu için @<asmDoktor>'dan randevu istedim, salı saat 11'de evde ziyaret yapacaklar.",
+              gunFarki: -1,
+              saat: 13,
+              yanit: 1,
+            },
+            {
+              yazan: "asmDoktor",
+              icerik:
+                "Salı 11:00 ev ziyareti programıma alındı. Yaşlılık dönemi rutin tetkikler + grip aşısı + B12 düzeyi bakacağım. Sonuçları sosyal inceleme raporu ekine koyarım.",
+              gunFarki: -1,
+              saat: 17,
+              yanit: 2,
+              duzenlendi: true,
+            },
           ],
         },
         {

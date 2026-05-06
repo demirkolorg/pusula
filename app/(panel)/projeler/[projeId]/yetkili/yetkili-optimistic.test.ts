@@ -77,6 +77,7 @@ describe("optimistikKisiEkle", () => {
     soyad: "Aksoy",
     email: "murat@test.tr",
     birim_ad: "Özel Kalem",
+    birim_yetkili: false,
   };
 
   it("kişi listeye eklenir (ADR-0012: seviye yok)", () => {

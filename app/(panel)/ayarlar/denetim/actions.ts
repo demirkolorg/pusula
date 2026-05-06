@@ -6,6 +6,10 @@ import { eylem } from "@/lib/action-wrapper";
 import { yetkiZorunlu, IZIN_KODLARI } from "@/lib/permissions";
 import { aramaBigIntIdleri } from "@/lib/arama";
 import { birimGorunenAd } from "@/lib/constants/birim";
+import {
+  mentionKisiMapiGetir,
+  mentionliMetniGorunurYap,
+} from "@/lib/mention-server";
 import { denetimListeSemasi } from "./schemas";
 
 export type DenetimSatiri = {
@@ -370,6 +374,9 @@ async function kaynakEtiketleriOlustur(
   const davetMap = new Map(davetler.map((d) => [d.id, d.email]));
   const kontrolListesiMap = new Map(kontrolListeleri.map((k) => [k.id, k.ad]));
   const etiketMap = new Map(etiketler.map((e) => [e.id, e.ad]));
+  const yorumMentionKisiMap = await mentionKisiMapiGetir(
+    yorumlar.map((y) => y.icerik),
+  );
 
   const dogrudan = new Map<string, string>();
   for (const p of projeler) dogrudan.set(etiketAnahtari("Proje", p.id), p.ad);
@@ -379,7 +386,10 @@ async function kaynakEtiketleriOlustur(
   for (const l of listeler) dogrudan.set(etiketAnahtari("Liste", l.id), l.ad);
   for (const k of kartlar) dogrudan.set(etiketAnahtari("Kart", k.id), k.baslik);
   for (const y of yorumlar) {
-    dogrudan.set(etiketAnahtari("Yorum", y.id), kisalt(y.icerik));
+    dogrudan.set(
+      etiketAnahtari("Yorum", y.id),
+      kisalt(mentionliMetniGorunurYap(y.icerik, yorumMentionKisiMap)),
+    );
   }
   for (const e of eklentiler) dogrudan.set(etiketAnahtari("Eklenti", e.id), e.ad);
   for (const k of kontrolListeleri) {

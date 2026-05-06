@@ -4,6 +4,7 @@ import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeftIcon,
+  CheckIcon,
   Loader2Icon,
   MailIcon,
   PlusIcon,
@@ -458,12 +459,19 @@ export function YetkiliKisiEkleDialog({
                     <button
                       type="button"
                       disabled={ekle.isPending}
-                      onClick={() =>
+                      onClick={() => {
+                        if (aday.birim_yetkili) {
+                          toast.bilgi(
+                            "Kişinin birimi zaten yetkili. Ek kişi yetkisi vermeye gerek yok.",
+                          );
+                          return;
+                        }
                         ekle.mutate({
                           kullanici_id: aday.id,
                           aday,
-                        })
-                      }
+                        });
+                      }}
+                      aria-disabled={aday.birim_yetkili || undefined}
                       className="hover:bg-accent flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <KisiAvatar ad={aday.ad} soyad={aday.soyad} />
@@ -475,10 +483,20 @@ export function YetkiliKisiEkleDialog({
                           {aday.birim_ad ?? aday.email}
                         </p>
                       </div>
-                      <PlusIcon
-                        className="text-muted-foreground size-4 shrink-0"
-                        aria-hidden
-                      />
+                      {aday.birim_yetkili ? (
+                        <span
+                          className="border-border bg-muted text-muted-foreground inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium"
+                          title="Bu kişinin birimi zaten yetkili"
+                        >
+                          <CheckIcon className="size-3" aria-hidden />
+                          Birimi yetkili
+                        </span>
+                      ) : (
+                        <PlusIcon
+                          className="text-muted-foreground size-4 shrink-0"
+                          aria-hidden
+                        />
+                      )}
                     </button>
                   </li>
                 ))}

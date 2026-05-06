@@ -200,6 +200,7 @@ export function kisiAdaptor(kaynak: YetkiliKaynagi) {
               soyad: aday.soyad,
               email: aday.email,
               birim_ad: aday.birim_ad,
+              birim_yetkili: aday.birim_yetkili,
             })),
           );
         case "liste":
@@ -216,6 +217,7 @@ export function kisiAdaptor(kaynak: YetkiliKaynagi) {
               soyad: aday.soyad,
               email: aday.email,
               birim_ad: aday.birim_ad,
+              birim_yetkili: aday.birim_yetkili,
             })),
           );
       }

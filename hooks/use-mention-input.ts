@@ -59,6 +59,13 @@ export function useMentionInput(
   // Why ref: render-trigger'a gerek yok, sadece submit anında okunur.
   const mentionMapRef = React.useRef<Map<string, string>>(new Map());
 
+  React.useEffect(() => {
+    if (!baslangicMentionMap) return;
+    for (const [ad, uuid] of baslangicMentionMap) {
+      mentionMapRef.current.set(ad, uuid);
+    }
+  }, [baslangicMentionMap]);
+
   const yenidenHesapla = React.useCallback((yeniMetin: string, caret: number) => {
     // Caret'ten geriye doğru git, en yakın `@`'i bul. Boşluk/newline'a
     // çarparsa açık modu kapanır.

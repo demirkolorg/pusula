@@ -48,8 +48,8 @@ export const kisTedbirleriProjesi: ProjeSeed = {
             {
               ad: "Onay adımları",
               maddeler: [
-                { metin: "Birim temsilcilerini kesinleştir", atanan: "ozelAmir", tamam: true },
-                { metin: "Telefon zincirini güncelle", atanan: "ozelMemur2", tamam: true },
+                { metin: "Birim temsilcilerini kesinleştir", atanan: "ozelAmir", tamam: true, tamamlanmaGun: -6 },
+                { metin: "Telefon zincirini güncelle", atanan: "ozelMemur2", tamam: true, tamamlanmaGun: -3 },
                 { metin: "Kaymakam onayına sun", atanan: "ozelMemur" },
                 { metin: "İmza dosyası matbu hale getirilecek", atanan: "yaziMemur" },
               ],
@@ -57,15 +57,59 @@ export const kisTedbirleriProjesi: ProjeSeed = {
             {
               ad: "Lojistik",
               maddeler: [
-                { metin: "Toplantı odası akşam 17:30 hazır", atanan: "ozelMemur2", tamam: true },
+                { metin: "Toplantı odası akşam 17:30 hazır", atanan: "ozelMemur2", tamam: true, tamamlanmaGun: -1 },
                 { metin: "Sunum ekranı + projeksiyon kontrolü", atanan: "ozelMemur2" },
               ],
             },
           ],
           yorumlar: [
-            { yazan: "ozelAmir", icerik: "Taslak görev dağılımı hazır. @emniyetAmir trafik nöbetlerini ekleyebilir mi?", gunFarki: -3 },
-            { yazan: "emniyetAmir", icerik: "Devriye saatleri eklendi, dosyayı paylaştım.", gunFarki: -2 },
-            { yazan: "afadAmir", icerik: "AFAD ekibinin nöbet planı 7/24 olacak şekilde güncellendi.", gunFarki: -1 },
+            {
+              yazan: "ozelAmir",
+              icerik:
+                "Taslak görev dağılımı tarafımca hazırlandı. Nöbet kalemlerinde özellikle Karaçoban hattı ve Doğanca rampa için ek ekip ihtiyacı görünüyor. @<emniyetAmir> trafik nöbetlerini eklemenizi rica ediyorum, mümkünse saatlik rotasyon olsun.",
+              gunFarki: -5,
+              saat: 10,
+            },
+            {
+              yazan: "emniyetAmir",
+              icerik:
+                "Saatlik rotasyon makul. Devriye saatlerini ek-2 dosyasına işledim, jandarma ile saat geçişlerinde 15 dk overlap bıraktım — vaka boşluğu olmasın diye. @<jandarmaAmir> bu plana itirazınız var mı?",
+              gunFarki: -4,
+              saat: 11,
+              yanit: 0,
+            },
+            {
+              yazan: "jandarmaAmir",
+              icerik:
+                "Plan uygundur. Karaçoban karakolu ek personel için il jandarma komutanlığından takviye talep ettik, salı günü ulaşması bekleniyor. Geç olursa rotasyona biz de overlap koyarız.",
+              gunFarki: -4,
+              saat: 14,
+              yanit: 1,
+            },
+            {
+              yazan: "afadAmir",
+              icerik:
+                "AFAD ekibinin nöbet planı 7/24 olacak şekilde güncellendi. Paletli aracın yakıt deposu da bu hafta tam dolduruldu, motorin rezervi belediye depodan ek 200 lt aldık. Sayın @<kaymakam> bilgilerinize.",
+              gunFarki: -3,
+              saat: 9,
+              duzenlendi: true,
+            },
+            {
+              yazan: "kaymakam",
+              icerik:
+                "Teşekkür ederim. Bu hafta perşembe sabahı tüm birim amirleriyle birlikte kriz masası tatbikatı yapalım — gerçek bir kar yağışı senaryosunda kim ne yapıyor, masada görelim. @<ozelMemur> davet yazılarını çıkarın.",
+              gunFarki: -2,
+              saat: 16,
+              yanit: 3,
+            },
+            {
+              yazan: "ozelMemur",
+              icerik:
+                "Davet yazıları hazırlandı, bugün öğleden sonra EBYS üzerinden dağıtıma çıkıyor. Tatbikat saati 09:00 olarak planlandı, yer makam toplantı odası.",
+              gunFarki: -1,
+              saat: 13,
+              yanit: 4,
+            },
           ],
           ekler: [
             { ad: "kriz-masasi-gorev-dagilimi.pdf", mime: "application/pdf", boyut: 184_320 },
@@ -138,9 +182,43 @@ export const kisTedbirleriProjesi: ProjeSeed = {
             },
           ],
           yorumlar: [
-            { yazan: "belediyeFenIsleri", icerik: "Kop geçidi sabah saatlerinde tek şeritli açıldı, tuzlama devam ediyor.", gunFarki: -1 },
-            { yazan: "koyMuhtar", icerik: "Karaağaç köyü çıkışı kar kalınlığı 60cm, greyder bekleniyor.", gunFarki: 0 },
-            { yazan: "belediyeAmir", icerik: "Greyder ve kepçe yola çıktı; öğleden sonra yol açık olacak.", gunFarki: 0 },
+            {
+              yazan: "belediyeFenIsleri",
+              icerik:
+                "Kop geçidi sabah saatlerinde tek şeritli açıldı, tuzlama devam ediyor. Kalsiyum klorür çözeltisi uygulanıyor — buzlanma riskine karşı 2 saat aralıklarla kontrol ekibi gönderiyorum.",
+              gunFarki: -1,
+              saat: 7,
+            },
+            {
+              yazan: "koyMuhtar",
+              icerik:
+                "Karaağaç köyü çıkışı kar kalınlığı 60cm, greyder bekleniyor. Köyde gebe vatandaş var (dr. raporu beklemede), gerekirse @<afadAmir> paletli aracı ile hastaneye nakil isteyeceğim.",
+              gunFarki: 0,
+              saat: 6,
+            },
+            {
+              yazan: "afadAmir",
+              icerik:
+                "Paletli araç hazır kuvvet halinde, sürücü 112 ile telsiz frekansında. @<koyMuhtar> hasta vakası gerçekleşirse doğrudan beni arayın, sağlık ekibi koordinasyonunu ben yaparım.",
+              gunFarki: 0,
+              saat: 7,
+              yanit: 1,
+            },
+            {
+              yazan: "belediyeAmir",
+              icerik:
+                "Greyder ve kepçe yola çıktı; öğleden sonra yol açık olacak. Pasinler hattındaki kar kalınlığı tahmin edilenden az, oradan boşalan iki ekibi Doğanca rampaya yönlendirdim.",
+              gunFarki: 0,
+              saat: 9,
+            },
+            {
+              yazan: "kaymakam",
+              icerik:
+                "Sahanın koordinasyonunu beğeniyle takip ediyorum. Karaağaç-Doğanca güzergahı bu sezon kritik, geçen yılki gecikmeyi tekrarlamayalım. Akşam toplantısında özet bekliyorum.",
+              gunFarki: 0,
+              saat: 11,
+              duzenlendi: true,
+            },
           ],
           ekler: [
             { ad: "yol-durum-raporu-2026-05-04.pdf", mime: "application/pdf", boyut: 96_000, yukleyen: "belediyeFenIsleri" },

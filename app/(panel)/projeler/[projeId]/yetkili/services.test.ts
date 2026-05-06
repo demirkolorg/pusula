@@ -200,6 +200,33 @@ describe("projeAdayKullanicilariniAra", () => {
     expect(typeof personel?.birim_ad).toBe("string");
     expect(personel?.birim_ad?.length ?? 0).toBeGreaterThan(0);
   });
+
+  it("birimi proje yetkilisi olmayan aday için birim_yetkili: false", async () => {
+    const adaylar = await projeAdayKullanicilariniAra(ortam.birim.id, {
+      proje_id: proje.id,
+    });
+    // Proje sadece ortam.birim'e bağlı (sahipliProjeOlustur). digerKullanici
+    // digerBirim'de → birimi proje yetkilisi değil.
+    const digerAday = adaylar.find((a) => a.id === ortam.digerKullanici.id);
+    expect(digerAday?.birim_yetkili).toBe(false);
+  });
+
+  it("birimi proje yetkilisi olan aday için birim_yetkili: true", async () => {
+    // digerBirim'i projeye yetkili birim olarak ekle → digerKullanici'nın
+    // birimi artık projede yetkili.
+    await adminDb.projeBirimi.create({
+      data: { proje_id: proje.id, birim_id: ortam.digerBirim.id },
+    });
+    const adaylar = await projeAdayKullanicilariniAra(ortam.birim.id, {
+      proje_id: proje.id,
+    });
+    const digerAday = adaylar.find((a) => a.id === ortam.digerKullanici.id);
+    expect(digerAday?.birim_yetkili).toBe(true);
+    // Personel hala ortam.birim'de — onun da birimi yetkili (sahipliProjeOlustur
+    // proje fixture içinde birim_id ile ekler).
+    const personelAday = adaylar.find((a) => a.id === ortam.personel.id);
+    expect(personelAday?.birim_yetkili).toBe(true);
+  });
 });
 
 // =====================================================================

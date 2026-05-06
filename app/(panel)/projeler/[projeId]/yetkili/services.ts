@@ -27,6 +27,9 @@ export type AdayKullanici = {
   // Why birim görünümü: aday listesi sistem genelinden çekildiği için aynı
   // ad/soyad farklı birimlerda olabilir; kullanıcı doğru kişiyi seçebilsin.
   birim_ad: string | null;
+  // Why birim_yetkili: kişinin birimi yetkili-birim listesinde ise zaten
+  // erişimi var; UI tekrar eklenmesini engeller, kullanıcıyı bilgilendirir.
+  birim_yetkili: boolean;
 };
 
 // =====================================================================
@@ -129,45 +132,54 @@ export async function projeAdayKullanicilariniAra(
   // sistem geneli (birim filtresi kaldırıldı, çoklu birim atama desteklenir).
   await projeyeErisimDogrula(birimId, girdi.proje_id);
   const aramaQ = girdi.q?.trim() ?? "";
-  const sonuc = await db.kullanici.findMany({
-    where: {
-      silindi_mi: false,
-      aktif: true,
-      onay_durumu: "ONAYLANDI",
-      // Proje yetkilisi olmayanlar
-      proje_yetkileri: { none: { proje_id: girdi.proje_id } },
-      ...(aramaQ
-        ? {
-            OR: [
-              { ad: { contains: aramaQ, mode: "insensitive" } },
-              { soyad: { contains: aramaQ, mode: "insensitive" } },
-              { email: { contains: aramaQ, mode: "insensitive" } },
-              {
-                birim: { ad: { contains: aramaQ, mode: "insensitive" } },
-              },
-              {
-                birim: { kisa_ad: { contains: aramaQ, mode: "insensitive" } },
-              },
-            ],
-          }
-        : {}),
-    },
-    orderBy: [{ ad: "asc" }, { soyad: "asc" }],
-    take: 20,
-    select: {
-      id: true,
-      ad: true,
-      soyad: true,
-      email: true,
-      birim: { select: { ad: true, kisa_ad: true } },
-    },
-  });
+  const [sonuc, projeBirimleri] = await Promise.all([
+    db.kullanici.findMany({
+      where: {
+        silindi_mi: false,
+        aktif: true,
+        onay_durumu: "ONAYLANDI",
+        // Proje yetkilisi olmayanlar
+        proje_yetkileri: { none: { proje_id: girdi.proje_id } },
+        ...(aramaQ
+          ? {
+              OR: [
+                { ad: { contains: aramaQ, mode: "insensitive" } },
+                { soyad: { contains: aramaQ, mode: "insensitive" } },
+                { email: { contains: aramaQ, mode: "insensitive" } },
+                {
+                  birim: { ad: { contains: aramaQ, mode: "insensitive" } },
+                },
+                {
+                  birim: { kisa_ad: { contains: aramaQ, mode: "insensitive" } },
+                },
+              ],
+            }
+          : {}),
+      },
+      orderBy: [{ ad: "asc" }, { soyad: "asc" }],
+      take: 20,
+      select: {
+        id: true,
+        ad: true,
+        soyad: true,
+        email: true,
+        birim_id: true,
+        birim: { select: { ad: true, kisa_ad: true } },
+      },
+    }),
+    db.projeBirimi.findMany({
+      where: { proje_id: girdi.proje_id },
+      select: { birim_id: true },
+    }),
+  ]);
+  const yetkiliBirimSet = new Set(projeBirimleri.map((b) => b.birim_id));
   return sonuc.map((k) => ({
     id: k.id,
     ad: k.ad,
     soyad: k.soyad,
     email: k.email,
     birim_ad: k.birim?.kisa_ad ?? k.birim?.ad ?? null,
+    birim_yetkili: k.birim_id ? yetkiliBirimSet.has(k.birim_id) : false,
   }));
 }
 
@@ -268,42 +280,72 @@ export async function kartAdayKullanicilariniAra(
 ): Promise<AdayKullanici[]> {
   await kartiBulVeProjeAl(birimId, girdi.kart_id);
   const aramaQ = girdi.q?.trim() ?? "";
-  const sonuc = await db.kullanici.findMany({
-    where: {
-      silindi_mi: false,
-      aktif: true,
-      onay_durumu: "ONAYLANDI",
-      kart_yetkileri: { none: { kart_id: girdi.kart_id } },
-      ...(aramaQ
-        ? {
-            OR: [
-              { ad: { contains: aramaQ, mode: "insensitive" } },
-              { soyad: { contains: aramaQ, mode: "insensitive" } },
-              { email: { contains: aramaQ, mode: "insensitive" } },
-              { birim: { ad: { contains: aramaQ, mode: "insensitive" } } },
-              {
-                birim: { kisa_ad: { contains: aramaQ, mode: "insensitive" } },
+  // Why çoklu birim kaynağı: karta erişim için kart, liste veya proje birim
+  // yetkililerinden herhangi biri yeterli (zincirleme paylaşım — ADR-0008).
+  // Kullanıcının birimi bunlardan herhangi birinde varsa zaten erişimi var.
+  const [sonuc, kart] = await Promise.all([
+    db.kullanici.findMany({
+      where: {
+        silindi_mi: false,
+        aktif: true,
+        onay_durumu: "ONAYLANDI",
+        kart_yetkileri: { none: { kart_id: girdi.kart_id } },
+        ...(aramaQ
+          ? {
+              OR: [
+                { ad: { contains: aramaQ, mode: "insensitive" } },
+                { soyad: { contains: aramaQ, mode: "insensitive" } },
+                { email: { contains: aramaQ, mode: "insensitive" } },
+                { birim: { ad: { contains: aramaQ, mode: "insensitive" } } },
+                {
+                  birim: {
+                    kisa_ad: { contains: aramaQ, mode: "insensitive" },
+                  },
+                },
+              ],
+            }
+          : {}),
+      },
+      orderBy: [{ ad: "asc" }, { soyad: "asc" }],
+      take: 20,
+      select: {
+        id: true,
+        ad: true,
+        soyad: true,
+        email: true,
+        birim_id: true,
+        birim: { select: { ad: true, kisa_ad: true } },
+      },
+    }),
+    db.kart.findUnique({
+      where: { id: girdi.kart_id },
+      select: {
+        birimler: { select: { birim_id: true } },
+        liste: {
+          select: {
+            birimler: { select: { birim_id: true } },
+            proje: {
+              select: {
+                birimler: { select: { birim_id: true } },
               },
-            ],
-          }
-        : {}),
-    },
-    orderBy: [{ ad: "asc" }, { soyad: "asc" }],
-    take: 20,
-    select: {
-      id: true,
-      ad: true,
-      soyad: true,
-      email: true,
-      birim: { select: { ad: true, kisa_ad: true } },
-    },
-  });
+            },
+          },
+        },
+      },
+    }),
+  ]);
+  const yetkiliBirimSet = new Set<string>([
+    ...(kart?.birimler.map((b) => b.birim_id) ?? []),
+    ...(kart?.liste.birimler.map((b) => b.birim_id) ?? []),
+    ...(kart?.liste.proje.birimler.map((b) => b.birim_id) ?? []),
+  ]);
   return sonuc.map((k) => ({
     id: k.id,
     ad: k.ad,
     soyad: k.soyad,
     email: k.email,
     birim_ad: k.birim?.kisa_ad ?? k.birim?.ad ?? null,
+    birim_yetkili: k.birim_id ? yetkiliBirimSet.has(k.birim_id) : false,
   }));
 }
 
@@ -418,12 +460,17 @@ export async function kartaErisenKullanicilariAra(
     },
   });
 
+  // Why birim_yetkili: false: bu fonksiyon mention/sorumlu picker için —
+  // listedeki tüm adaylar zaten karta erişebilir. Yetki ekleme amacı yok,
+  // dolayısıyla `birim_yetkili` semantiği burada kullanılmaz; tip uyumu için
+  // varsayılan değer veriyoruz.
   return sonuc.map((k) => ({
     id: k.id,
     ad: k.ad,
     soyad: k.soyad,
     email: k.email,
     birim_ad: k.birim?.kisa_ad ?? k.birim?.ad ?? null,
+    birim_yetkili: false,
   }));
 }
 

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { mentionParcala, type KisiMap } from "./mention";
 import {
   mentionIdleriniCikar,
+  mentionlariDuzenlemeMetnineCevir,
   mentionlariGorunenMetneCevir,
 } from "./mention-format";
 
@@ -66,5 +67,30 @@ describe("mention format yardımcıları", () => {
       kisiMap,
     );
     expect(metin).toBe("Selam @Ahmet Yılmaz, @kullanıcı");
+  });
+
+  it("düzenleme metninde UUID'leri ada çevirir ve geri çözüm map'i üretir", () => {
+    const sonuc = mentionlariDuzenlemeMetnineCevir(
+      `Selam @${UUID_A}, @${UUID_B}`,
+      kisiMap,
+    );
+    expect(sonuc.metin).toBe("Selam @Ahmet Yılmaz, @Zeynep Kaya");
+    expect(sonuc.cozumlemeMapi.get("Ahmet Yılmaz")).toBe(UUID_A);
+    expect(sonuc.cozumlemeMapi.get("Zeynep Kaya")).toBe(UUID_B);
+  });
+
+  it("aynı ada sahip farklı kullanıcıları ID göstermeden ayırır", () => {
+    const ikinciUuid = "00000000-0000-0000-0000-000000000003";
+    const map: KisiMap = new Map([
+      [UUID_A, { ad: "Ali", soyad: "Veli" }],
+      [ikinciUuid, { ad: "Ali", soyad: "Veli" }],
+    ]);
+    const sonuc = mentionlariDuzenlemeMetnineCevir(
+      `@${UUID_A} @${ikinciUuid}`,
+      map,
+    );
+    expect(sonuc.metin).toBe("@Ali Veli @Ali Veli 2");
+    expect(sonuc.cozumlemeMapi.get("Ali Veli")).toBe(UUID_A);
+    expect(sonuc.cozumlemeMapi.get("Ali Veli 2")).toBe(ikinciUuid);
   });
 });

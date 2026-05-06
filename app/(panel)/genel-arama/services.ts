@@ -4,6 +4,10 @@
 
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
+import {
+  mentionKisiMapiGetir,
+  mentionliMetniGorunurYap,
+} from "@/lib/mention-server";
 import { kullaniciErisimBilgisi } from "@/lib/yetki";
 import { tsqueryyeCevir } from "./genel-arama-helper";
 import type { AramaSorgusu } from "./schemas";
@@ -136,7 +140,7 @@ async function aramaTumTablolar(
   if (tipDahilMi("kart")) {
     parcalar.push(Prisma.sql`
       SELECT 'kart' AS tip, k.id::text AS id, k.baslik AS baslik,
-             k.aciklama AS detay,
+             k.aciklama_metin AS detay,
              ts_rank(k.arama_vektoru, to_tsquery('pusula_turkish', ${tsq})) AS rank,
              l.proje_id::text AS parent_a, k.liste_id::text AS parent_b
       FROM "Kart" k
@@ -150,7 +154,7 @@ async function aramaTumTablolar(
   if (tipDahilMi("yorum")) {
     parcalar.push(Prisma.sql`
       SELECT 'yorum' AS tip, y.id::text AS id,
-             LEFT(y.icerik, 200) AS baslik, NULL AS detay,
+             y.icerik AS baslik, NULL AS detay,
              ts_rank(y.arama_vektoru, to_tsquery('pusula_turkish', ${tsq})) AS rank,
              y.kart_id::text AS parent_a, NULL AS parent_b
       FROM "Yorum" y
@@ -265,7 +269,7 @@ async function aramaTumTablolar(
   `;
 
   const ham = await db.$queryRaw<HamSonuc[]>(sorgu);
-  return hamSonucuTipliyeCevir(ham);
+  return hamSonucuTipliyeCevir(await yorumMentionleriniGorunurYap(ham));
 }
 
 /**
@@ -359,4 +363,30 @@ function hamSonucuTipliyeCevir(ham: HamSonuc[]): AramaSonucu[] {
         throw new Error(`Bilinmeyen arama sonucu tipi: ${r.tip}`);
     }
   });
+}
+
+async function yorumMentionleriniGorunurYap(
+  ham: HamSonuc[],
+): Promise<HamSonuc[]> {
+  const yorumMetinleri = ham
+    .filter((r) => r.tip === "yorum")
+    .map((r) => r.baslik);
+  if (yorumMetinleri.length === 0) return ham;
+
+  const mentionKisiMap = await mentionKisiMapiGetir(yorumMetinleri);
+  return ham.map((r) =>
+    r.tip === "yorum"
+      ? {
+          ...r,
+          baslik: kisalt(
+            mentionliMetniGorunurYap(r.baslik, mentionKisiMap),
+            200,
+          ),
+        }
+      : r,
+  );
+}
+
+function kisalt(metin: string, limit: number): string {
+  return metin.length <= limit ? metin : metin.slice(0, limit - 1) + "…";
 }
