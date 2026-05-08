@@ -6,6 +6,7 @@ import {
   BildirimDigestMail,
   type BildirimDigestSatir,
 } from "@/lib/mail-templates/bildirim-digest";
+import { bearerTokenEslesiyorMu } from "@/lib/bearer-auth";
 import { metrikArttir } from "@/lib/bildirim-metrikler";
 import { logger } from "@/lib/logger";
 
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
     logger.error("[cron-digest] CRON_SECRET tanımlı değil");
     return NextResponse.json({ ok: false }, { status: 503 });
   }
-  if (req.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!bearerTokenEslesiyorMu(req.headers.get("authorization"), secret)) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 

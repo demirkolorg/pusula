@@ -3,6 +3,7 @@ import {
   tetikleBitisGecti,
   tetikleBitisYaklasiyor,
 } from "@/app/(panel)/bildirimler/tetikleyiciler";
+import { bearerTokenEslesiyorMu } from "@/lib/bearer-auth";
 import { metrikArttir } from "@/lib/bildirim-metrikler";
 import { logger } from "@/lib/logger";
 
@@ -36,9 +37,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const auth = req.headers.get("authorization") ?? "";
-  const beklenen = `Bearer ${secret}`;
-  if (auth !== beklenen) {
+  if (!bearerTokenEslesiyorMu(req.headers.get("authorization"), secret)) {
     logger.warn("[cron] yetkisiz çağrı (geçersiz Bearer token)");
     return NextResponse.json({ ok: false }, { status: 401 });
   }

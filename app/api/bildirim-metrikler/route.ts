@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { bearerTokenEslesiyorMu } from "@/lib/bearer-auth";
 import {
   metrikSnapshot,
   prometheusOlarak,
@@ -25,8 +26,7 @@ export async function GET(req: NextRequest) {
       { status: 503 },
     );
   }
-  const auth = req.headers.get("authorization") ?? "";
-  if (auth !== `Bearer ${secret}`) {
+  if (!bearerTokenEslesiyorMu(req.headers.get("authorization"), secret)) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
