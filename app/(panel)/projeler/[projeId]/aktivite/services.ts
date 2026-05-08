@@ -466,6 +466,9 @@ export async function zenginlestirVeOzetle(
     if (
       a.kaynak_tip === "Yorum" ||
       a.kaynak_tip === "Eklenti" ||
+      // Sprint 2 / S2-15 — ADR-0028: yeni Dosya kayıtları kaynak_tip="Dosya"
+      // ile geliyor; bağlam çıkarımı eskisinin yanında çalışmalı.
+      a.kaynak_tip === "Dosya" ||
       a.kaynak_tip === "KontrolListesi" ||
       a.kaynak_tip === "KartEtiket" ||
       a.kaynak_tip === "KartYetkilisi" ||
@@ -571,8 +574,12 @@ export async function zenginlestirVeOzetle(
             select: { id: true, ad: true },
           })
         : Promise.resolve([]),
+      // Sprint 2 / S2-15 — ADR-0028 F8/F9: Eklenti read-only, kart kapak
+      // dosya id'leri Dosya tablosunda. Backfill (prisma/scripts/
+      // backfill-eklenti-dosya.ts) ile eski Eklenti id'leri Dosya'da da
+      // mevcut → tek lookup yeter.
       eklentiIdler.size > 0
-        ? db.eklenti.findMany({
+        ? db.dosya.findMany({
             where: { id: { in: Array.from(eklentiIdler) } },
             select: { id: true, ad: true },
           })
