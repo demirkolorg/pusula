@@ -28,7 +28,12 @@
     "test:db:setup": "bun run tests/db/scripts/create-test-db.ts",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
-    "e2e:report": "playwright show-report"
+    "e2e:report": "playwright show-report",
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "prepare": "simple-git-hooks"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "bun run check:secrets"
   },
   "prisma": {
     "seed": "bun run prisma/seed.ts"
@@ -98,6 +103,7 @@
     "eslint-config-next": "16.2.4",
     "jsdom": "^29.1.1",
     "prisma": "^6",
+    "simple-git-hooks": "^2.13.1",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.5"
