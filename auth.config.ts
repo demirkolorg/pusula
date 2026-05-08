@@ -60,11 +60,28 @@ export const authConfig = {
       const yol = nextUrl.pathname;
       const apiAuthYolu = yol.startsWith("/api/auth");
       const oturumTemizlemeYolu = yol.startsWith("/api/oturum/gecersiz");
+      // Sosyal paylaşım (WhatsApp/Twitter/LinkedIn/Slack/FB) crawler'ları
+      // ve tarayıcı favicon istekleri için erişimi açan public meta route'lar.
+      // Bu pathlerden herhangi biri ile başlayan istekler auth check'siz geçer
+      // — Next.js file-based metadata (icon.tsx, opengraph-image.tsx,
+      // twitter-image.tsx, apple-icon.tsx) ve statik manifest/robots/sitemap.
+      const publicMetaYollar = [
+        "/icon",
+        "/apple-icon",
+        "/opengraph-image",
+        "/twitter-image",
+        "/favicon.ico",
+        "/manifest.json",
+        "/manifest.webmanifest",
+        "/robots.txt",
+        "/sitemap.xml",
+      ];
+      const publicMetaYol = publicMetaYollar.some((y) => yol.startsWith(y));
       const acikYollar = ["/giris", "/parola-sifirla", "/davet", "/kayit"];
       const acikYol = acikYollar.some((y) => yol.startsWith(y));
       const girisYolu = yol.startsWith("/giris");
 
-      if (apiAuthYolu || oturumTemizlemeYolu) return true;
+      if (apiAuthYolu || oturumTemizlemeYolu || publicMetaYol) return true;
       if (acikYol) {
         if (oturumAcik && girisYolu) {
           return Response.redirect(new URL("/", nextUrl));
