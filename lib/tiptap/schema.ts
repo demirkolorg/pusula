@@ -38,9 +38,18 @@ export const TIPTAP_MAX_DUGUM = 1000;
 export const TIPTAP_MAX_DERINLIK = 10;
 export const TIPTAP_MAX_METIN = 10_000; // tek text node uzunluğu — toplam değil
 
+// `attrs` defensive preprocess: TipTap editor bazen attrs alanına
+// function referansı koyuyor (Next.js 16 React Server Actions Function
+// instance'larını serialize edebildiği için temizlenmiyor). Function
+// geldiğinde boş objeye çevir — node'un geçerliliği etkilenmesin.
+const attrsSemasi = z.preprocess(
+  (val) => (typeof val === "function" ? {} : val),
+  z.record(z.string(), z.unknown()).optional(),
+);
+
 const markSemasi = z.object({
   type: z.enum(MARK_TIPLERI),
-  attrs: z.record(z.string(), z.unknown()).optional(),
+  attrs: attrsSemasi,
 });
 
 // Recursive node schema — `z.lazy` ile (ProseMirror düğümleri kendini içerir).
@@ -55,7 +64,7 @@ type TiptapDugum = {
 export const tiptapDugumSemasi: z.ZodType<TiptapDugum> = z.lazy(() =>
   z.object({
     type: z.enum(ICERIK_DUGUM_TIPLERI),
-    attrs: z.record(z.string(), z.unknown()).optional(),
+    attrs: attrsSemasi,
     content: z.array(tiptapDugumSemasi).optional(),
     text: z.string().max(TIPTAP_MAX_METIN).optional(),
     marks: z.array(markSemasi).optional(),
