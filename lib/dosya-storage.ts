@@ -143,6 +143,51 @@ export async function dosyaObjesiBoyutuAl(yol: string): Promise<number> {
 }
 
 /**
+ * Storage objesinin baş kısmını (en fazla `bayt` byte) okur. Magic-byte
+ * imza kontrolü gibi düşük maliyetli doğrulamalar için MinIO partial read
+ * (Range GET) kullanır — tüm dosyayı belleğe almaz.
+ */
+export async function dosyaObjesininIlkBaytlari(
+  yol: string,
+  bayt: number,
+): Promise<Uint8Array> {
+  if (!dosyaYoluGuvenliMi(yol)) {
+    throw new Error(`Güvensiz storage yolu: ${yol}`);
+  }
+  if (bayt <= 0 || bayt > 64 * 1024) {
+    throw new Error("İlk-bayt okuma 1..65536 aralığında olmalı.");
+  }
+  await dosyaBucketHazirla();
+  const c = storageIstemci();
+  const stream = await c.getPartialObject(DOSYA_BUCKET, yol, 0, bayt);
+  const chunks: Uint8Array[] = [];
+  let toplam = 0;
+  for await (const chunk of stream as AsyncIterable<Buffer | Uint8Array>) {
+    const u8 =
+      chunk instanceof Uint8Array
+        ? chunk
+        : new Uint8Array(
+            (chunk as Buffer).buffer,
+            (chunk as Buffer).byteOffset,
+            (chunk as Buffer).byteLength,
+          );
+    chunks.push(u8);
+    toplam += u8.length;
+    if (toplam >= bayt) break;
+  }
+  const uzunluk = Math.min(toplam, bayt);
+  const sonuc = new Uint8Array(uzunluk);
+  let pos = 0;
+  for (const u of chunks) {
+    if (pos >= uzunluk) break;
+    const ekle = u.subarray(0, Math.min(u.length, uzunluk - pos));
+    sonuc.set(ekle, pos);
+    pos += ekle.length;
+  }
+  return sonuc;
+}
+
+/**
  * Orphan check — DB'de Dosya kaydı yokken storage'da obje varsa cleanup
  * için döner.
  */

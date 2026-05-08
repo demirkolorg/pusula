@@ -19,10 +19,12 @@ import { dosyaKategorisi, dosyaUzantisi } from "@/lib/dosya-kategori";
 import {
   uploadGirdisiniDogrula,
   kategoriBoyutLimiti,
+  magicByteEsleseMi,
 } from "@/lib/dosya-guvenlik";
 import {
   DOSYA_BUCKET,
   dosyaObjesiBoyutuAl,
+  dosyaObjesininIlkBaytlari,
   dosyaObjesiniSil,
   dosyaYoluUret,
   presignedDosyaDownload,
@@ -209,6 +211,31 @@ export async function yuklemeOnayla(
   const kategori = dosyaKategorisi(oturum.mime, oturum.ad);
   if (gercekBoyut > kategoriBoyutLimiti(kategori)) {
     hata(`${kategori} kategorisi boyut sınırını aşıyor.`, "GECERSIZ_GIRDI");
+  }
+
+  // Sprint 1 / S1-4 — magic-byte doğrulaması: storage'a yüklenen gerçek
+  // içeriğin başı, kullanıcının bildirdiği MIME imzasıyla eşleşmeli.
+  // Eşleşme `null` dönerse (text/csv/markdown gibi imzasız format) atlanır.
+  const ilkBaytlar = await dosyaObjesininIlkBaytlari(
+    oturum.depolama_yolu,
+    Math.min(gercekBoyut, 4096),
+  );
+  const imzaEslesti = magicByteEsleseMi(ilkBaytlar, oturum.mime);
+  if (imzaEslesti === false) {
+    // Sahte içerik; bucket'tan da temizle ki orphan kalmasın.
+    try {
+      await dosyaObjesiniSil(oturum.depolama_yolu);
+    } catch {
+      /* cleanup başarısız olursa cron'a düşer */
+    }
+    await db.dosyaYuklemeOturumu.update({
+      where: { id: oturum.id },
+      data: { durum: DosyaDurumu.HATALI },
+    });
+    hata(
+      "Dosya içeriği bildirilen MIME tipiyle uyuşmuyor.",
+      "GECERSIZ_GIRDI",
+    );
   }
 
   const baglantiKaynaklari = await kaynagaErisimZorunlu(
