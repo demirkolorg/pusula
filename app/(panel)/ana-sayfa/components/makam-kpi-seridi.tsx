@@ -8,14 +8,8 @@ import type { MakamKpi } from "../schemas";
 // görünür. Mevcut metrik kartlarıyla aynı görsel dilde, ama "yönetim
 // gözlemi" bağlamı için farklı veri (proje/kullanıcı/hata sayıları).
 
-type Vurgu = "primary" | "uyari" | "basari" | "bilgi";
-
-const VURGU_SINIFLARI: Record<Vurgu, string> = {
-  primary: "text-primary",
-  uyari: "text-palet-kirmizi",
-  basari: "text-palet-yesil",
-  bilgi: "text-palet-mavi",
-};
+// Sprint 3 / S3-15 — Vurgu tipi ve sınıf eşleştirmesi `./vurgu`'ya taşındı.
+import { VURGU_SINIFLARI, type Vurgu } from "./vurgu";
 
 function KpiKart({
   baslik,

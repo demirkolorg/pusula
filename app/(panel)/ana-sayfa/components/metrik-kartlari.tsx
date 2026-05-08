@@ -9,14 +9,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { AnaSayfaMetrik } from "../schemas";
 
-type Vurgu = "primary" | "uyari" | "basari" | "bilgi";
-
-const VURGU_SINIFLARI: Record<Vurgu, string> = {
-  primary: "text-primary",
-  uyari: "text-palet-kirmizi",
-  basari: "text-palet-yesil",
-  bilgi: "text-palet-mavi",
-};
+// Sprint 3 / S3-15 — Vurgu tipi ve sınıf eşleştirmesi `./vurgu`'ya taşındı.
+import { VURGU_SINIFLARI, type Vurgu } from "./vurgu";
 
 function MetrikKart({
   baslik,
