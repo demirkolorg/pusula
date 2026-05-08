@@ -233,20 +233,33 @@ export async function yorumGuncelle(
   }).catch(() => {});
 }
 
-// Silme: yazan veya proje ADMIN silebilir.
+// Silme: yazan kendisini siler (KART_YORUM_KENDI_SIL); başkasının yorumunu
+// silmek için ayrı `KART_YORUM_BASKA_SIL` izni gerekir. Makam rolleri ('*')
+// her iki kontrolü de geçer.
 export async function yorumSil(
   birimId: string,
   silenId: string,
   yorumId: string,
 ): Promise<void> {
   const y = await yorumuBul(birimId, yorumId);
-  if (y.yazan_id !== silenId) {
-    // ADR-0012: proje-içi seviye yok. Başkasının yorumunu silebilmek için
-    // sistem rolünde PROJE_YETKILI_YONET izni veya makam rolü gerekir.
-    // izinVarMi makam ('*') için her zaman true döner.
+  if (y.yazan_id === silenId) {
+    // Sprint 1 / S1-8 — sahip silme: önceden global izin kontrol edilmiyordu.
     const izinli = await izinVarMi(
       silenId,
-      IZIN_KODLARI.PROJE_YETKILI_YONET,
+      IZIN_KODLARI.KART_YORUM_KENDI_SIL,
+    );
+    if (!izinli) {
+      throw new EylemHatasi(
+        "Yorum silme yetkiniz yok.",
+        HATA_KODU.YETKISIZ,
+      );
+    }
+  } else {
+    // Sprint 1 / S1-8 — başkasının yorumu için doğru granüler izin
+    // (önceden hatalı olarak `PROJE_YETKILI_YONET` kullanılıyordu).
+    const izinli = await izinVarMi(
+      silenId,
+      IZIN_KODLARI.KART_YORUM_BASKA_SIL,
     );
     if (!izinli) {
       throw new EylemHatasi(
