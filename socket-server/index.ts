@@ -22,7 +22,17 @@ import { canKart, canProje } from "@/lib/yetki";
 
 const PORT = Number(process.env.SOCKET_PORT ?? 2501);
 const APP_URL = process.env.APP_URL ?? "http://localhost:2500";
-const INTERNAL_TOKEN = process.env.SOCKET_INTERNAL_TOKEN ?? "dev-internal-token";
+// Production'da `SOCKET_INTERNAL_TOKEN` zorunlu — internal broadcast
+// endpoint'i bu token ile korunur (Sprint 0 / S0-5).
+const INTERNAL_TOKEN = (() => {
+  const fromEnv = process.env.SOCKET_INTERNAL_TOKEN;
+  if (process.env.NODE_ENV === "production" && !fromEnv) {
+    throw new Error(
+      "SOCKET_INTERNAL_TOKEN ortam değişkeni production'da zorunludur.",
+    );
+  }
+  return fromEnv ?? "dev-internal-token";
+})();
 
 type OturumKullanicisi = {
   id: string;

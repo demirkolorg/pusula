@@ -19,8 +19,20 @@ import { Client as MinioClient } from "minio";
 const ENDPOINT = process.env.MINIO_ENDPOINT ?? "localhost";
 const PORT = Number(process.env.MINIO_PORT ?? 9000);
 const USE_SSL = process.env.MINIO_USE_SSL === "true";
-const ACCESS_KEY = process.env.MINIO_ACCESS_KEY ?? "pusula_minio";
-const SECRET_KEY = process.env.MINIO_SECRET_KEY ?? "pusula_minio_dev_password";
+// Production'da MinIO credentials zorunlu; dev fallback'leri sadece local
+// docker-compose ile çalışırken kabul edilir (Sprint 0 / S0-5).
+function zorunluSecret(envAdi: string, devFallback: string): string {
+  const v = process.env[envAdi];
+  if (process.env.NODE_ENV === "production" && !v) {
+    throw new Error(`${envAdi} ortam değişkeni production'da zorunludur.`);
+  }
+  return v ?? devFallback;
+}
+const ACCESS_KEY = zorunluSecret("MINIO_ACCESS_KEY", "pusula_minio");
+const SECRET_KEY = zorunluSecret(
+  "MINIO_SECRET_KEY",
+  "pusula_minio_dev_password",
+);
 export const BUCKET = process.env.MINIO_BUCKET ?? "pusula-eklentiler";
 
 let _client: MinioClient | null = null;

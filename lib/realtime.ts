@@ -10,7 +10,17 @@ import { auditContext } from "./audit-context";
 import type { EventZarfi, SocketEventAdi } from "./socket-events";
 
 const SOCKET_URL = process.env.SOCKET_INTERNAL_URL ?? "http://localhost:2501";
-const TOKEN = process.env.SOCKET_INTERNAL_TOKEN ?? "dev-internal-token";
+// Production'da `SOCKET_INTERNAL_TOKEN` ortam değişkeni zorunlu; dev'de
+// `dev-internal-token` fallback'i kabul edilir (Sprint 0 / S0-5).
+const TOKEN = (() => {
+  const fromEnv = process.env.SOCKET_INTERNAL_TOKEN;
+  if (process.env.NODE_ENV === "production" && !fromEnv) {
+    throw new Error(
+      "SOCKET_INTERNAL_TOKEN ortam değişkeni production'da zorunludur.",
+    );
+  }
+  return fromEnv ?? "dev-internal-token";
+})();
 const TIMEOUT_MS = 2000;
 
 // Server'dan socket-server'a fire-and-forget broadcast. Hata yutulur —
