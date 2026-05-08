@@ -373,7 +373,7 @@ export async function projeDetayiniGetir(
   const kapakUrlEntries = await Promise.all(
     kapakDosyalar.map(async (e) => {
       try {
-        const url = await presignedDownload(e.depolama_yolu);
+        const url = await presignedDownload(e.depolama_yolu, e.mime);
         return [e.id, { url, mime: e.mime }] as const;
       } catch {
         // Storage erişilemezse kapak yokmuş gibi davran — kart yine görünür.

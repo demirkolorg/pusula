@@ -100,7 +100,16 @@ export async function presignedDosyaUpload(
   return publicHostuyla(url);
 }
 
-export async function presignedDosyaDownload(yol: string): Promise<string> {
+// Sprint 1 / S1-5 — bu MIME'ler tarayıcıda inline render edilirse XSS
+// yüzeyi oluşturur (SVG `<script>` içerebilir). Browser bunları indirmek
+// zorunda olsun diye presigned URL'e Content-Disposition: attachment
+// override'ı (S3/MinIO `response-content-disposition` query param) eklenir.
+const INLINE_RENDER_YASAK_MIME = new Set<string>(["image/svg+xml"]);
+
+export async function presignedDosyaDownload(
+  yol: string,
+  mime?: string,
+): Promise<string> {
   if (!dosyaYoluGuvenliMi(yol)) {
     throw new Error(`Güvensiz storage yolu: ${yol}`);
   }
@@ -108,9 +117,18 @@ export async function presignedDosyaDownload(yol: string): Promise<string> {
   const c = storageIstemci();
   // MinIO Docker compose'da internal hostname (`minio:9000`) ile imzalar;
   // browser'a `localhost:9000`'i göstermek için `publicHostuyla` çevirir.
-  // Bu eksikse PDF/image iframe + img src'leri hostname çözemez ve broken
-  // ikon basar. (Eklenti storage'ı zaten bu çeviriyi yapıyor.)
-  const url = await c.presignedGetObject(DOSYA_BUCKET, yol, DOWNLOAD_TTL_SN);
+  const reqParams: Record<string, string> | undefined =
+    mime && INLINE_RENDER_YASAK_MIME.has(mime.toLowerCase())
+      ? { "response-content-disposition": "attachment" }
+      : undefined;
+  const url = reqParams
+    ? await c.presignedGetObject(
+        DOSYA_BUCKET,
+        yol,
+        DOWNLOAD_TTL_SN,
+        reqParams,
+      )
+    : await c.presignedGetObject(DOSYA_BUCKET, yol, DOWNLOAD_TTL_SN);
   return publicHostuyla(url);
 }
 

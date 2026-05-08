@@ -145,10 +145,23 @@ export async function presignedUpload(
   return publicHostuyla(url);
 }
 
-export async function presignedDownload(yol: string): Promise<string> {
+// Sprint 1 / S1-5 — SVG ve benzeri inline-render-XSS riski olan MIME'ler
+// için browser'a indirme zorlanır.
+const INLINE_RENDER_YASAK_MIME = new Set<string>(["image/svg+xml"]);
+
+export async function presignedDownload(
+  yol: string,
+  mime?: string,
+): Promise<string> {
   await bucketHazirla();
   const c = storageIstemci();
-  const url = await c.presignedGetObject(BUCKET, yol, DOWNLOAD_TTL);
+  const reqParams: Record<string, string> | undefined =
+    mime && INLINE_RENDER_YASAK_MIME.has(mime.toLowerCase())
+      ? { "response-content-disposition": "attachment" }
+      : undefined;
+  const url = reqParams
+    ? await c.presignedGetObject(BUCKET, yol, DOWNLOAD_TTL, reqParams)
+    : await c.presignedGetObject(BUCKET, yol, DOWNLOAD_TTL);
   return publicHostuyla(url);
 }
 

@@ -64,6 +64,7 @@ async function dosyayiBulSilinmemis(
   yukleyen_id: string;
   bucket: string;
   depolama_yolu: string;
+  mime: string;
   silindi_mi: boolean;
 }> {
   const d = await db.dosya.findUnique({
@@ -73,6 +74,7 @@ async function dosyayiBulSilinmemis(
       yukleyen_id: true,
       bucket: true,
       depolama_yolu: true,
+      mime: true,
       silindi_mi: true,
     },
   });
@@ -636,7 +638,7 @@ export async function indirUrl(
 ): Promise<{ url: string }> {
   await yetkiZorunluDosya(kullaniciId, "dosya:download", dosyaId);
   const d = await dosyayiBulSilinmemis(dosyaId);
-  const url = await presignedDosyaDownload(d.depolama_yolu);
+  const url = await presignedDosyaDownload(d.depolama_yolu, d.mime);
   await db.dosyaErisimLogu.create({
     data: { dosya_id: dosyaId, kullanici_id: kullaniciId, tip: "INDIRME" },
   });
@@ -667,7 +669,7 @@ export async function onizlemeUrl(
   });
   if (!d || d.silindi_mi) hata("Dosya bulunamadı.", "BULUNAMADI");
   const strateji = onizlemeStratejisi(d.kategori, d.mime, d.durum);
-  const url = await presignedDosyaDownload(d.depolama_yolu);
+  const url = await presignedDosyaDownload(d.depolama_yolu, d.mime);
   await db.dosyaErisimLogu.create({
     data: { dosya_id: dosyaId, kullanici_id: kullaniciId, tip: "ONIZLEME" },
   });
@@ -999,7 +1001,7 @@ export async function metinIcerikGetir(
     hata("Bu dosya tipi metin önizleme desteklemez.", "GECERSIZ_GIRDI");
   }
 
-  const url = await presignedDosyaDownload(d.depolama_yolu);
+  const url = await presignedDosyaDownload(d.depolama_yolu, d.mime);
   const yanit = await fetch(url);
   if (!yanit.ok) {
     hata("Dosya storage'dan okunamadı.", "BULUNAMADI");
