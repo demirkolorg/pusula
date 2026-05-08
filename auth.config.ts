@@ -60,6 +60,9 @@ export const authConfig = {
       const yol = nextUrl.pathname;
       const apiAuthYolu = yol.startsWith("/api/auth");
       const oturumTemizlemeYolu = yol.startsWith("/api/oturum/gecersiz");
+      // Socket.io proxy yolu — Pusula middleware'inden geçsin diye açık.
+      // Asıl auth socket-server tarafında (cookie + /api/oturum) yapılır.
+      const socketProxyYolu = yol.startsWith("/socket.io");
       // Sosyal paylaşım (WhatsApp/Twitter/LinkedIn/Slack/FB) crawler'ları
       // ve tarayıcı favicon istekleri için erişimi açan public meta route'lar.
       // Bu pathlerden herhangi biri ile başlayan istekler auth check'siz geçer
@@ -81,7 +84,7 @@ export const authConfig = {
       const acikYol = acikYollar.some((y) => yol.startsWith(y));
       const girisYolu = yol.startsWith("/giris");
 
-      if (apiAuthYolu || oturumTemizlemeYolu || publicMetaYol) return true;
+      if (apiAuthYolu || oturumTemizlemeYolu || publicMetaYol || socketProxyYolu) return true;
       if (acikYol) {
         if (oturumAcik && girisYolu) {
           return Response.redirect(new URL("/", nextUrl));
