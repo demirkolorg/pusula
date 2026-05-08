@@ -48,6 +48,9 @@ export function KayitForm() {
     },
   });
 
+  // Sprint 3 / S3-18 (Kural #108) — ham useMutation: yeni kullanıcı
+  // kayıt akışı; başarı sonrası login sayfasına yönlendirme. Optimistic
+  // değer katmaz (kullanıcı response'tan sonra ekran değişir).
   const kayitMut = useMutation({
     mutationFn: async (veri: Kayit) => {
       const r = await kayitOl(veri);

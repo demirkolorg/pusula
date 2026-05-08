@@ -117,6 +117,9 @@ export function HataLogIstemci() {
     },
   });
 
+  // Sprint 3 / S3-18 (Kural #108) — ham useMutation: işlem
+  // tamamlandığında modal/seçim kapanır + invalidate. Optimistic update
+  // değer katmaz çünkü kullanıcı sonucu beklemek zorunda (modal close UX).
   const cozumMut = useMutation({
     mutationFn: async (girdi: { id: string; not?: string }) => {
       const r = await hataCozumIsaretle({
