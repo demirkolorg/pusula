@@ -104,21 +104,33 @@ export function KayitForm() {
       className="flex flex-col gap-3"
       noValidate
     >
+      {/* Sprint 4 / S4-9 — Tüm input'lara aria-invalid + hata <p>'lerine
+          role="alert" eklendi. Diğer auth form'larıyla (giris, davet,
+          parola-sifirla) tutarlı pattern. */}
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="ad">Ad</Label>
-          <Input id="ad" autoFocus {...form.register("ad")} />
+          <Input
+            id="ad"
+            autoFocus
+            aria-invalid={!!form.formState.errors.ad}
+            {...form.register("ad")}
+          />
           {form.formState.errors.ad && (
-            <p className="text-destructive text-xs">
+            <p className="text-destructive text-xs" role="alert">
               {form.formState.errors.ad.message}
             </p>
           )}
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="soyad">Soyad</Label>
-          <Input id="soyad" {...form.register("soyad")} />
+          <Input
+            id="soyad"
+            aria-invalid={!!form.formState.errors.soyad}
+            {...form.register("soyad")}
+          />
           {form.formState.errors.soyad && (
-            <p className="text-destructive text-xs">
+            <p className="text-destructive text-xs" role="alert">
               {form.formState.errors.soyad.message}
             </p>
           )}
@@ -131,10 +143,11 @@ export function KayitForm() {
           id="email"
           type="email"
           inputMode="email"
+          aria-invalid={!!form.formState.errors.email}
           {...form.register("email")}
         />
         {form.formState.errors.email && (
-          <p className="text-destructive text-xs">
+          <p className="text-destructive text-xs" role="alert">
             {form.formState.errors.email.message}
           </p>
         )}
@@ -171,7 +184,7 @@ export function KayitForm() {
           </SelectContent>
         </Select>
         {form.formState.errors.birim_id && (
-          <p className="text-destructive text-xs">
+          <p className="text-destructive text-xs" role="alert">
             {form.formState.errors.birim_id.message}
           </p>
         )}
@@ -190,9 +203,14 @@ export function KayitForm() {
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="parola">Parola</Label>
-        <Input id="parola" type="password" {...form.register("parola")} />
+        <Input
+          id="parola"
+          type="password"
+          aria-invalid={!!form.formState.errors.parola}
+          {...form.register("parola")}
+        />
         {form.formState.errors.parola && (
-          <p className="text-destructive text-xs">
+          <p className="text-destructive text-xs" role="alert">
             {form.formState.errors.parola.message}
           </p>
         )}
@@ -203,10 +221,11 @@ export function KayitForm() {
         <Input
           id="parolaTekrar"
           type="password"
+          aria-invalid={!!form.formState.errors.parolaTekrar}
           {...form.register("parolaTekrar")}
         />
         {form.formState.errors.parolaTekrar && (
-          <p className="text-destructive text-xs">
+          <p className="text-destructive text-xs" role="alert">
             {form.formState.errors.parolaTekrar.message}
           </p>
         )}
