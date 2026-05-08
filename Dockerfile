@@ -43,7 +43,8 @@ ENV MINIO_SECRET_KEY="placeholder"
 ENV MAIL_PROVIDER="resend"
 ENV MAIL_FROM="Pusula <onboarding@resend.dev>"
 ENV RESEND_API_KEY="re_placeholder"
-ENV NEXT_PUBLIC_BASE_URL="http://localhost:2500"
+ENV NEXT_PUBLIC_BASE_URL="https://pusulaportal.com"
+ENV NEXT_PUBLIC_SOCKET_URL="https://socket.pusulaportal.com"
 ENV SOCKET_INTERNAL_TOKEN="placeholder-build-time-only"
 
 COPY --from=deps /app/node_modules ./node_modules
