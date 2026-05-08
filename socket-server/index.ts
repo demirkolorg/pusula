@@ -116,18 +116,34 @@ const io = new Server(httpServer, {
 io.use(async (socket: Socket, next) => {
   try {
     const cookie = socket.handshake.headers.cookie ?? "";
-    if (!cookie) return next(new Error("oturum-yok"));
+    // GEÇİCİ DEBUG: handshake izleme — production'da socket bağlantısı
+    // sessizce fail ediyor mu görmek için. Kök neden bulununca silinecek.
+    console.log(
+      `[socket-auth] handshake: id=${socket.id} cookie_len=${cookie.length} addr=${socket.handshake.address}`,
+    );
+    if (!cookie) {
+      console.log("[socket-auth] FAIL: cookie boş");
+      return next(new Error("oturum-yok"));
+    }
 
     const r = await fetch(`${APP_URL}/api/oturum`, {
       headers: { cookie },
       // Bun fetch'in node http'sine güveniyoruz; cookie forward eder.
     });
-    if (!r.ok) return next(new Error("oturum-dogrulanamadi"));
+    if (!r.ok) {
+      console.log(`[socket-auth] FAIL: /api/oturum returned ${r.status}`);
+      return next(new Error("oturum-dogrulanamadi"));
+    }
     const data = (await r.json()) as { kullanici: OturumKullanicisi | null };
-    if (!data.kullanici) return next(new Error("oturum-yok"));
+    if (!data.kullanici) {
+      console.log("[socket-auth] FAIL: data.kullanici null");
+      return next(new Error("oturum-yok"));
+    }
+    console.log(`[socket-auth] OK: ${data.kullanici.email}`);
     socket.data.kullanici = data.kullanici;
     next();
-  } catch {
+  } catch (err) {
+    console.log(`[socket-auth] EXCEPTION: ${err}`);
     next(new Error("oturum-hata"));
   }
 });
@@ -135,9 +151,11 @@ io.use(async (socket: Socket, next) => {
 io.on("connection", (socket: Socket) => {
   const kullanici = socket.data.kullanici as OturumKullanicisi | undefined;
   if (!kullanici) {
+    console.log(`[socket-conn] disconnect: kullanici yok (id=${socket.id})`);
     socket.disconnect(true);
     return;
   }
+  console.log(`[socket-conn] connected: ${kullanici.email} (id=${socket.id})`);
 
   // Otomatik: kullanıcının kendi room'una katıl (bildirim için)
   socket.join(room.kullanici(kullanici.id));
