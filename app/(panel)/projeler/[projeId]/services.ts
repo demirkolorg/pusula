@@ -383,8 +383,10 @@ export async function projeDetayiniGetir(
       ),
     ),
   );
+  // Sprint 2 / S2-14 — ADR-0028 F8/F9: Dosya modeline geçiş. Kart.kapak_dosya_id
+  // artık Dosya.id'ye işaret eder; Eklenti read-only ve drop edilecek (S2-16).
   const kapakDosyalar = kapakIdler.length
-    ? await db.eklenti.findMany({
+    ? await db.dosya.findMany({
         where: { id: { in: kapakIdler }, silindi_mi: false },
         select: { id: true, depolama_yolu: true, mime: true },
       })

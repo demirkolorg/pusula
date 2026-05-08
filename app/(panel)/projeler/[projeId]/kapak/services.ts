@@ -39,21 +39,32 @@ export async function kapagiAyarla(
 ): Promise<void> {
   await kartiBulVeProjeAl(birimId, kartId);
 
-  // Eklenti aynı karta ait, silinmemiş ve görsel olmalı
-  const e = await db.eklenti.findUnique({
+  // Sprint 2 / S2-14 — ADR-0028 F8/F9: Eklenti tablosu yerine Dosya modeli.
+  // Param adı (eklentiId) backward compat; aslında dosya id'si bekliyor.
+  // Kart bağlantısı DosyaBaglantisi üzerinden doğrulanır.
+  const d = await db.dosya.findUnique({
     where: { id: eklentiId },
-    select: { kart_id: true, mime: true, silindi_mi: true },
+    select: {
+      mime: true,
+      silindi_mi: true,
+      baglantilar: {
+        select: { kaynak_tip: true, kaynak_id: true, kart_id: true },
+      },
+    },
   });
-  if (!e || e.silindi_mi) {
-    throw new EylemHatasi("Eklenti bulunamadı.", HATA_KODU.BULUNAMADI);
+  if (!d || d.silindi_mi) {
+    throw new EylemHatasi("Dosya bulunamadı.", HATA_KODU.BULUNAMADI);
   }
-  if (e.kart_id !== kartId) {
+  const karttaMi = d.baglantilar.some(
+    (b) => b.kart_id === kartId || (b.kaynak_tip === "KART" && b.kaynak_id === kartId),
+  );
+  if (!karttaMi) {
     throw new EylemHatasi(
-      "Eklenti başka bir karta ait.",
+      "Dosya bu karta bağlı değil.",
       HATA_KODU.GECERSIZ_GIRDI,
     );
   }
-  if (!e.mime.startsWith("image/")) {
+  if (!d.mime.startsWith("image/")) {
     throw new EylemHatasi(
       "Sadece görseller kart kapağı olabilir.",
       HATA_KODU.GECERSIZ_GIRDI,

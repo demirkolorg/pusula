@@ -77,7 +77,7 @@ beforeEach(async () => {
 describe("kullaniciListele", () => {
   it("yetki fail: KULLANICI_DUZENLE iznine sahip olmayan kullanıcı YETKISIZ alır", async () => {
     oturumOlarak(ortam.personel.id);
-    const sonuc = await kullaniciListele({});
+    const sonuc = await kullaniciListele({ sayfa: 1, sayfaBoyutu: 20 });
     expect(sonuc.basarili).toBe(false);
     if (!sonuc.basarili) {
       expect(sonuc.kod).toBe("YETKISIZ");
@@ -86,7 +86,7 @@ describe("kullaniciListele", () => {
 
   it("yetki ok (makam): superAdmin için liste döner", async () => {
     oturumOlarak(ortam.superAdmin.id);
-    const sonuc = await kullaniciListele({});
+    const sonuc = await kullaniciListele({ sayfa: 1, sayfaBoyutu: 20 });
     expect(sonuc.basarili).toBe(true);
     if (sonuc.basarili) {
       // Fixture: superAdmin + personel + digerKullanici = 3

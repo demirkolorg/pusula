@@ -79,7 +79,10 @@ describe("dosyalariListeleEylem", () => {
   it("yetki fail: DOSYA_OKU iznine sahip olmayan kullanıcı YETKISIZ alır", async () => {
     // PERSONEL fixture'da DOSYA_OKU iznine sahip değil (proje:* dışında izinler yok).
     oturumOlarak(ortam.personel.id);
-    const sonuc = await dosyalariListeleEylem({});
+    const sonuc = await dosyalariListeleEylem({
+      siralama: "yeni-eklenen",
+      limit: 10,
+    });
     expect(sonuc.basarili).toBe(false);
     if (!sonuc.basarili) {
       expect(sonuc.kod).toBe("YETKISIZ");
@@ -88,7 +91,10 @@ describe("dosyalariListeleEylem", () => {
 
   it("yetki ok (makam): superAdmin için boş liste döner", async () => {
     oturumOlarak(ortam.superAdmin.id);
-    const sonuc = await dosyalariListeleEylem({});
+    const sonuc = await dosyalariListeleEylem({
+      siralama: "yeni-eklenen",
+      limit: 10,
+    });
     expect(sonuc.basarili).toBe(true);
     if (sonuc.basarili) {
       expect(sonuc.veri.satirlar).toEqual([]);
@@ -97,7 +103,10 @@ describe("dosyalariListeleEylem", () => {
 
   it("oturum yok için GIRIS_YOK", async () => {
     oturumOlarak(null);
-    const sonuc = await dosyalariListeleEylem({});
+    const sonuc = await dosyalariListeleEylem({
+      siralama: "yeni-eklenen",
+      limit: 10,
+    });
     expect(sonuc.basarili).toBe(false);
     if (!sonuc.basarili) {
       expect(sonuc.kod).toBe("GIRIS_YOK");
