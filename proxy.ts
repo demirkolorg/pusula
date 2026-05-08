@@ -23,7 +23,13 @@ function izinliOrigin(istek: NextRequest): boolean {
   const origin = istek.headers.get("origin");
   if (!origin) return true; // same-origin (POST same-site) için origin yoksa geç
   const izinli = process.env.NEXT_PUBLIC_APP_URL ?? "";
-  if (!izinli) return true; // env yoksa development — kapı açık
+  // Sprint 1 / S1-13 — production'da NEXT_PUBLIC_APP_URL zorunlu.
+  // Eskiden env yoksa "development" varsayılıp kapı açık bırakılıyordu;
+  // ortam değişkeni unutulduğunda CSRF allowlist'i sessiz biçimde devre
+  // dışı kalıyordu. Production'da yokluk = ret.
+  if (!izinli) {
+    return process.env.NODE_ENV !== "production";
+  }
   return origin === izinli;
 }
 
