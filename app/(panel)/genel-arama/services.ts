@@ -4,6 +4,7 @@
 
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
+import { kisalt } from "@/lib/metin-helpers";
 import {
   mentionKisiMapiGetir,
   mentionliMetniGorunurYap,
@@ -404,6 +405,4 @@ async function yorumMentionleriniGorunurYap(
   );
 }
 
-function kisalt(metin: string, limit: number): string {
-  return metin.length <= limit ? metin : metin.slice(0, limit - 1) + "…";
-}
+// Sprint 3 / S3-9 — `kisalt` lib/metin-helpers.ts'e taşındı.

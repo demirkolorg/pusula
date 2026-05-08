@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { mentionIdleriniCikar } from "@/lib/mention-format";
+import { kisalt } from "@/lib/metin-helpers";
 import { bildirimUret } from "./services";
 
 // =====================================================================
@@ -26,9 +27,7 @@ async function adSoyad(kullaniciId: string): Promise<string> {
   return u ? `${u.ad} ${u.soyad}`.trim() : "Bir kullanıcı";
 }
 
-function kisalt(s: string, n: number): string {
-  return s.length <= n ? s : s.slice(0, n - 1) + "…";
-}
+// Sprint 3 / S3-9 — `kisalt` lib/metin-helpers.ts'e taşındı.
 
 type KartYetkiBaglami = {
   id: string;

@@ -4,6 +4,7 @@
 import type { BirimTipi } from "@prisma/client";
 import { db } from "@/lib/db";
 import { birimGorunenAd } from "@/lib/constants/birim";
+import { kisalt } from "@/lib/metin-helpers";
 import {
   mentionKisiMapiGetir,
   mentionliMetniGorunurYap,
@@ -42,9 +43,7 @@ function jsonMetin(
   return null;
 }
 
-function kisalt(metin: string, uzunluk = 90): string {
-  return metin.length <= uzunluk ? metin : `${metin.slice(0, uzunluk - 1)}…`;
-}
+// Sprint 3 / S3-9 — `kisalt` lib/metin-helpers.ts'e taşındı.
 
 function kullaniciEtiketi(k: { ad: string; soyad: string }): string {
   return `${k.ad} ${k.soyad}`.trim();
