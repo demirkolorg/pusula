@@ -57,8 +57,8 @@
 | Sprint 2 | ✅ Tamamlandı | 16 / 16 | 2026-05-08 | 2026-05-08 | DB index + test |
 | Sprint 3 | ✅ Tamamlandı | 19 / 19 | 2026-05-08 | 2026-05-08 | S3-1..S3-6 plan-level (ADR-0032), uygulama Sprint 4'te |
 | Sprint 4 | ✅ Tamamlandı | 17 / 17 | 2026-05-08 | 2026-05-08 | UX & yarım feature |
-| Sprint 5 | ✅ Tamamlandı (kısmi) | 6 / 13 | 2026-05-08 | 2026-05-08 | 7 madde defer (ADR-0034) |
-| **TOPLAM** | — | **81 / 88** | — | — | %92 |
+| Sprint 5 | ✅ Tamamlandı (kısmi) | 7 / 13 | 2026-05-08 | 2026-05-08 | 6 madde defer (ADR-0034) |
+| **TOPLAM** | — | **82 / 88** | — | — | %93 |
 
 **Statü ikonları:** ⏳ Beklemede · 🚧 Devam ediyor · ✅ Tamamlandı · ⛔ Blocked · 🚫 İptal
 
@@ -297,7 +297,8 @@
 - [ ] **S5-5** `Eklenti.boyut` ve `Dosya.boyut` `Int` → `BigInt` — 🚫 defer (ADR-0034) — MVP 100MB limit, future-proofing
 - [x] **S5-6** Connection pool config — ✅ 2026-05-08 · commit `567dec9`
   - `docs/deploy/sunucu-kurulum.md` production örneği güncel; `?connection_limit=10&pool_timeout=20&connect_timeout=10`
-- [ ] **S5-7** Slow query alarm — 🚫 defer (ADR-0034) — S5-10 ile birlikte gelir
+- [x] **S5-7** Slow query alarm — ✅ 2026-05-08 · commit `bf6bce4`
+  - Prisma `emit: "event"` + `client.$on("query")` callback; 500ms eşik (PRISMA_SLOW_THRESHOLD_MS env var ile özelleştirilebilir); Pino `logger.warn` structured log. Sentry/DataDog sink (S5-10) köprüsü hazır.
 
 #### 5.3 Test ve observability
 
