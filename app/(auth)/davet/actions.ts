@@ -4,6 +4,7 @@ import argon2 from "argon2";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { eylem, EylemHatasi } from "@/lib/action-wrapper";
+import { bildirimGuvenliCagir } from "@/lib/bildirim-guvenli";
 import { HATA_KODU } from "@/lib/sonuc";
 import { rolAtamaPolitikasiniDogrula } from "@/lib/kullanici-rol-politikasi";
 import { makamRoluMu } from "@/lib/roller";
@@ -215,14 +216,15 @@ export const daveriKabul = eylem({
     });
 
     // Davet edene "kabul edildi" bildirimi (transaction sonrası, fire-and-forget)
-    tetikleDavetKabulEdildi({
-      davetEdenId: davet.davet_eden_id,
-      kabulEdenAd: yeni.ad,
-      kabulEdenSoyad: yeni.soyad,
-      kabulEdenEmail: yeni.email,
-    }).catch(() => {
-      /* Bildirim hatası işlemi bozmaz */
-    });
+    void bildirimGuvenliCagir(
+      tetikleDavetKabulEdildi({
+        davetEdenId: davet.davet_eden_id,
+        kabulEdenAd: yeni.ad,
+        kabulEdenSoyad: yeni.soyad,
+        kabulEdenEmail: yeni.email,
+      }),
+      "davet-kabul-edildi",
+    );
 
     return { kullaniciId: yeni.id, email: yeni.email };
   },

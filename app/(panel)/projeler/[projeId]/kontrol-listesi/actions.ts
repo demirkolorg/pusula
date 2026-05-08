@@ -1,6 +1,7 @@
 "use server";
 
 import { eylem, EylemHatasi } from "@/lib/action-wrapper";
+import { bildirimGuvenliCagir } from "@/lib/bildirim-guvenli";
 import { yetkiZorunlu, IZIN_KODLARI } from "@/lib/permissions";
 import { yetkiZorunluKart } from "@/lib/yetki";
 import { HATA_KODU } from "@/lib/sonuc";
@@ -127,12 +128,15 @@ export const maddeOlusturEylem = eylem({
     const atayanId = ctx.oturum?.kullaniciId ?? null;
     const m = await maddeOlusturSrv(birimIdAl(ctx), girdi);
     if (girdi.atanan_id && atayanId) {
-      tetikleMaddeAtama({
-        maddeId: m.id,
-        metin: m.metin,
-        atananId: girdi.atanan_id,
-        atayanId,
-      }).catch(() => {});
+      void bildirimGuvenliCagir(
+        tetikleMaddeAtama({
+          maddeId: m.id,
+          metin: m.metin,
+          atananId: girdi.atanan_id,
+          atayanId,
+        }),
+        "madde-atama-olustur",
+      );
     }
     return m;
   },
@@ -166,12 +170,15 @@ export const maddeGuncelleEylem = eylem({
     await maddeGuncelleSrv(birimIdAl(ctx), kullaniciIdAl(ctx), girdi);
     // atanan_id explicit verildiyse (yeni atama veya değişim) bildir.
     if (girdi.atanan_id && atayanId) {
-      tetikleMaddeAtama({
-        maddeId: girdi.id,
-        metin: girdi.metin ?? "",
-        atananId: girdi.atanan_id,
-        atayanId,
-      }).catch(() => {});
+      void bildirimGuvenliCagir(
+        tetikleMaddeAtama({
+          maddeId: girdi.id,
+          metin: girdi.metin ?? "",
+          atananId: girdi.atanan_id,
+          atayanId,
+        }),
+        "madde-atama-guncelle",
+      );
     }
     return { id: girdi.id };
   },
@@ -212,10 +219,13 @@ export const maddeTamamlamaOneriEylem = eylem({
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:read", kartId);
     const onerenId = kullaniciIdAl(ctx);
     await maddeTamamlamaOneriSrv(onerenId, girdi);
-    tetikleMaddeTamamlamaOnerildi({
-      maddeId: girdi.id,
-      onerenId,
-    }).catch(() => {});
+    void bildirimGuvenliCagir(
+      tetikleMaddeTamamlamaOnerildi({
+        maddeId: girdi.id,
+        onerenId,
+      }),
+      "madde-tamamlama-onerildi",
+    );
     return { id: girdi.id };
   },
 });
@@ -230,11 +240,14 @@ export const maddeTamamlamaOnayEylem = eylem({
     const onayliyenId = kullaniciIdAl(ctx);
     const { onerenId } = await maddeTamamlamaOnaySrv(onayliyenId, girdi);
     if (onerenId) {
-      tetikleMaddeTamamlamaOnaylandi({
-        maddeId: girdi.id,
-        onayliyenId,
-        onerenId,
-      }).catch(() => {});
+      void bildirimGuvenliCagir(
+        tetikleMaddeTamamlamaOnaylandi({
+          maddeId: girdi.id,
+          onayliyenId,
+          onerenId,
+        }),
+        "madde-tamamlama-onaylandi",
+      );
     }
     return { id: girdi.id };
   },
@@ -250,12 +263,15 @@ export const maddeTamamlamaReddetEylem = eylem({
     const reddedenId = kullaniciIdAl(ctx);
     const { onerenId } = await maddeTamamlamaReddetSrv(reddedenId, girdi);
     if (onerenId) {
-      tetikleMaddeTamamlamaReddedildi({
-        maddeId: girdi.id,
-        reddedenId,
-        onerenId,
-        sebep: girdi.sebep ?? null,
-      }).catch(() => {});
+      void bildirimGuvenliCagir(
+        tetikleMaddeTamamlamaReddedildi({
+          maddeId: girdi.id,
+          reddedenId,
+          onerenId,
+          sebep: girdi.sebep ?? null,
+        }),
+        "madde-tamamlama-reddedildi",
+      );
     }
     return { id: girdi.id };
   },

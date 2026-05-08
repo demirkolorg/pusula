@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { eylem, EylemHatasi } from "@/lib/action-wrapper";
+import { bildirimGuvenliCagir } from "@/lib/bildirim-guvenli";
 import { yetkiZorunlu, IZIN_KODLARI } from "@/lib/permissions";
 import { yetkiZorunluProje, yetkiZorunluKart } from "@/lib/yetki";
 import { HATA_KODU } from "@/lib/sonuc";
@@ -103,13 +104,14 @@ export const projeyeYetkiliEkleEylem = eylem({
     const ekleyenId = ctx.oturum?.kullaniciId ?? null;
     const sonuc = await projeyeYetkiliEkleSrv(birimIdAl(ctx), girdi);
     if (ekleyenId) {
-      tetikleProjeUyeEklendi({
-        projeId: girdi.proje_id,
-        eklenenId: girdi.kullanici_id,
-        ekleyenId,
-      }).catch(() => {
-        /* Bildirim hatası işlemi bozmaz */
-      });
+      void bildirimGuvenliCagir(
+        tetikleProjeUyeEklendi({
+          projeId: girdi.proje_id,
+          eklenenId: girdi.kullanici_id,
+          ekleyenId,
+        }),
+        "proje-uye-eklendi",
+      );
     }
     return sonuc;
   },
@@ -132,13 +134,14 @@ export const projeyeYetkiliKaldirEylem = eylem({
       girdi.kullanici_id,
     );
     if (cikaranId && cikaranId !== girdi.kullanici_id) {
-      tetikleProjeUyeCikarildi({
-        projeId: girdi.proje_id,
-        cikarilanId: girdi.kullanici_id,
-        cikaranId,
-      }).catch(() => {
-        /* Bildirim hatası işlemi bozmaz */
-      });
+      void bildirimGuvenliCagir(
+        tetikleProjeUyeCikarildi({
+          projeId: girdi.proje_id,
+          cikarilanId: girdi.kullanici_id,
+          cikaranId,
+        }),
+        "proje-uye-cikarildi",
+      );
     }
     return { proje_id: girdi.proje_id, kullanici_id: girdi.kullanici_id };
   },
@@ -194,13 +197,14 @@ export const kartaYetkiliEkleEylem = eylem({
     const atayanId = ctx.oturum?.kullaniciId ?? null;
     await kartaYetkiliEkleSrv(birimIdAl(ctx), girdi.kart_id, girdi.kullanici_id);
     if (atayanId) {
-      tetikleKartYetkiliAtama({
-        kartId: girdi.kart_id,
-        atananId: girdi.kullanici_id,
-        atayanId,
-      }).catch(() => {
-        /* Bildirim hatası işlemi bozmaz */
-      });
+      void bildirimGuvenliCagir(
+        tetikleKartYetkiliAtama({
+          kartId: girdi.kart_id,
+          atananId: girdi.kullanici_id,
+          atayanId,
+        }),
+        "kart-yetkili-atama",
+      );
     }
     return { kart_id: girdi.kart_id, kullanici_id: girdi.kullanici_id };
   },

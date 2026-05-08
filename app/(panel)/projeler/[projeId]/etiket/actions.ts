@@ -1,6 +1,7 @@
 "use server";
 
 import { eylem, EylemHatasi } from "@/lib/action-wrapper";
+import { bildirimGuvenliCagir } from "@/lib/bildirim-guvenli";
 import { yetkiZorunlu, IZIN_KODLARI } from "@/lib/permissions";
 import { yetkiZorunluProje, yetkiZorunluKart } from "@/lib/yetki";
 import { HATA_KODU } from "@/lib/sonuc";
@@ -163,12 +164,15 @@ export const kartaEtiketEkleEylem = eylem({
     const degistirenId = ctx.oturum?.kullaniciId ?? null;
     if (degistirenId) {
       const etiketAd = await etiketAdiniGetir(girdi.etiket_id);
-      tetikleEtiketDegisti({
-        kartId: girdi.kart_id,
-        degistirenId,
-        etiketAd,
-        eylem: "eklendi",
-      }).catch(() => {});
+      void bildirimGuvenliCagir(
+        tetikleEtiketDegisti({
+          kartId: girdi.kart_id,
+          degistirenId,
+          etiketAd,
+          eylem: "eklendi",
+        }),
+        "etiket-eklendi",
+      );
     }
     return { kart_id: girdi.kart_id, etiket_id: girdi.etiket_id };
   },
@@ -191,12 +195,15 @@ export const kartaEtiketKaldirEylem = eylem({
       : null;
     await kartaEtiketKaldirSrv(birimId, girdi.kart_id, girdi.etiket_id);
     if (degistirenId && etiketAd) {
-      tetikleEtiketDegisti({
-        kartId: girdi.kart_id,
-        degistirenId,
-        etiketAd,
-        eylem: "kaldirildi",
-      }).catch(() => {});
+      void bildirimGuvenliCagir(
+        tetikleEtiketDegisti({
+          kartId: girdi.kart_id,
+          degistirenId,
+          etiketAd,
+          eylem: "kaldirildi",
+        }),
+        "etiket-kaldirildi",
+      );
     }
     return { kart_id: girdi.kart_id, etiket_id: girdi.etiket_id };
   },

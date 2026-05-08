@@ -1,6 +1,7 @@
 "use server";
 
 import { eylem, EylemHatasi } from "@/lib/action-wrapper";
+import { bildirimGuvenliCagir } from "@/lib/bildirim-guvenli";
 import { yetkiZorunlu, IZIN_KODLARI } from "@/lib/permissions";
 import { yetkiZorunluKart } from "@/lib/yetki";
 import { HATA_KODU } from "@/lib/sonuc";
@@ -37,11 +38,14 @@ function tetikleKapakBildirim(
 ): void {
   const id = ctx.oturum?.kullaniciId;
   if (!id) return;
-  tetikleKapakDegisti({
-    kartId,
-    degistirenId: id,
-    alt_eylem: altEylem,
-  }).catch(() => {});
+  void bildirimGuvenliCagir(
+    tetikleKapakDegisti({
+      kartId,
+      degistirenId: id,
+      alt_eylem: altEylem,
+    }),
+    `kapak-${altEylem}`,
+  );
 }
 
 export const kapagiAyarlaEylem = eylem({

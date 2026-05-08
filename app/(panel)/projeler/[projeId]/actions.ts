@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { eylem, EylemHatasi } from "@/lib/action-wrapper";
+import { bildirimGuvenliCagir } from "@/lib/bildirim-guvenli";
 import { yetkiZorunlu, IZIN_KODLARI } from "@/lib/permissions";
 import {
   yetkiZorunluProje,
@@ -144,7 +145,10 @@ export const listeSilEylem = eylem({
     // Tetikleyici silme öncesi yetki bağlamını okumalı (cascade ile yetkililer
     // silinince alıcı listesi boşalır).
     if (silenId) {
-      await tetikleListeSilindi({ listeId: girdi.id, silenId }).catch(() => {});
+      await bildirimGuvenliCagir(
+        tetikleListeSilindi({ listeId: girdi.id, silenId }),
+        "liste-silindi",
+      );
     }
     await listeSil(kullaniciIdAl(ctx), girdi.id);
     return { id: girdi.id };
@@ -198,17 +202,23 @@ export const kartGuncelleEylem = eylem({
     await kartGuncelleSrv(kullaniciIdAl(ctx), girdi);
     // Sadece anlamlı alanlar değiştiğinde bildirim — tip-spesifik trigger.
     if (degistirenId && girdi.bitis !== undefined) {
-      tetikleKartBitisDegisti({
-        kartId: girdi.id,
-        degistirenId,
-        yeniBitis: girdi.bitis ?? null,
-      }).catch(() => {});
+      void bildirimGuvenliCagir(
+        tetikleKartBitisDegisti({
+          kartId: girdi.id,
+          degistirenId,
+          yeniBitis: girdi.bitis ?? null,
+        }),
+        "kart-bitis-degisti",
+      );
     }
     if (degistirenId && girdi.tamamlandi_mi === true) {
-      tetikleKartTamamlandi({
-        kartId: girdi.id,
-        tamamlayanId: degistirenId,
-      }).catch(() => {});
+      void bildirimGuvenliCagir(
+        tetikleKartTamamlandi({
+          kartId: girdi.id,
+          tamamlayanId: degistirenId,
+        }),
+        "kart-tamamlandi",
+      );
     }
     return { id: girdi.id };
   },
@@ -226,10 +236,13 @@ export const kartTamamlamaOneriEylem = eylem({
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:read", girdi.id);
     const onerenId = kullaniciIdAl(ctx);
     await kartTamamlamaOneriSrv(onerenId, girdi);
-    tetikleKartTamamlamaOnerildi({
-      kartId: girdi.id,
-      onerenId,
-    }).catch(() => {});
+    void bildirimGuvenliCagir(
+      tetikleKartTamamlamaOnerildi({
+        kartId: girdi.id,
+        onerenId,
+      }),
+      "kart-tamamlama-onerildi",
+    );
     return { id: girdi.id };
   },
 });
@@ -247,17 +260,23 @@ export const kartTamamlamaOnayEylem = eylem({
     const onayliyenId = kullaniciIdAl(ctx);
     const { onerenId } = await kartTamamlamaOnaySrv(onayliyenId, girdi);
     if (onerenId) {
-      tetikleKartTamamlamaOnaylandi({
-        kartId: girdi.id,
-        onayliyenId,
-        onerenId,
-      }).catch(() => {});
+      void bildirimGuvenliCagir(
+        tetikleKartTamamlamaOnaylandi({
+          kartId: girdi.id,
+          onayliyenId,
+          onerenId,
+        }),
+        "kart-tamamlama-onaylandi",
+      );
     }
     // KART_TAMAMLANDI bildirimini de tetikle — kart üyelerine "kart kapandı".
-    tetikleKartTamamlandi({
-      kartId: girdi.id,
-      tamamlayanId: onayliyenId,
-    }).catch(() => {});
+    void bildirimGuvenliCagir(
+      tetikleKartTamamlandi({
+        kartId: girdi.id,
+        tamamlayanId: onayliyenId,
+      }),
+      "kart-tamamlandi-via-onay",
+    );
     return { id: girdi.id };
   },
 });
@@ -275,12 +294,15 @@ export const kartTamamlamaReddetEylem = eylem({
     const reddedenId = kullaniciIdAl(ctx);
     const { onerenId } = await kartTamamlamaReddetSrv(reddedenId, girdi);
     if (onerenId) {
-      tetikleKartTamamlamaReddedildi({
-        kartId: girdi.id,
-        reddedenId,
-        onerenId,
-        sebep: girdi.sebep ?? null,
-      }).catch(() => {});
+      void bildirimGuvenliCagir(
+        tetikleKartTamamlamaReddedildi({
+          kartId: girdi.id,
+          reddedenId,
+          onerenId,
+          sebep: girdi.sebep ?? null,
+        }),
+        "kart-tamamlama-reddedildi",
+      );
     }
     return { id: girdi.id };
   },
@@ -297,7 +319,10 @@ export const kartSilEylem = eylem({
     // olarak işaretleniyor; üyelik bilgisi yine kalır ama "atandığınız bir
     // kart" cümlesi an itibarıyla geçerli olmalı).
     if (silenId) {
-      await tetikleKartSilindi({ kartId: girdi.id, silenId }).catch(() => {});
+      await bildirimGuvenliCagir(
+        tetikleKartSilindi({ kartId: girdi.id, silenId }),
+        "kart-silindi",
+      );
     }
     await kartSil(kullaniciIdAl(ctx), girdi.id);
     return { id: girdi.id };
@@ -342,11 +367,14 @@ export const kartTasiEylem = eylem({
         select: { ad: true },
       });
       if (hedefListe) {
-        tetikleKartDurumDegisti({
-          kartId: girdi.id,
-          tasiyanId,
-          yeniListeAd: hedefListe.ad,
-        }).catch(() => {});
+        void bildirimGuvenliCagir(
+          tetikleKartDurumDegisti({
+            kartId: girdi.id,
+            tasiyanId,
+            yeniListeAd: hedefListe.ad,
+          }),
+          "kart-durum-degisti",
+        );
       }
     }
     return sonuc;

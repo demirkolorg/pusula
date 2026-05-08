@@ -5,6 +5,7 @@
 // hata logu, request_id propagation, Zod validate.
 
 import { eylem, EylemHatasi } from "@/lib/action-wrapper";
+import { bildirimGuvenliCagir } from "@/lib/bildirim-guvenli";
 import { yetkiZorunlu, IZIN_KODLARI } from "@/lib/permissions";
 import { uploadLimiter } from "@/lib/rate-limit";
 import { HATA_KODU } from "@/lib/sonuc";
@@ -355,12 +356,15 @@ export const dosyaSilEylem = eylem({
     await sil(kullaniciId, girdi.id);
     const kartId = meta?.baglantilar[0]?.kart_id;
     if (meta && kartId) {
-      void tetikleDosyaSilindi({
-        dosyaId: girdi.id,
-        kartId,
-        silenId: kullaniciId,
-        ad: meta.ad,
-      }).catch(() => {});
+      void bildirimGuvenliCagir(
+        tetikleDosyaSilindi({
+          dosyaId: girdi.id,
+          kartId,
+          silenId: kullaniciId,
+          ad: meta.ad,
+        }),
+        "dosya-silindi",
+      );
     }
     return { id: girdi.id };
   },
