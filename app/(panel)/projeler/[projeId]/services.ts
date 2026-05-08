@@ -1240,6 +1240,11 @@ export type LisedeKart = ListeKartOzeti & {
   liste_ad: string;
 };
 
+// Sprint 2 / S2-5 — pagination yokluğu kritik perf bulgusu (K-11). MVP için
+// hard cap; cursor-based gelişme ileride DataTable server-side pagination
+// ile birlikte gelir (Sprint 5 / observability ile birlikte).
+const PROJE_KART_HARD_LIMIT = 1000;
+
 export async function projedeTumKartlar(
   kullaniciId: string,
   projeId: string,
@@ -1252,6 +1257,7 @@ export async function projedeTumKartlar(
       ...kartGorunurlukWhere(erisim),
       liste: { proje_id: projeId, ...listeGorunurlukWhere(erisim) },
     },
+    take: PROJE_KART_HARD_LIMIT,
     orderBy: [{ liste: { sira: "asc" } }, { sira: "asc" }],
     select: {
       id: true,
