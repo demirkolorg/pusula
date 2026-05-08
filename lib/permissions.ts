@@ -127,16 +127,20 @@ export async function yetkiZorunlu(
   }
 }
 
-export async function superAdminMi(kullaniciId: string): Promise<boolean> {
-  const satir = await db.kullaniciRol.findFirst({
-    where: {
-      kullanici_id: kullaniciId,
-      rol: { kod: ROL_KODLARI.SUPER_ADMIN },
-    },
-    select: { kullanici_id: true },
-  });
-  return satir !== null;
-}
+// Sprint 2 / S2-3 — request-scoped cache. Sidebar/yetki kontrolleri tek
+// request içinde sıkça çağrılır; React `cache()` ile DB roundtrip 1× kalır.
+export const superAdminMi = cache(
+  async (kullaniciId: string): Promise<boolean> => {
+    const satir = await db.kullaniciRol.findFirst({
+      where: {
+        kullanici_id: kullaniciId,
+        rol: { kod: ROL_KODLARI.SUPER_ADMIN },
+      },
+      select: { kullanici_id: true },
+    });
+    return satir !== null;
+  },
+);
 
 export function rolKontrol(roller: string[], hedef: string | string[]): boolean {
   const dizi = Array.isArray(hedef) ? hedef : [hedef];
