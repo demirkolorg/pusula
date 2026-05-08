@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { FolderKanban, Users, UserCheck, AlertOctagon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -22,15 +23,24 @@ function KpiKart({
   altYazi,
   ikon,
   vurgu = "primary",
+  href,
 }: {
   baslik: string;
   deger: number;
   altYazi: string;
   ikon: React.ReactNode;
   vurgu?: Vurgu;
+  href?: string;
 }) {
-  return (
-    <Card size="sm" className="h-full">
+  const icerik = (
+    <Card
+      size="sm"
+      className={cn(
+        "h-full",
+        href &&
+          "transition-colors hover:bg-accent/40 group-focus-visible/kart:ring-2 group-focus-visible/kart:ring-ring group-focus-visible/kart:ring-offset-2",
+      )}
+    >
       <CardContent className="flex h-full flex-col justify-between gap-2">
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground text-xs font-medium">
@@ -53,6 +63,17 @@ function KpiKart({
         </div>
       </CardContent>
     </Card>
+  );
+
+  if (!href) return icerik;
+  return (
+    <Link
+      href={href}
+      aria-label={`${baslik}: ${deger}`}
+      className="group/kart block h-full rounded-xl outline-none"
+    >
+      {icerik}
+    </Link>
   );
 }
 
@@ -79,6 +100,7 @@ export function MakamKpiSeridi({ kpi }: { kpi: MakamKpi }) {
         altYazi="Silinmemiş proje sayısı"
         ikon={<FolderKanban className="size-4" />}
         vurgu="primary"
+        href="/projeler"
       />
       <KpiKart
         baslik="Aktif Kullanıcı"
@@ -86,6 +108,7 @@ export function MakamKpiSeridi({ kpi }: { kpi: MakamKpi }) {
         altYazi="Son 7 günde giriş yapan"
         ikon={<Users className="size-4" />}
         vurgu="basari"
+        href="/ayarlar/kullanicilar"
       />
       <KpiKart
         baslik="Onay Bekleyen"
@@ -93,6 +116,7 @@ export function MakamKpiSeridi({ kpi }: { kpi: MakamKpi }) {
         altYazi={onayAltYazi}
         ikon={<UserCheck className="size-4" />}
         vurgu={kpi.onayBekleyenKullanici > 0 ? "bilgi" : "basari"}
+        href="/ayarlar/kullanicilar?bekleyen=1"
       />
       <KpiKart
         baslik="Kritik Hata (24sa)"
@@ -100,6 +124,7 @@ export function MakamKpiSeridi({ kpi }: { kpi: MakamKpi }) {
         altYazi={hataAltYazi}
         ikon={<AlertOctagon className="size-4" />}
         vurgu={kpi.kritikHataSon24Sa > 0 ? "uyari" : "basari"}
+        href="/ayarlar/hata-loglari"
       />
     </div>
   );

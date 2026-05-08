@@ -5,7 +5,11 @@ import { KullanicilarIstemci } from "./components/kullanicilar-istemci";
 
 export const metadata = { title: "Kullanıcılar — Pusula" };
 
-export default async function KullanicilarSayfasi() {
+export default async function KullanicilarSayfasi({
+  searchParams,
+}: {
+  searchParams: Promise<{ bekleyen?: string }>;
+}) {
   const oturum = await auth();
   if (!oturum?.user) redirect("/giris");
 
@@ -17,6 +21,11 @@ export default async function KullanicilarSayfasi() {
       izinVarMi(kullaniciId, IZIN_KODLARI.KULLANICI_SIL),
       izinVarMi(kullaniciId, IZIN_KODLARI.KULLANICI_ONAYLA),
     ]);
+
+  // Ana sayfa "Onay Bekleyen" KPI'si bu sayfaya `?bekleyen=1` ile gelir;
+  // yetkisi olmayan için filtreyi sessizce yoksay (UI'daki chip de gizli).
+  const sp = await searchParams;
+  const baslangicSadeceBekleyenler = sp.bekleyen === "1" && onaylayabilir;
 
   return (
     <div className="flex flex-1 flex-col gap-4">
@@ -30,6 +39,7 @@ export default async function KullanicilarSayfasi() {
       <KullanicilarIstemci
         yetkiler={{ duzenleyebilir, davetEdebilir, silebilir, onaylayabilir }}
         aktifKullaniciId={kullaniciId}
+        baslangicSadeceBekleyenler={baslangicSadeceBekleyenler}
       />
     </div>
   );

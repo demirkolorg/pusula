@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   CheckCircle2,
   AlertTriangle,
@@ -23,15 +24,28 @@ function MetrikKart({
   altYazi,
   ikon,
   vurgu = "primary",
+  href,
 }: {
   baslik: string;
   deger: number;
   altYazi?: string;
   ikon: React.ReactNode;
   vurgu?: Vurgu;
+  href?: string;
 }) {
-  return (
-    <Card size="sm" className="h-full">
+  // href verilince tüm kart tıklanır; hover/focus ring ile etkileşim
+  // sinyali. Tek bir <a> içinde tüm içerik = hit target = kart yüzeyi
+  // (Kural 11). Kartlar dışarıda h-full grid item, içeride Link de
+  // h-full ile aynı yüksekliği korur.
+  const icerik = (
+    <Card
+      size="sm"
+      className={cn(
+        "h-full",
+        href &&
+          "transition-colors hover:bg-accent/40 group-focus-visible/kart:ring-2 group-focus-visible/kart:ring-ring group-focus-visible/kart:ring-offset-2",
+      )}
+    >
       <CardContent className="flex h-full flex-col justify-between gap-2">
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground text-xs font-medium">
@@ -56,6 +70,17 @@ function MetrikKart({
       </CardContent>
     </Card>
   );
+
+  if (!href) return icerik;
+  return (
+    <Link
+      href={href}
+      aria-label={`${baslik}: ${deger}`}
+      className="group/kart block h-full rounded-xl outline-none"
+    >
+      {icerik}
+    </Link>
+  );
 }
 
 export function MetrikKartlari({ metrik }: { metrik: AnaSayfaMetrik }) {
@@ -72,6 +97,11 @@ export function MetrikKartlari({ metrik }: { metrik: AnaSayfaMetrik }) {
     ? metrik.bekleyenDavetTum
     : metrik.bekleyenDavetGelen + metrik.bekleyenDavetGiden;
 
+  // Kart listeleme sayfası yok; en yakın anlamlı sayfa /projeler. Davet
+  // sistem kapsamında kullanıcılar sayfasında yönetilir, kişisel kapsamda
+  // bildirim merkezinde görülür.
+  const davetHref = sistem ? "/ayarlar/kullanicilar" : "/bildirimler";
+
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <MetrikKart
@@ -86,6 +116,7 @@ export function MetrikKartlari({ metrik }: { metrik: AnaSayfaMetrik }) {
         }
         ikon={<CheckCircle2 className="size-4" />}
         vurgu="primary"
+        href="/projeler"
       />
       <MetrikKart
         baslik="Geciken"
@@ -99,6 +130,7 @@ export function MetrikKartlari({ metrik }: { metrik: AnaSayfaMetrik }) {
         }
         ikon={<AlertTriangle className="size-4" />}
         vurgu={metrik.geciken > 0 ? "uyari" : "basari"}
+        href="/projeler"
       />
       <MetrikKart
         baslik="Bu Hafta"
@@ -110,6 +142,7 @@ export function MetrikKartlari({ metrik }: { metrik: AnaSayfaMetrik }) {
         }
         ikon={<CalendarCheck className="size-4" />}
         vurgu="basari"
+        href="/projeler"
       />
       <MetrikKart
         baslik="Bekleyen Davet"
@@ -123,6 +156,7 @@ export function MetrikKartlari({ metrik }: { metrik: AnaSayfaMetrik }) {
         }
         ikon={<Mail className="size-4" />}
         vurgu="bilgi"
+        href={davetHref}
       />
     </div>
   );

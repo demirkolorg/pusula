@@ -108,9 +108,11 @@ const TARIH_FORMAT = new Intl.DateTimeFormat("tr-TR", {
 export function KullanicilarIstemci({
   yetkiler,
   aktifKullaniciId,
+  baslangicSadeceBekleyenler = false,
 }: {
   yetkiler: Yetkiler;
   aktifKullaniciId: string;
+  baslangicSadeceBekleyenler?: boolean;
 }) {
   const istemci = useQueryClient();
   const [sayfalama, setSayfalama] = React.useState<PaginationState>({
@@ -119,7 +121,9 @@ export function KullanicilarIstemci({
   });
   const [aramaInput, setAramaInput] = React.useState("");
   const [arama, setArama] = React.useState("");
-  const [sadeceBekleyenler, setSadeceBekleyenler] = React.useState(false);
+  const [sadeceBekleyenler, setSadeceBekleyenler] = React.useState(
+    baslangicSadeceBekleyenler,
+  );
   const [duzenlenen, setDuzenlenen] = React.useState<Satir | null>(null);
   const [davetAcik, setDavetAcik] = React.useState(false);
   const [silinecek, setSilinecek] = React.useState<Satir | null>(null);
