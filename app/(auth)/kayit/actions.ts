@@ -3,6 +3,8 @@
 import argon2 from "argon2";
 import { db } from "@/lib/db";
 import { eylem, EylemHatasi } from "@/lib/action-wrapper";
+import { kayitLimiter } from "@/lib/rate-limit";
+import { istekContextAl } from "@/lib/request-context";
 import { HATA_KODU } from "@/lib/sonuc";
 import { kayitSemasi } from "./schemas";
 
@@ -11,6 +13,19 @@ export const kayitOl = eylem({
   girdi: kayitSemasi,
   girisGerekli: false,
   calistir: async (girdi) => {
+    // Sprint 1 / S1-3 — IP başına 3/saat limit. Otomatize hesap üretme +
+    // mail spam suistimaline karşı; onay süreci olduğu için kullanıcı
+    // başına gerçekçi kayıt sıklığı düşüktür.
+    const ctx = await istekContextAl();
+    if (!kayitLimiter.tryConsume(ctx.ip ?? "ip-yok")) {
+      throw new EylemHatasi(
+        "Çok fazla kayıt isteği. Lütfen bir süre sonra tekrar deneyin.",
+        HATA_KODU.YETKISIZ,
+        undefined,
+        "WARN",
+      );
+    }
+
     const email = girdi.email.toLowerCase();
 
     const mevcut = await db.kullanici.findUnique({ where: { email } });
