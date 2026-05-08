@@ -69,7 +69,9 @@ export const projeArsivleEylem = eylem({
   ad: "proje:arsiv",
   girdi: projeArsivSemasi,
   calistir: async (girdi, ctx) => {
-    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_DUZENLE);
+    // Sprint 1 / S1-10 — granüler izin kodu (Kural V.2 / #146).
+    // Arşivleme proje düzenlemekten ayrı bir aksiyon; ayrı izin koduna sahip.
+    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_ARSIVLE);
     await yetkiZorunluProje(ctx.oturum?.kullaniciId, "proje:edit", girdi.id);
     await projeArsivle(girdi);
     revalidatePath("/projeler");
