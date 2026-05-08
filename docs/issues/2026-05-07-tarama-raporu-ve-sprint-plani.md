@@ -53,12 +53,12 @@
 | Sprint | Statü | İlerleme | Başlangıç | Bitiş | Notlar |
 |---|---|---|---|---|---|
 | Sprint 0 | ✅ Tamamlandı | 5 / 5 | 2026-05-08 | 2026-05-08 | Acil hotfix kapandı |
-| Sprint 1 | ⏳ Beklemede | 0 / 18 | — | — | Güvenlik kritik kapanış |
+| Sprint 1 | ✅ Tamamlandı | 18 / 18 | 2026-05-08 | 2026-05-08 | Güvenlik kritik kapanış |
 | Sprint 2 | ⏳ Beklemede | 0 / 16 | — | — | DB index + test |
 | Sprint 3 | ⏳ Beklemede | 0 / 19 | — | — | Refactor & DRY |
 | Sprint 4 | ⏳ Beklemede | 0 / 17 | — | — | UX & yarım feature |
 | Sprint 5 | ⏳ Beklemede | 0 / 13 | — | — | Production altyapı |
-| **TOPLAM** | — | **5 / 88** | — | — | %5,7 |
+| **TOPLAM** | — | **23 / 88** | — | — | %26 |
 
 **Statü ikonları:** ⏳ Beklemede · 🚧 Devam ediyor · ✅ Tamamlandı · ⛔ Blocked · 🚫 İptal
 
@@ -94,79 +94,69 @@
 **Amaç:** CRITICAL ve yüksek-trafik HIGH güvenlik bulgularını kapat.
 **Süre:** 1 hafta
 **Sahip:** —
-**Statü:** ⏳
+**Statü:** ✅ Tamamlandı (2026-05-08)
 
 #### 1.1 Rate limiting & brute-force
 
-- [ ] **S1-1** Login rate-limit (loginLimiter zaten tanımlı, çağrılmıyor)
+- [x] **S1-1** Login rate-limit (loginLimiter zaten tanımlı, çağrılmıyor) — ✅ 2026-05-08 · commit `bb428e6`
   - Dosya: `auth.ts:23-49` (authorize callback)
-  - Ekle: `loginLimiter.tryConsume(email.toLowerCase())` — argon2.verify ÖNCESİ
-  - IP bazlı ek limit `proxy.ts`'te
-- [ ] **S1-2** Parola sıfırlama rate-limit + timing-equalize
-  - Dosya: `app/(auth)/parola-sifirla/actions.ts:20-53`
-  - IP+e-posta hash bazlı limit (3/dk/IP, 5/saat/email)
-  - Sahte branch'e fake delay (200ms ± 200ms)
-  - Aynı user'a 5dk içinde aktif token varsa yeni üretme
-- [ ] **S1-3** Self-registration rate-limit
-  - Dosya: `app/(auth)/kayit/actions.ts`
-  - 3/saat/IP limiter
+  - `loginLimiter.tryConsume(email.toLowerCase())` argon2.verify ÖNCESİ eklendi
+  - IP bazlı ek limit S1-13 (proxy.ts) ile geliyor
+- [x] **S1-2** Parola sıfırlama rate-limit + timing-equalize — ✅ 2026-05-08 · commit `54510ab`
+  - IP+e-posta hash çift limit (3/dk/IP, 5/saat/email)
+  - Sahte branş fake delay (100–300ms)
+  - 5 dk aktif token varsa yenisi üretilmiyor
+  - E-posta sha256(32-char) ile hash'lenir
+- [x] **S1-3** Self-registration rate-limit — ✅ 2026-05-08 · commit `8894fc5`
+  - 3/saat/IP `kayitLimiter` action başında
 
 #### 1.2 Dosya yükleme güvenliği
 
-- [ ] **S1-4** `yuklemeOnayla`'da magic-byte check (fonksiyon hazır, çağrılmıyor)
-  - Dosya: `app/(panel)/dosyalar/services.ts:177-213`
-  - Çağrı: `lib/dosya-guvenlik.ts:194` `magicByteEsleseMi`
-  - MinIO `getObject` ile ilk 4KB oku → bildirilen mime'a karşı kontrol et
-  - SHA256 hash kaydet (TOCTOU önleme)
-- [ ] **S1-5** SVG için inline render engelleme veya whitelist'ten çıkarma
-  - `lib/dosya-guvenlik.ts:27` (image/svg+xml: GORSEL)
-  - Karar: **(A) yasakla** veya **(B) presigned download'da `response-content-disposition=attachment` zorla**
-- [ ] **S1-6** Token URL'lerini path → POST body veya hash fragment
-  - `/davet/[token]` → `/davet#token=...` veya POST body
-  - `/parola-sifirla/[token]` → aynı
-  - Sebep: Referer leak + log/CDN log retention
+- [x] **S1-4** `yuklemeOnayla`'da magic-byte check — ✅ 2026-05-08 · commit `5445bb6`
+  - Yeni helper: `dosyaObjesininIlkBaytlari(yol, bayt)` — partial GET 64KB cap
+  - Eşleşme false → bucket'tan obje silinir, oturum HATALI
+- [x] **S1-5** SVG için inline render engelleme — ✅ 2026-05-08 · commit `790a8e1`
+  - **Karar:** (B) — `INLINE_RENDER_YASAK_MIME` set ile presigned URL'e
+    `response-content-disposition=attachment` query param eklenir.
+    `presignedDosyaDownload(yol, mime?)` ve `presignedDownload(yol, mime?)`.
+- [x] **S1-6** Token URL'lerini path → hash fragment — ✅ 2026-05-08 · commit `b5745a3`
+  - Yeni `lib/auth-urls.ts` helper, yeni `/davet` ve `/parola-sifirla/yeni`
+    client page'leri (hash'ten token okur, `tokenSorgula` action ile doğrular)
+  - Eski `[token]` route'ları client redirect shim (30 gün backward-compat)
 
 #### 1.3 RBAC tutarsızlıkları (ADR-0014)
 
-- [ ] **S1-7** Yorum action'ları → granüler izin kodları
-  - Dosya: `app/(panel)/projeler/[projeId]/yorum/actions.ts`
-  - `KART_DUZENLE` → `KART_YORUM_YAZ`, `KART_YORUM_KENDI_DUZENLE`, `KART_YORUM_KENDI_SIL`
-- [ ] **S1-8** `yorumSil` izin kodu düzelt
-  - Dosya: `app/(panel)/projeler/[projeId]/yorum/services.ts:247`
-  - `PROJE_YETKILI_YONET` → `KART_YORUM_BASKA_SIL`
-- [ ] **S1-9** Kontrol listesi action'larına resource-level RBAC
-  - `app/(panel)/projeler/[projeId]/kontrol-listesi/actions.ts:78-86, 160-168`
-  - `await yetkiZorunluKart(ctx, kartId, ...)` ekle
-- [ ] **S1-10** `projeArsivleEylem` granüler izin
-  - `app/(panel)/projeler/actions.ts:72`
+- [x] **S1-7** Yorum action'ları → granüler izin kodları — ✅ 2026-05-08 · commit `25a6c76`
+  - Olustur → `KART_YORUM_YAZ`, Guncelle → `KART_YORUM_KENDI_DUZENLE`,
+    Sil → `herhangiBirIzin(KENDI_SIL ∥ BASKA_SIL)`
+- [x] **S1-8** `yorumSil` izin kodu düzelt — ✅ 2026-05-08 · commit `94d1844`
+  - `PROJE_YETKILI_YONET` → `KART_YORUM_BASKA_SIL`; sahip silmede de
+    `KART_YORUM_KENDI_SIL` kontrolü eklendi
+- [x] **S1-9** Kontrol listesi action'larına resource-level RBAC — ✅ 2026-05-08 · commit `683b88f`
+  - Yeni `kontrolListesininKartId(listeId)` helper; 3 action'a `yetkiZorunluKart`
+- [x] **S1-10** `projeArsivleEylem` granüler izin — ✅ 2026-05-08 · commit `248ecf9`
   - `PROJE_DUZENLE` → `PROJE_ARSIVLE`
-- [ ] **S1-11** Liste action'ları granüler izin
-  - `app/(panel)/projeler/[projeId]/actions.ts:128, 156`
-  - `LISTE_DUZENLE` → `LISTE_AD_DUZENLE`, `LISTE_SIRALA`
+- [x] **S1-11** Liste action'ları granüler izin — ✅ 2026-05-08 · commit `2555ff6`
+  - Guncelle → `LISTE_AD_DUZENLE`, Sirala → `LISTE_SIRALA`
 
 #### 1.4 Diğer güvenlik
 
-- [ ] **S1-12** Cron endpoint'lerinde `timingSafeEqual`
-  - `app/api/cron/bildirim-bitis/route.ts:39-44`
-  - `app/api/cron/bildirim-mail-digest/route.ts:53`
-  - `app/api/cron/oneri-retention/route.ts:34-39`
-  - `app/api/bildirim-metrikler/route.ts:28-31`
-- [ ] **S1-13** `proxy.ts` origin allowlist — production'da env zorunlu
-  - `proxy.ts:25-27`
-  - `if (NODE_ENV === "production" && !izinli) return false`
-- [ ] **S1-14** `/api/log/hata` body size + JSON depth limit
-  - `app/api/log/hata/route.ts:60-77`
-  - 64KB hard-limit, ekstra alanı `z.unknown()` yerine sınırlı union
-- [ ] **S1-15** `EylemHatasi` mesajları sanitize
-  - `lib/action-wrapper.ts:101-110`
-  - Prisma constraint violation mesajlarını UI'a sızdırma; generic mesaja çevir
-- [ ] **S1-16** Notification trigger'larda sessiz catch'leri sarmala
-  - 26 yer, `app/(panel)/projeler/[projeId]/actions.ts:145, 197-201, 207, 228, 250-251, 256, 279`
-  - `bildirimGuvenliCagir()` helper'ı yaz, hepsini migrate et
-- [ ] **S1-17** Security headers (`next.config.ts`)
-  - CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy
-- [ ] **S1-18** `seed.ts` production safeguard
-  - `prisma/seed.ts` `main()` başına `NODE_ENV === "production"` ve localhost dışı DB guard'ı
+- [x] **S1-12** Cron endpoint'lerinde `timingSafeEqual` — ✅ 2026-05-08 · commit `551ee49`
+  - Yeni `lib/bearer-auth.ts:bearerTokenEslesiyorMu`; 4 endpoint migrate
+- [x] **S1-13** `proxy.ts` origin allowlist — production'da env zorunlu — ✅ 2026-05-08 · commit `4e45f23`
+  - Env yoksa: dev → izin, prod → ret
+- [x] **S1-14** `/api/log/hata` body size + JSON depth limit — ✅ 2026-05-08 · commit `e85a71c`
+  - 64KB hard cap (Content-Length + raw text); JSON derinlik 4 limit
+  - `ekstra` field artık primitive | array (sıkı union)
+- [x] **S1-15** `EylemHatasi` mesajları sanitize — ✅ 2026-05-08 · commit `eb4ff8d`
+  - 9 regex hassas pattern + 500-karakter cap; orijinal log'da kalır
+- [x] **S1-16** Notification trigger'larda sessiz catch'leri sarmala — ✅ 2026-05-08 · commit `9e340a7`
+  - Yeni `lib/bildirim-guvenli.ts:bildirimGuvenliCagir`; 7 dosyada 22 çağrı migrate
+- [x] **S1-17** Security headers (`next.config.ts`) — ✅ 2026-05-08 · commit `bad59c8`
+  - Base: nosniff, Frame-DENY, Referrer, Permissions
+  - Production: HSTS 2 yıl + CSP (default 'self')
+- [x] **S1-18** `seed.ts` production safeguard — ✅ 2026-05-08 · commit `61b32b5`
+  - main() başında prod/non-localhost guard, `PUSULA_SEED_PROD_OK=evet` onayı zorunlu
 
 ---
 
