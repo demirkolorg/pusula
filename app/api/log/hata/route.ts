@@ -11,6 +11,21 @@ import { logHataLimiter } from "@/lib/rate-limit";
 // - Auth zorunlu (anonim hata kabul YOK — log spam yüzeyi kapanır)
 // - Rate limit: 30 / dk / IP
 // - Origin allowlist proxy.ts seviyesinde uygulanır
+// - Sprint 1 / S1-14: gövde 64KB hard-limit + JSON derinlik limiti
+
+const MAKS_GOVDE_BAYT = 64 * 1024;
+const MAKS_JSON_DERINLIK = 4;
+
+const ekstraPrimitif = z.union([
+  z.string().max(2000),
+  z.number(),
+  z.boolean(),
+  z.null(),
+]);
+const ekstraDeger = z.union([
+  ekstraPrimitif,
+  z.array(ekstraPrimitif).max(50),
+]);
 
 const govdeSemasi = z.object({
   seviye: z.enum(["DEBUG", "INFO", "WARN", "ERROR", "FATAL"]).default("ERROR"),
@@ -19,8 +34,29 @@ const govdeSemasi = z.object({
   stack: z.string().max(20_000).optional(),
   url: z.string().max(2000).optional(),
   hata_tipi: z.string().max(200).optional(),
-  ekstra: z.record(z.string(), z.unknown()).optional(),
+  ekstra: z.record(z.string().max(100), ekstraDeger).optional(),
 });
+
+function jsonDerinligi(deger: unknown, mevcut = 0): number {
+  if (mevcut > MAKS_JSON_DERINLIK) return mevcut;
+  if (Array.isArray(deger)) {
+    let max = mevcut;
+    for (const e of deger) {
+      max = Math.max(max, jsonDerinligi(e, mevcut + 1));
+      if (max > MAKS_JSON_DERINLIK) return max;
+    }
+    return max;
+  }
+  if (deger !== null && typeof deger === "object") {
+    let max = mevcut;
+    for (const v of Object.values(deger as Record<string, unknown>)) {
+      max = Math.max(max, jsonDerinligi(v, mevcut + 1));
+      if (max > MAKS_JSON_DERINLIK) return max;
+    }
+    return max;
+  }
+  return mevcut;
+}
 
 export async function POST(istek: NextRequest) {
   try {
@@ -46,7 +82,37 @@ export async function POST(istek: NextRequest) {
       );
     }
 
-    const govdeRaw = await istek.json();
+    // Sprint 1 / S1-14 — gövde 64KB hard cap. content-length yalan
+    // söyleyebilir, raw text okuyup tekrar ölç.
+    const cl = Number(istek.headers.get("content-length") ?? "0");
+    if (Number.isFinite(cl) && cl > MAKS_GOVDE_BAYT) {
+      return NextResponse.json(
+        { basarili: false, hata: "Gövde çok büyük" },
+        { status: 413 },
+      );
+    }
+    const ham = await istek.text();
+    if (ham.length > MAKS_GOVDE_BAYT) {
+      return NextResponse.json(
+        { basarili: false, hata: "Gövde çok büyük" },
+        { status: 413 },
+      );
+    }
+    let govdeRaw: unknown;
+    try {
+      govdeRaw = JSON.parse(ham);
+    } catch {
+      return NextResponse.json(
+        { basarili: false, hata: "Geçersiz JSON" },
+        { status: 400 },
+      );
+    }
+    if (jsonDerinligi(govdeRaw) > MAKS_JSON_DERINLIK) {
+      return NextResponse.json(
+        { basarili: false, hata: "JSON yapısı çok derin" },
+        { status: 400 },
+      );
+    }
     const dogrulama = govdeSemasi.safeParse(govdeRaw);
     if (!dogrulama.success) {
       return NextResponse.json(
