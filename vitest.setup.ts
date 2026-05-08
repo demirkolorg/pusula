@@ -2,6 +2,13 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, vi } from "vitest";
 import { cleanup } from "@testing-library/react";
 
+// Sprint 5 / S5-13 — `server-only` paketi production'da client bundle'a
+// import edilirse build hatası fırlatır. jsdom test ortamı `react-server`
+// condition'ını sağlamadığı için import etse zorlu hata verir; mock
+// ile no-op yap (testler server-side service'leri zaten doğrudan import
+// edebilir).
+vi.mock("server-only", () => ({}));
+
 // Audit middleware (Kural 58 KATİ AUDIT GUARD): kullaniciId yoksa yazımı
 // reddediyor. Test fixture'ları (ortamKur, projeOlusturFiks vb.) eylem()
 // wrapper dışında çalışıyor. Her test başında AsyncLocalStorage'a bypass
