@@ -36,11 +36,16 @@ export default function DavetSayfasi() {
 
   useEffect(() => {
     const token = hashtenTokenAl();
-    if (!token) {
-      setDurum({ tip: "token-yok" });
-      return;
-    }
     let iptal = false;
+    if (!token) {
+      // Microtask defer — sync setState cascading render uyarısını önler.
+      void Promise.resolve().then(() => {
+        if (!iptal) setDurum({ tip: "token-yok" });
+      });
+      return () => {
+        iptal = true;
+      };
+    }
     void davetTokeniSorgula({ token }).then((sonuc) => {
       if (iptal) return;
       if (!sonuc.basarili) {
