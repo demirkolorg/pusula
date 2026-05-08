@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { auditContext, maskeleHassas } from "./audit-context";
+import { logger } from "./logger";
 
 // Sprint 2 / S2-1 — write-heavy + audit kritik olmayan modeller listeye eklendi.
 // Audit middleware her yazma için 2-3 ek query (eski_veri lookup + yeni_veri
@@ -322,10 +323,11 @@ export const auditExtension = Prisma.defineExtension((client) => {
               },
             });
           } catch (err) {
-            if (process.env.NODE_ENV !== "production") {
-
-              console.error("[audit] log yazılamadı:", err);
-            }
+            // Sprint 3 / S3-17 — `console.error` → Pino logger.
+            logger.warn(
+              { err: err instanceof Error ? err.message : String(err) },
+              "[audit] log yazılamadı",
+            );
           }
 
           return sonuc;

@@ -2,6 +2,7 @@
 
 import { AuthError } from "next-auth";
 import { signIn } from "@/auth";
+import { logger } from "@/lib/logger";
 import { girisSemasi } from "./schemas";
 
 export type GirisSonucu =
@@ -65,7 +66,11 @@ export async function girisYap(formData: FormData): Promise<GirisSonucu> {
       }
     }
 
-    console.error("[giris] Beklenmedik hata:", hata);
+    // Sprint 3 / S3-17 — `console.error` → Pino logger.
+    logger.error(
+      { err: hata instanceof Error ? hata.message : String(hata) },
+      "[giris] Beklenmedik hata",
+    );
     return {
       basarili: false,
       hata: "Sunucu hatası, lütfen tekrar deneyin",

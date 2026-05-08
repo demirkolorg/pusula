@@ -65,9 +65,12 @@ export function ProjeBaslikAksiyonlar({
     try {
       projeDetayiniJsonOlarakIndir(proje);
       toast.basari("Proje JSON olarak indirildi");
-    } catch (err) {
+    } catch {
+      // Sprint 3 / S3-17 — client-side console.error kaldırıldı; toast
+      // zaten kullanıcı bilgilendirmesini yapıyor, frontend hata
+      // tracking'i `/api/log/hata` üzerinden olur (logger import client'ta
+      // Pino server modülünü çekemez).
       toast.hata("Dışa aktarma başarısız");
-      console.error("proje-disa-aktar:", err);
     }
   };
 
