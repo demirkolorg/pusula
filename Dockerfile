@@ -72,18 +72,13 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# Prisma migration için CLI + schema (entrypoint.sh kullanıyor)
+# Prisma schema + tüm node_modules
+# Önceden sadece prisma + argon2 alt-paketleri kopyalıyorduk; ancak Prisma 6
+# CLI'nin `@prisma/config` paketi `effect` gibi transitive dependency'lere
+# bağlı (Cannot find package 'effect' hatası). Tüm node_modules'u kopyalamak
+# image'ı ~300-500 MB büyütür ama tek kaynaklı hata yüzeyini sıfırlar.
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.bin ./node_modules/.bin
-
-# Argon2 native binary
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/argon2 ./node_modules/argon2
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@phc ./node_modules/@phc
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/node-addon-api ./node_modules/node-addon-api
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/node-gyp-build ./node_modules/node-gyp-build
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 
 # Entrypoint script (Windows CRLF güvenliği için sed)
 COPY --chown=nextjs:nodejs scripts/entrypoint.sh ./entrypoint.sh
