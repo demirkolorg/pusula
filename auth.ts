@@ -4,6 +4,7 @@ import argon2 from "argon2";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { auditContext } from "@/lib/audit-context";
+import { loginLimiter } from "@/lib/rate-limit";
 import { authConfig } from "./auth.config";
 
 const girisSemasi = z.object({
@@ -25,9 +26,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (!dogrulama.success) return null;
 
         const { email, parola } = dogrulama.data;
+        const emailNorm = email.toLowerCase();
+
+        // Sprint 1 / S1-1 — brute-force koruma. argon2.verify maliyetli;
+        // aynı e-posta için pencere başına 5 denemeden fazla reddedilir.
+        // IP bazlı ek limit `proxy.ts` katmanında. NextAuth credentials
+        // provider tarafından `null` dönüş = "yetkisiz", saldırgan token
+        // tükendiğinde de aynı yanıtı görür.
+        if (!loginLimiter.tryConsume(emailNorm)) return null;
 
         const kullanici = await db.kullanici.findUnique({
-          where: { email: email.toLowerCase() },
+          where: { email: emailNorm },
           include: {
             roller: {
               include: {
