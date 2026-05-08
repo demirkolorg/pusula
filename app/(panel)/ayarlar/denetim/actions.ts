@@ -2,8 +2,8 @@
 
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { eylem, EylemHatasi } from "@/lib/action-wrapper";
-import { superAdminMi } from "@/lib/permissions";
+import { eylem } from "@/lib/action-wrapper";
+import { superAdminZorunlu } from "@/lib/action-helpers";
 import { aramaBigIntIdleri } from "@/lib/arama";
 import { kaynakEtiketleriOlustur } from "@/lib/audit-kaynak-etiket";
 import { aktiviteAnlati, zenginlestirVeOzetle } from "@/lib/aktivite";
@@ -33,19 +33,7 @@ export type DenetimSatiri = {
   meta: unknown;
 };
 
-async function superAdminZorunlu(kullaniciId: string | null | undefined): Promise<void> {
-  if (!kullaniciId) {
-    throw new EylemHatasi("Oturum yok.", HATA_KODU.GIRIS_YOK);
-  }
-  if (!(await superAdminMi(kullaniciId))) {
-    throw new EylemHatasi(
-      "Bu sayfa yalnızca süper yöneticiler içindir.",
-      HATA_KODU.YETKISIZ,
-      undefined,
-      "WARN",
-    );
-  }
-}
+// Sprint 3 / S3-12 — `superAdminZorunlu` lib/action-helpers.ts'e taşındı.
 
 export const denetimListele = eylem({
   ad: "denetim:liste",

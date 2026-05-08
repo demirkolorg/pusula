@@ -4,29 +4,13 @@ import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { eylem, EylemHatasi } from "@/lib/action-wrapper";
-import { superAdminMi } from "@/lib/permissions";
+import { superAdminZorunlu } from "@/lib/action-helpers";
 import { HATA_KODU } from "@/lib/sonuc";
 import { aramaBigIntIdleri } from "@/lib/arama";
 import { hataCozumSemasi, hataListeSemasi } from "./schemas";
 
-// ADR-0029: Hata logu RBAC sadece SUPER_ADMIN'e açıktır. `yetkiZorunlu`
-// makam wildcard'ı (`*`) üzerinden KAYMAKAM'ı da geçirdiği için doğrudan
-// rol kontrolü kullanılır (denetim/actions.ts ile aynı şablon).
-async function superAdminZorunlu(
-  kullaniciId: string | null | undefined,
-): Promise<void> {
-  if (!kullaniciId) {
-    throw new EylemHatasi("Oturum yok.", HATA_KODU.GIRIS_YOK);
-  }
-  if (!(await superAdminMi(kullaniciId))) {
-    throw new EylemHatasi(
-      "Bu işlem yalnızca süper yöneticiler içindir.",
-      HATA_KODU.YETKISIZ,
-      undefined,
-      "WARN",
-    );
-  }
-}
+// ADR-0029: Hata logu RBAC sadece SUPER_ADMIN'e açıktır. `superAdminZorunlu`
+// helper'ı `lib/action-helpers.ts`'ten gelir (S3-12 ile merkezileştirildi).
 
 export type HataSatiri = {
   id: string;
