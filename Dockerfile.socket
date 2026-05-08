@@ -41,6 +41,9 @@ COPY --from=builder --chown=socket:socket /app/node_modules ./node_modules
 COPY --chown=socket:socket socket-server ./socket-server
 COPY --chown=socket:socket lib ./lib
 COPY --chown=socket:socket prisma ./prisma
+# auth.ts kok seviyede; lib/permissions ve lib/action-wrapper @/auth import
+# eder. auth.config.ts auth.ts'in dependency'si.
+COPY --chown=socket:socket auth.ts auth.config.ts ./
 COPY --chown=socket:socket package.json bun.lock tsconfig.json ./
 
 USER socket
