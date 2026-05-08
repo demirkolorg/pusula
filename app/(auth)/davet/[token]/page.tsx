@@ -1,57 +1,21 @@
-import Link from "next/link";
-import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { DavetKabulForm } from "../components/kabul-form";
+"use client";
 
-export const metadata = {
-  title: "Davet — Pusula",
-};
+// Sprint 1 / S1-6 — backward compat shim (30 gün). Eski mail'lerdeki
+// `/davet/<token>` URL'leri client-side `/davet#token=<token>`'a yönlendirilir.
+// Token zaten path'te servera ulaşmış olur (sızıntı tek seferlik); ancak yeni
+// mail'ler hash fragment kullandığı için bu shim sadece in-flight mail'leri
+// kapsar. 2026-06-08 sonrası kaldırılır.
 
-export default async function DavetSayfasi({
+import { useEffect, use } from "react";
+
+export default function EskiDavetYonlendir({
   params,
 }: {
   params: Promise<{ token: string }>;
 }) {
-  const { token } = await params;
-  const davet = await db.davetTokeni.findUnique({ where: { token } });
-  if (!davet) notFound();
-
-  const gecerli =
-    !davet.kullanildi_mi && davet.son_kullanma > new Date();
-
-  return (
-    <div className="bg-muted/40 flex min-h-svh items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Davete Hoş Geldiniz</CardTitle>
-          <CardDescription>
-            {gecerli
-              ? `${davet.email} hesabını oluşturmak için bilgilerinizi girin.`
-              : "Bu davet bağlantısı geçersiz veya süresi dolmuş."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {gecerli ? (
-            <DavetKabulForm token={token} email={davet.email} />
-          ) : (
-            <div className="text-center text-sm">
-              <Link
-                href="/giris"
-                className="text-primary underline underline-offset-4"
-              >
-                Giriş sayfasına dön
-              </Link>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
+  const { token } = use(params);
+  useEffect(() => {
+    window.location.replace(`/davet#token=${encodeURIComponent(token)}`);
+  }, [token]);
+  return null;
 }

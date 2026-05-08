@@ -2,9 +2,11 @@
 
 import argon2 from "argon2";
 import { createHash } from "node:crypto";
+import { z } from "zod";
 import { db } from "@/lib/db";
 import { mailGonder } from "@/lib/mail";
 import { eylem, EylemHatasi } from "@/lib/action-wrapper";
+import { parolaSifirlamaUrl } from "@/lib/auth-urls";
 import {
   parolaSifirlaIPLimiter,
   parolaSifirlaEmailLimiter,
@@ -12,6 +14,30 @@ import {
 import { istekContextAl } from "@/lib/request-context";
 import { HATA_KODU } from "@/lib/sonuc";
 import { sifirlamaIstekSemasi, yeniParolaSemasi } from "./schemas";
+
+// Sprint 1 / S1-6 — yeni parola sayfası client-side hash'ten token okur;
+// form render etmeden önce token geçerliliğini bu action ile doğrular.
+const tokenSorgulaSemasi = z.object({ token: z.string().min(16).max(128) });
+
+export const sifirlamaTokeniSorgula = eylem({
+  ad: "parola-sifirla:token-sorgula",
+  girdi: tokenSorgulaSemasi,
+  girisGerekli: false,
+  calistir: async ({ token }) => {
+    const kayit = await db.sifirlamaTokeni.findUnique({
+      where: { token },
+      select: { kullanildi_mi: true, son_kullanma: true },
+    });
+    if (!kayit) return { gecerli: false, sebep: "bulunamadi" } as const;
+    if (kayit.kullanildi_mi) {
+      return { gecerli: false, sebep: "kullanilmis" } as const;
+    }
+    if (kayit.son_kullanma <= new Date()) {
+      return { gecerli: false, sebep: "expired" } as const;
+    }
+    return { gecerli: true } as const;
+  },
+});
 
 const TOKEN_OMUR_DK = 60;
 // Aynı kullanıcıya 5 dk içinde aktif token üretildiyse yeni token üretilmez —
@@ -93,7 +119,7 @@ export const sifirlamaIste = eylem({
           },
         });
 
-        const url = `${process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:2500"}/parola-sifirla/${token}`;
+        const url = parolaSifirlamaUrl(token);
         await mailGonder({
           alici: email,
           konu: "Pusula — Parola sıfırlama bağlantınız",

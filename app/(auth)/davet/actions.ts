@@ -1,6 +1,7 @@
 "use server";
 
 import argon2 from "argon2";
+import { z } from "zod";
 import { db } from "@/lib/db";
 import { eylem, EylemHatasi } from "@/lib/action-wrapper";
 import { HATA_KODU } from "@/lib/sonuc";
@@ -8,6 +9,37 @@ import { rolAtamaPolitikasiniDogrula } from "@/lib/kullanici-rol-politikasi";
 import { makamRoluMu } from "@/lib/roller";
 import { tetikleDavetKabulEdildi } from "@/app/(panel)/bildirimler/tetikleyiciler";
 import { davetiKabulSemasi } from "./schemas";
+
+// Sprint 1 / S1-6 — token hash fragment'tan geldiğinde sayfa client-side
+// olduğu için server'a token GET ile erişilmez. Form'a render etmeden
+// önce client bu sorgu ile token geçerliliğini doğrular.
+const tokenSorgulaSemasi = z.object({ token: z.string().min(16).max(128) });
+
+export const davetTokeniSorgula = eylem({
+  ad: "davet:token-sorgula",
+  girdi: tokenSorgulaSemasi,
+  girisGerekli: false,
+  calistir: async ({ token }) => {
+    const davet = await db.davetTokeni.findUnique({
+      where: { token },
+      select: {
+        email: true,
+        kullanildi_mi: true,
+        son_kullanma: true,
+      },
+    });
+    if (!davet) {
+      return { gecerli: false, sebep: "bulunamadi" } as const;
+    }
+    if (davet.kullanildi_mi) {
+      return { gecerli: false, sebep: "kullanilmis" } as const;
+    }
+    if (davet.son_kullanma <= new Date()) {
+      return { gecerli: false, sebep: "expired" } as const;
+    }
+    return { gecerli: true, email: davet.email } as const;
+  },
+});
 
 export const daveriKabul = eylem({
   ad: "davet:kabul",

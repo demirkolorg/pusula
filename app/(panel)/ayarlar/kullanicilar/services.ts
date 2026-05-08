@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { mailGonder, mailHtmlRender } from "@/lib/mail";
 import { DavetMail } from "@/lib/mail-templates/davet";
 import { aramaUuidIdleri } from "@/lib/arama";
+import { davetUrl } from "@/lib/auth-urls";
 import { EylemHatasi } from "@/lib/action-wrapper";
 import { HATA_KODU } from "@/lib/sonuc";
 import {
@@ -387,7 +388,7 @@ export async function davetOlustur(
     return olusturulan;
   });
 
-  const url = `${process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:2500"}/davet/${kayit.token}`;
+  const url = davetUrl(kayit.token);
   const davetEden = await db.kullanici.findUnique({
     where: { id: davetEdenId },
     select: { ad: true, soyad: true },
@@ -476,7 +477,7 @@ export async function davetiYenidenGonder(
     });
   }
 
-  const url = `${process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:2500"}/davet/${davet.token}`;
+  const url = davetUrl(davet.token);
   const davetEden = await db.kullanici.findUnique({
     where: { id: davet.davet_eden_id },
     select: { ad: true, soyad: true },
