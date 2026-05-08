@@ -1,6 +1,10 @@
 import { Prisma } from "@prisma/client";
 import { auditContext, maskeleHassas } from "./audit-context";
 
+// Sprint 2 / S2-1 — write-heavy + audit kritik olmayan modeller listeye eklendi.
+// Audit middleware her yazma için 2-3 ek query (eski_veri lookup + yeni_veri
+// snapshot + AktiviteLogu insert) yapıyor. Aşağıdaki modeller saniyede
+// onlarca yazma alabilir; audit gerekmez, atlamak amplifikasyonu kapatır.
 const ATLA = new Set([
   "AktiviteLogu",
   "HataLogu",
@@ -9,6 +13,12 @@ const ATLA = new Set([
   // Ana sayfa "son ziyaret" widget'ı için her proje açılışında upsert edilir
   // — audit log'a yazmak gürültü olur, kullanıcı niyetiyle alınmış aksiyon değil.
   "ProjeZiyareti",
+  // Bildirimler kullanıcı eylemlerinden türetilen üretim sonucu — audit
+  // gerektiren işlem ana eylemde (kart güncelleme, vb.) zaten kaydedilir.
+  "Bildirim",
+  // Mail kuyruğu yine türetilmiş; cron her 5 dk'da onlarca satır yazıp
+  // güncelliyor.
+  "BildirimMailKuyrugu",
 ]);
 
 const YAZMA_ISLEMLERI = new Set([
