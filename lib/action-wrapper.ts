@@ -88,6 +88,25 @@ export function eylem<S extends z.ZodTypeAny | undefined, T>(
               const yol = issue.path.join(".");
               if (yol) alanlar[yol] = issue.message;
             }
+            // GEÇİCİ DEBUG: production'da Zod validation hatalarını server
+            // log'a yaz; client toast'ta sadece "Girdi doğrulanamadı"
+            // göründüğü için hangi alanın fail ettiği görülemiyordu.
+            // Sorun çözüldükten sonra bu log kaldırılacak.
+            console.error(
+              `[action-wrapper] Zod fail: ad=${cfg.ad}`,
+              JSON.stringify(
+                {
+                  issues: dogrulama.error.issues.map((i) => ({
+                    path: i.path,
+                    code: i.code,
+                    message: i.message,
+                  })),
+                  alanlar,
+                },
+                null,
+                2,
+              ),
+            );
             return hata("Girdi doğrulanamadı.", HATA_KODU.GECERSIZ_GIRDI, alanlar);
           }
           veri = dogrulama.data;
