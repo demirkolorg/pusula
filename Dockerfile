@@ -27,6 +27,24 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
+# Build-time placeholder env'ler — Next.js prerender sırasında PrismaClient
+# init veya diğer side-effect import'ların fail etmemesi için. Runtime'da
+# Dokploy gerçek değerleri ile override eder.
+ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder?schema=public"
+ENV AUTH_SECRET="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+ENV AUTH_URL="http://localhost:2500"
+ENV AUTH_TRUST_HOST="true"
+ENV MINIO_ENDPOINT="localhost"
+ENV MINIO_PORT="9000"
+ENV MINIO_USE_SSL="false"
+ENV MINIO_BUCKET="placeholder"
+ENV MINIO_ACCESS_KEY="placeholder"
+ENV MINIO_SECRET_KEY="placeholder"
+ENV MAIL_PROVIDER="resend"
+ENV MAIL_FROM="Pusula <onboarding@resend.dev>"
+ENV RESEND_API_KEY="re_placeholder"
+ENV NEXT_PUBLIC_BASE_URL="http://localhost:2500"
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
