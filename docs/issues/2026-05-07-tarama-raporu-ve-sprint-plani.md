@@ -56,9 +56,9 @@
 | Sprint 1 | ✅ Tamamlandı | 18 / 18 | 2026-05-08 | 2026-05-08 | Güvenlik kritik kapanış |
 | Sprint 2 | ✅ Tamamlandı | 16 / 16 | 2026-05-08 | 2026-05-08 | DB index + test |
 | Sprint 3 | ✅ Tamamlandı | 19 / 19 | 2026-05-08 | 2026-05-08 | S3-1..S3-6 plan-level (ADR-0032), uygulama Sprint 4'te |
-| Sprint 4 | ⏳ Beklemede | 0 / 17 | — | — | UX & yarım feature |
+| Sprint 4 | ✅ Tamamlandı | 17 / 17 | 2026-05-08 | 2026-05-08 | UX & yarım feature |
 | Sprint 5 | ⏳ Beklemede | 0 / 13 | — | — | Production altyapı |
-| **TOPLAM** | — | **58 / 88** | — | — | %66 |
+| **TOPLAM** | — | **75 / 88** | — | — | %85 |
 
 **Statü ikonları:** ⏳ Beklemede · 🚧 Devam ediyor · ✅ Tamamlandı · ⛔ Blocked · 🚫 İptal
 
@@ -244,53 +244,33 @@
 **Amaç:** Erişilebilirlik kütüphane seviyesinden patch + yarım kalan feature'ları tamamla.
 **Süre:** 2 hafta
 **Sahip:** —
-**Statü:** ⏳
+**Statü:** ✅ Tamamlandı (2026-05-08)
 
 #### 4.1 Erişilebilirlik (kütüphane patching)
 
-- [ ] **S4-1** Skip Navigation link
-  - `app/layout.tsx`'e `<a href="#ana-icerik" className="sr-only focus:not-sr-only ...">Ana içeriğe atla</a>`
-  - `app/(panel)/layout.tsx:112` `<div id="ana-icerik" tabIndex={-1}>`
-- [ ] **S4-2** `prefers-reduced-motion` global CSS
-  - `app/globals.css`
-- [ ] **S4-3** `<FormField>` helper component
-  - `components/ui/form-field.tsx`
-  - aria-describedby + aria-required + aria-invalid otomatik
-  - Tüm form'larda kademeli migrate
-- [ ] **S4-4** Dialog/Sheet/Sidebar TR çeviri
-  - "Close" → "Kapat", "Toggle Sidebar" → "Yan menüyü aç/kapat"
-- [ ] **S4-5** Skeleton `aria-busy` + `role="status"` + sr-only "Yükleniyor…"
-  - `components/ui/skeleton.tsx`
-- [ ] **S4-6** `<TableHead>` `scope="col"` default
-  - `components/ui/table.tsx:68`
-- [ ] **S4-7** Sonner toast `aria-live` ayarı + ikonlara `aria-hidden`
-  - `components/ui/sonner.tsx`
-- [ ] **S4-8** ThemeToggle `aria-pressed`
-  - `components/theme-toggle.tsx`
-- [ ] **S4-9** kayit-form `role="alert"` + `aria-invalid` (diğer formlarda var)
-  - `app/(auth)/kayit/components/kayit-form.tsx`
-- [ ] **S4-10** Etiket renk algoritması WCAG luminance (sRGB lin)
-  - `app/(panel)/projeler/[projeId]/etiket/components/etiket-rozet.tsx:31-48`
-- [ ] **S4-11** `:focus-visible { scroll-margin-top: 5rem }` (sticky header focus-not-obscured)
-  - `app/globals.css`
+- [x] **S4-1** Skip Navigation link — ✅ 2026-05-08 · commit `d722406`
+- [x] **S4-2** `prefers-reduced-motion` global CSS — ✅ 2026-05-08 · commit `b80c1a5`
+- [x] **S4-3** `<FormField>` helper component — ✅ 2026-05-08 · commit `1775802`
+- [x] **S4-4** Dialog/Sheet/Sidebar TR çeviri — ✅ 2026-05-08 · commit `cf5a21f`
+- [x] **S4-5** Skeleton `aria-busy` + `role="status"` + sr-only — ✅ 2026-05-08 · commit `6069dc3`
+- [x] **S4-6** `<TableHead>` `scope="col"` default — ✅ 2026-05-08 · commit `6069dc3`
+- [x] **S4-7** Sonner ikonlara `aria-hidden` — ✅ 2026-05-08 · commit `a5e82e5`
+- [x] **S4-8** ThemeToggle `aria-pressed` — ✅ 2026-05-08 · commit `6069dc3`
+- [x] **S4-9** kayit-form `role="alert"` + `aria-invalid` — ✅ 2026-05-08 · commit `c93f614`
+- [x] **S4-10** Etiket renk algoritması WCAG sRGB linear luminance — ✅ 2026-05-08 · commit `fb23746`
+- [x] **S4-11** `:focus-visible { scroll-margin-top: 5rem }` — ✅ 2026-05-08 · commit `b80c1a5`
 
 #### 4.2 Loading & Error boundary granülaritesi
 
-- [ ] **S4-12** `app/(panel)/loading.tsx` (global panel)
-- [ ] **S4-13** `app/(panel)/projeler/[projeId]/loading.tsx`
-- [ ] **S4-14** `app/(panel)/projeler/[projeId]/error.tsx`
-- [ ] **S4-15** `app/(panel)/ayarlar/error.tsx`
+- [x] **S4-12..S4-15** loading + error boundary'ler (4 dosya) — ✅ 2026-05-08 · commit `3d179ea`
 
 #### 4.3 Yarım Feature'lar
 
-- [ ] **S4-16** Profil yönetimi
-  - `app/(panel)/profil/page.tsx:122` stub
-  - Ad/soyad/avatar düzenleme
-  - Parola değiştirme (mevcut parola + yeni parola + onay)
-  - Audit log + bildirim
-- [ ] **S4-17** Dead izinler kararı
-  - `KART_KOPYALA`, `KART_ILISKI_KUR`, `KART_ILISKI_KALDIR`
-  - **Karar:** [ ] implement / [ ] katalogtan + seed'den + roller'dan kaldır
+- [x] **S4-16** Profil yönetimi — ✅ 2026-05-08 · commit `61f8721`
+  - 5 yeni dosya: schemas, services, actions, ProfilForm, ParolaDegistirForm + page güncellemesi
+  - argon2.verify mevcut parola + argon2id yeni hash; aria-invalid + role="alert"
+- [x] **S4-17** Dead izinler kararı — ✅ 2026-05-08 · commit `bcb0ce2`
+  - **Karar:** ADR-0033 hibrit — katalogta tanım kalır (gelecek implement için), varsayılan rol listelerinden çıkarıldı, eski-kod genişletmesi temizlendi.
 
 ---
 
