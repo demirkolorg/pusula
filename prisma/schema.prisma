@@ -390,6 +390,9 @@ model KullaniciRol {
 
   @@id([kullanici_id, rol_id])
   @@index([rol_id])
+  // Sprint 2 / S2-4 — atayan_id FK üzerinde index yoktu; "kim kime rol
+  // verdi" sorgusu (audit + denetim) tablo taraması yapıyordu.
+  @@index([atayan_id])
 }
 
 // ============================================================
@@ -885,6 +888,9 @@ model Yorum {
 
   @@index([kart_id, silindi_mi, olusturma_zamani(sort: Desc)])
   @@index([yazan_id])
+  // Sprint 2 / S2-4 — yanıt zinciri sorgularında (yorum thread) FK index
+  // yokluğu seq scan tetikliyordu.
+  @@index([yanit_yorum_id])
   @@index([arama_vektoru], type: Gin)
   // ADR-0017: pg_trgm fuzzy fallback
   @@index([icerik(ops: raw("gin_trgm_ops"))], type: Gin, map: "Yorum_icerik_trgm_idx")
@@ -1181,6 +1187,11 @@ model KontrolMaddesi {
   // ADR-0019: yetkililerin "bekleyen onaylar" listesi
   @@index([kontrol_listesi_id, tamamlanma_oneri_durumu])
   @@index([atanan_id])
+  // Sprint 2 / S2-4 — bitiş tarihi yaklaşan/geçen madde sorgularını (cron
+  // bildirim, "yakında dolacak" widget) hızlandırır.
+  @@index([bitis])
+  // Composite: "atandığım, yakında dolacak" sorgusu kullanıcı bazlı.
+  @@index([atanan_id, bitis])
   @@index([arama_vektoru], type: Gin)
   // ADR-0017: pg_trgm fuzzy fallback
   @@index([metin(ops: raw("gin_trgm_ops"))], type: Gin, map: "KontrolMaddesi_metin_trgm_idx")
