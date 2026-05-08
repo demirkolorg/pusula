@@ -31,6 +31,7 @@ import {
   presignedDosyaUpload,
 } from "@/lib/dosya-storage";
 import { canDosya, yetkiZorunluDosya } from "@/lib/dosya-yetki";
+import { kullaniciDosyaBaglantiKapsami } from "@/lib/yetki-erisim";
 import { onizlemeStratejisi } from "@/lib/dosya-onizleme";
 import { canKart, canListe, canProje } from "@/lib/yetki";
 import type {
@@ -379,7 +380,7 @@ export async function dosyalariListele(
   // Kapsam filtresi: makam değilse, kullanıcının erişebildiği bir bağlantısı
   // olan dosyalar VEYA kendi yüklediği orphan dosyalar.
   if (!erisim.makam) {
-    const erisimKosulu = await kullaniciKaynakKapsami(kullaniciId);
+    const erisimKosulu = await kullaniciDosyaBaglantiKapsami(kullaniciId);
     kosullar.push({
       OR: [
         { baglantilar: { some: erisimKosulu } },
@@ -453,54 +454,8 @@ export async function dosyalariListele(
   return { satirlar: veri, sonraki_cursor };
 }
 
-async function kullaniciKaynakKapsami(
-  kullaniciId: string,
-): Promise<Prisma.DosyaBaglantisiWhereInput> {
-  // Kullanıcının erişebildiği proje/liste/kart id'lerini topla; tek where
-  // koşulu olarak döner. Kapsamın dışındaki bağlantılar sızmaz.
-  const erisim = await kullaniciErisimBilgisi(kullaniciId);
-
-  const projeler = await db.proje.findMany({
-    where: {
-      silindi_mi: false,
-      OR: [
-        { yetkililer: { some: { kullanici_id: kullaniciId } } },
-        erisim.birimId
-          ? { birimler: { some: { birim_id: erisim.birimId } } }
-          : { id: { in: [] } },
-        {
-          listeler: {
-            some: {
-              OR: [
-                { yetkililer: { some: { kullanici_id: kullaniciId } } },
-                erisim.birimId
-                  ? { birimler: { some: { birim_id: erisim.birimId } } }
-                  : { id: { in: [] } },
-                {
-                  kartlar: {
-                    some: {
-                      yetkililer: { some: { kullanici_id: kullaniciId } },
-                    },
-                  },
-                },
-              ],
-            },
-          },
-        },
-      ],
-    },
-    select: { id: true },
-  });
-  const projeIdleri = projeler.map((p) => p.id);
-
-  return {
-    OR: [
-      { proje_id: { in: projeIdleri } },
-      { liste_id: { not: null }, proje_id: { in: projeIdleri } },
-      { kart_id: { not: null }, proje_id: { in: projeIdleri } },
-    ],
-  };
-}
+// Sprint 3 / S3-13 — `kullaniciKaynakKapsami` lib/yetki-erisim.ts'e taşındı.
+// Aynı pattern başka servislerde de kullanılabilsin diye merkezde.
 
 // =====================================================================
 // Detay
