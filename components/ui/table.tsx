@@ -65,10 +65,14 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   )
 }
 
-function TableHead({ className, ...props }: React.ComponentProps<"th">) {
+function TableHead({ className, scope, ...props }: React.ComponentProps<"th">) {
   return (
     <th
       data-slot="table-head"
+      // Sprint 4 / S4-6 — Default `scope="col"` sütun başlığı semantic'ı
+      // (screen reader veri ↔ başlık eşlemesi). Üst seviye satır başlıkları
+      // için `scope="row"` override edilebilir.
+      scope={scope ?? "col"}
       className={cn(
         "h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
         className
