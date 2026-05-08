@@ -46,6 +46,17 @@ COPY --chown=socket:socket prisma ./prisma
 COPY --chown=socket:socket auth.ts auth.config.ts ./
 COPY --chown=socket:socket package.json bun.lock tsconfig.json ./
 
+# server-only paketi Next.js webpack/turbopack ile entegre calisir; Bun
+# standalone runtime'da load edildiginde dogrudan throw atar
+# ("This module cannot be imported from a Client Component module").
+# Socket-server lib/db -> "server-only" import zinciri uzerinden patliyor.
+# Burada paketi bos modul haline getirerek runtime side-effect'i nopti'liyoruz.
+# Pusula app icin etkisi yok; o image bu adimi kullanmiyor.
+USER root
+RUN echo 'module.exports = {};' > node_modules/server-only/index.js && \
+    if [ -f node_modules/server-only/empty.js ]; then echo 'module.exports = {};' > node_modules/server-only/empty.js; fi
+USER socket
+
 USER socket
 
 EXPOSE 2501
