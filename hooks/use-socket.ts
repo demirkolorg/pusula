@@ -36,6 +36,11 @@ function socketAl(): Socket {
   _socket = io(SOCKET_URL, {
     withCredentials: true,
     autoConnect: false,
+    // Production'da Traefik üzerinden WebSocket upgrade'i NextAuth cookie
+    // subdomain'e gitmediği için fail oluyor; long-polling tek transport.
+    // Latency farkı pratik olarak yok (~10-20 ms), bandwidth fazlalığı
+    // ihmal edilebilir. WS sonradan cookie domain düzeltmesi ile açılabilir.
+    transports: ["polling"],
     // connectionStateRecovery server-side, client otomatik denemeyi sürdürür
     reconnection: true,
     reconnectionAttempts: Infinity,
