@@ -11,6 +11,7 @@
 // gelir (action wrapper'larda yetkiZorunlu + yetkiZorunluProje birlikte).
 // Yetki aşağı miras kalır (proje→liste→kart), yukarı sadece navigasyon kabuğu.
 
+import { cache } from "react";
 import { db } from "./db";
 import { EylemHatasi } from "./action-wrapper";
 import { HATA_KODU } from "./sonuc";
@@ -41,7 +42,10 @@ type ErisimBilgisi = {
   makam: boolean;
 };
 
-export async function kullaniciErisimBilgisi(
+// Sprint 2 / S2-2 — request-scoped cache. canProje/canListe/canKart
+// neredeyse her API isteğinde çağrılıyor; React `cache()` aynı request
+// içinde tek hesaplama yapar (DB roundtrip 1× kalır).
+async function _kullaniciErisimBilgisi(
   kullaniciId: string,
 ): Promise<ErisimBilgisi> {
   const [kullanici, izinler] = await Promise.all([
@@ -57,6 +61,8 @@ export async function kullaniciErisimBilgisi(
     makam: izinler.has("*"),
   };
 }
+
+export const kullaniciErisimBilgisi = cache(_kullaniciErisimBilgisi);
 
 export async function canProje(
   kullaniciId: string,
