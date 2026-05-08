@@ -5,7 +5,7 @@
 // fonksiyonlarına delege edilir. Yeni Eklenti tablosu yazımı YOK.
 
 import { eylem, EylemHatasi } from "@/lib/action-wrapper";
-import { yetkiZorunlu, IZIN_KODLARI } from "@/lib/permissions";
+import { herhangiBirIzin, yetkiZorunlu, IZIN_KODLARI } from "@/lib/permissions";
 import { yetkiZorunluKart } from "@/lib/yetki";
 import { uploadLimiter } from "@/lib/rate-limit";
 import { HATA_KODU } from "@/lib/sonuc";
@@ -105,7 +105,25 @@ export const eklentiSilEylem = eylem({
   ad: "eklenti:sil",
   girdi: eklentiSilSemasi,
   calistir: async (girdi, ctx) => {
-    await eklentiSilSrv(kullaniciIdAl(ctx), girdi.id);
+    const kullaniciId = kullaniciIdAl(ctx);
+    // Kural V.2 / #146 — defense-in-depth: action katmanında izin kontrolü.
+    // Resource-level yetki service `eklentiSil` → `dosyalar.sil` içinde
+    // `yetkiZorunluDosya(..., "dosya:delete")` ile yapılır; eklenti şeması
+    // `kart_id` taşımadığı için kart-edit kontrolü oraya bırakılır.
+    const yetkili = await herhangiBirIzin(
+      kullaniciId,
+      IZIN_KODLARI.KART_EKLENTI_KENDI_SIL,
+      IZIN_KODLARI.KART_EKLENTI_BASKA_SIL,
+    );
+    if (!yetkili) {
+      throw new EylemHatasi(
+        "Eklenti silme yetkiniz yok.",
+        HATA_KODU.YETKISIZ,
+        undefined,
+        "WARN",
+      );
+    }
+    await eklentiSilSrv(kullaniciId, girdi.id);
     return { id: girdi.id };
   },
 });
