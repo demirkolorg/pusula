@@ -60,6 +60,21 @@ export const davetLimiter = rateLimit({ tokens: 3, window: 60_000 }, "davet");
 export const aramaLimiter = rateLimit({ tokens: 30, window: 60_000 }, "arama");
 export const uploadLimiter = rateLimit({ tokens: 10, window: 60_000 }, "upload");
 export const logHataLimiter = rateLimit({ tokens: 30, window: 60_000 }, "log-hata");
+// Sprint 1 / S1-2 — parola sıfırlama: IP başına sıkı, email başına gevşek.
+export const parolaSifirlaIPLimiter = rateLimit(
+  { tokens: 3, window: 60_000 },
+  "parola-sifirla-ip",
+);
+export const parolaSifirlaEmailLimiter = rateLimit(
+  { tokens: 5, window: 60 * 60_000 },
+  "parola-sifirla-email",
+);
+// Sprint 1 / S1-3 — self-registration limiti: 3/saat/IP (spam ve hesap
+// üretme suistimaline karşı).
+export const kayitLimiter = rateLimit(
+  { tokens: 3, window: 60 * 60_000 },
+  "kayit-ip",
+);
 
 /**
  * Periodic cleanup — eski bucket'ları temizle.
