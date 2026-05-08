@@ -1,0 +1,62 @@
+# Dependencies (build sırasında image içinde install edilecek)
+node_modules
+.pnp
+.pnp.js
+
+# Build artefacts
+.next
+.vercel
+out
+dist
+build
+
+# Test
+coverage
+test-results
+playwright-report
+.nyc_output
+
+# Local env / secrets — image'a sızdırma
+.env
+.env.local
+.env.test
+.env.development
+.env.development.local
+.env.production.local
+
+# IDE / OS
+.vscode
+.idea
+.DS_Store
+*.swp
+
+# Git / CI
+.git
+.github
+.gitignore
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Claude / agent dosyaları
+.claude
+.agents
+CLAUDE.md
+AGENTS.md
+
+# Doküman ve testler (image'a gerek yok)
+docs
+tests
+
+# TypeScript build cache
+tsconfig.tsbuildinfo
+
+# Docker dosyaları (build context'inde kendisini gerektirmez)
+Dockerfile
+Dockerfile.socket
+.dockerignore
+docker-compose.yml
+docker

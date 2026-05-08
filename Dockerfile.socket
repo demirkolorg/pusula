@@ -1,0 +1,50 @@
+# syntax=docker/dockerfile:1.7
+# Pusula Socket.io server Dockerfile — Bun runtime, lib + socket-server kodu
+
+# =============================================================================
+# Stage 1: deps — bağımlılıklar
+# =============================================================================
+FROM oven/bun:1.3 AS deps
+WORKDIR /app
+
+COPY package.json bun.lock ./
+COPY prisma ./prisma
+
+RUN bun install --frozen-lockfile
+
+# =============================================================================
+# Stage 2: builder — Prisma generate (yetki kontrolü için Prisma client lazım)
+# =============================================================================
+FROM oven/bun:1.3 AS builder
+WORKDIR /app
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json bun.lock tsconfig.json ./
+COPY prisma ./prisma
+
+RUN bunx prisma generate
+
+# =============================================================================
+# Stage 3: runner — slim, sadece socket-server runtime
+# =============================================================================
+FROM oven/bun:1.3-slim AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV SOCKET_PORT=2501
+ENV TZ=Europe/Istanbul
+
+RUN groupadd --system --gid 1001 socket && \
+    useradd --system --uid 1001 --gid socket socket
+
+COPY --from=builder --chown=socket:socket /app/node_modules ./node_modules
+COPY --chown=socket:socket socket-server ./socket-server
+COPY --chown=socket:socket lib ./lib
+COPY --chown=socket:socket prisma ./prisma
+COPY --chown=socket:socket package.json bun.lock tsconfig.json ./
+
+USER socket
+
+EXPOSE 2501
+
+CMD ["bun", "socket-server/index.ts"]

@@ -41,6 +41,7 @@ const productionHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   devIndicators: false,
   async headers() {
     const headers =
