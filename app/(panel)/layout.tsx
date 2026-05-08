@@ -109,7 +109,15 @@ export default async function PanelLayout({
             />
           </div>
         </header>
-        <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4">{children}</div>
+        {/* Sprint 4 / S4-1 — Skip-link hedefi: id + tabIndex=-1 ile
+            programmatic focus alabilir. */}
+        <div
+          id="ana-icerik"
+          tabIndex={-1}
+          className="flex flex-1 flex-col gap-4 overflow-y-auto p-4"
+        >
+          {children}
+        </div>
       </SidebarInset>
       <KomutPaleti />
     </SidebarProvider>

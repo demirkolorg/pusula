@@ -31,6 +31,15 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="flex min-h-full flex-col">
+        {/* Sprint 4 / S4-1 — Skip Navigation: klavye kullanıcıları sidebar/
+            header'ı atlayıp doğrudan ana içeriğe gidebilir. Tab basınca
+            görünür, focus dışında sr-only. WCAG 2.1 SC 2.4.1. */}
+        <a
+          href="#ana-icerik"
+          className="bg-background text-foreground sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:border focus:px-3 focus:py-2 focus:shadow-md focus:outline-none focus:ring-2 focus:ring-primary"
+        >
+          Ana içeriğe atla
+        </a>
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
