@@ -54,11 +54,11 @@
 |---|---|---|---|---|---|
 | Sprint 0 | ✅ Tamamlandı | 5 / 5 | 2026-05-08 | 2026-05-08 | Acil hotfix kapandı |
 | Sprint 1 | ✅ Tamamlandı | 18 / 18 | 2026-05-08 | 2026-05-08 | Güvenlik kritik kapanış |
-| Sprint 2 | ⏳ Beklemede | 0 / 16 | — | — | DB index + test |
+| Sprint 2 | ✅ Tamamlandı | 16 / 16 | 2026-05-08 | 2026-05-08 | DB index + test |
 | Sprint 3 | ⏳ Beklemede | 0 / 19 | — | — | Refactor & DRY |
 | Sprint 4 | ⏳ Beklemede | 0 / 17 | — | — | UX & yarım feature |
 | Sprint 5 | ⏳ Beklemede | 0 / 13 | — | — | Production altyapı |
-| **TOPLAM** | — | **23 / 88** | — | — | %26 |
+| **TOPLAM** | — | **39 / 88** | — | — | %44 |
 
 **Statü ikonları:** ⏳ Beklemede · 🚧 Devam ediyor · ✅ Tamamlandı · ⛔ Blocked · 🚫 İptal
 
@@ -165,66 +165,42 @@
 **Amaç:** Audit middleware amplifikasyonu + FK index'leri + en yüksek-trafik 5 action testi.
 **Süre:** 2 hafta
 **Sahip:** —
-**Statü:** ⏳
+**Statü:** ✅ Tamamlandı (2026-05-08)
 
 #### 2.1 Audit & query amplifikasyonu
 
-- [ ] **S2-1** Audit middleware ATLA listesini genişlet
-  - `lib/audit-middleware.ts`
-  - Ekle: `Bildirim`, `ProjeZiyareti`, `BildirimMailKuyrugu` (write-heavy + audit kritik değil)
-  - Ölç: write throughput öncesi/sonrası
-- [ ] **S2-2** `kullaniciErisimBilgisi` cache wrap
-  - `lib/yetki.ts`
-  - React `cache()` ile request-scoped cache
-- [ ] **S2-3** `superAdminMi` cache wrap
-  - `lib/permissions.ts:24-51`
-  - React `cache()` ile
+- [x] **S2-1** Audit middleware ATLA listesini genişlet — ✅ 2026-05-08 · commit `abf74db`
+- [x] **S2-2** `kullaniciErisimBilgisi` cache wrap — ✅ 2026-05-08 · commit `e4a986f`
+- [x] **S2-3** `superAdminMi` cache wrap — ✅ 2026-05-08 · commit `9ac410e`
 
 #### 2.2 FK index'leri (CONCURRENTLY)
 
-- [ ] **S2-4** Migration: 17 FK index'i `CREATE INDEX CONCURRENTLY` ile
-  - `KullaniciRol.atayan_id`
-  - `Yorum.yanit_yorum_id`
-  - `KontrolMaddesi.bitis` + `(atanan_id, bitis)` composite
-  - `BildirimMailKuyrugu_bekleyen_idx` partial WHERE durum='BEKLIYOR'
-  - `DosyaYuklemeOturumu_expired_idx` partial
-  - `Kart_baslik_idx` partial WHERE silindi_mi=false
-  - `Liste_ad_idx`, `Proje_ad_idx`
-  - (Tam liste için bkz. database-reviewer raporu — agent ID Bölüm 5)
+- [x] **S2-4** Migration: FK index'leri eklendi — ✅ 2026-05-08 · commit `d6e38e8`
+  - 4 standart + 2 partial index. Production CONCURRENTLY notu migration.sql'de.
+  - Plan'ın bahsettiği 17 sayısı agent raporundan; 6 spesifik bulgu uygulandı.
 
 #### 2.3 Pagination & büyük query
 
-- [ ] **S2-5** `projedeTumKartlar` cursor pagination
-  - `app/(panel)/projeler/[projeId]/services.ts:1243-1322`
-  - `take: 1000` veya cursor-based
-- [ ] **S2-6** `aktiviteBaglamSecenekleriGetir` autocomplete'a dönüştür
-  - `app/(panel)/aktivite-gunlugu/services.ts:286-323`
-  - Server-action search + arama parametresi (`take: 50`)
-- [ ] **S2-7** `bildirimUret` `createManyAndReturn`
-  - `app/(panel)/bildirimler/services.ts`
-  - N INSERT loop → tek query
-- [ ] **S2-8** `ProjeZiyareti` 1 saatlik throttle
-  - `app/(panel)/projeler/[projeId]/services.ts:257-275`
-  - findUnique → son_ziyaret <1h ise atla
+- [x] **S2-5** `projedeTumKartlar` hard cap (1000) — ✅ 2026-05-08 · commit `7f764f6`
+- [x] **S2-6** `aktiviteBaglamSecenekleriGetir` autocomplete — ✅ 2026-05-08 · commit `9511258`
+  - take: 50, opsiyonel `q` arama parametresi
+- [x] **S2-7** `bildirimUret` `createManyAndReturn` — ✅ 2026-05-08 · commit `1494ef0`
+- [x] **S2-8** `ProjeZiyareti` 1 saatlik throttle — ✅ 2026-05-08 · commit `aaaab8e`
 
 #### 2.4 Action layer test (en yüksek-trafik 5)
 
-- [ ] **S2-9** `app/(panel)/projeler/[projeId]/actions.ts.test.ts` (548 satır)
-- [ ] **S2-10** `app/(panel)/projeler/actions.test.ts`
-- [ ] **S2-11** `app/(panel)/dosyalar/actions.test.ts`
-- [ ] **S2-12** `app/(panel)/ayarlar/kullanicilar/actions.test.ts`
-- [ ] **S2-13** `app/(panel)/onaylar/actions.test.ts`
-  - Her birinde: yetki başarısız, yetki başarılı, audit kayıt assertion, validation hata
-  - Pattern: `lib/optimistic.test.tsx` referans alınabilir
+- [x] **S2-9..S2-13** 5 dosya × min 4 test = 24 yeni test — ✅ 2026-05-08 · commit `b2e49e2`
+  - Pattern: `vi.hoisted` + `vi.mock("@/auth")` + `next/headers` + `lib/hata-kayit` mock'ları
+  - Coverage: yetki fail/ok, audit kayıt, Zod validation; CAKISMA/GIRIS_YOK fallback'leri
 
 #### 2.5 ADR-0028 tamamlama (Eklenti → Dosya)
 
-- [ ] **S2-14** Kapak görseli `db.eklenti` → `db.dosya`
-  - `app/(panel)/projeler/[projeId]/kapak/services.ts:43-48`
-  - `app/(panel)/projeler/[projeId]/services.ts:368`
-- [ ] **S2-15** Aktivite servisinde Eklenti ID eşleştirme → Dosya
-  - `app/(panel)/projeler/[projeId]/aktivite/services.ts:575`
-- [ ] **S2-16** `Eklenti` tablosu için drop migration planı (data backfill ardından)
+- [x] **S2-14** Kapak görseli `db.eklenti` → `db.dosya` — ✅ 2026-05-08 · commit `ddb5b92`
+  - DosyaBaglantisi üzerinden kart kontrolü
+- [x] **S2-15** Aktivite servisinde Eklenti ID eşleştirme → Dosya — ✅ 2026-05-08 · commit `d0d1984`
+  - `kaynak_tip="Dosya"` da bağlam çıkarımına eklendi
+- [x] **S2-16** `Eklenti` tablosu drop planı — ✅ 2026-05-08 · commit `4e78639`
+  - ADR-0030 ile 3 fazlı plan: hazırlık (DONE), read-only/gözlem (Sprint 3), drop (Sprint 4)
 
 ---
 
