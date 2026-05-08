@@ -18,6 +18,28 @@ const eslintConfig = defineConfig([
           destructuredArrayIgnorePattern: "^_",
         },
       ],
+      // Sprint 5 / S5-12 — Pino logger (`lib/logger`) varken `console.*`
+      // structured log'a girmez (request_id, level, JSON shape eksik).
+      // Sadece `console.warn` ve `console.error` istisna — emergency
+      // debug için. Production'da bunlar da Sentry/DataDog'a geçecek.
+      "no-console": ["error", { allow: ["warn", "error"] }],
+    },
+  },
+  {
+    // Logger modülü kendi tanımı içinde Pino köprüsü için console kullanır.
+    // CLI script'leri ve seed çıktısı için console.log gerekli.
+    files: [
+      "lib/logger.ts",
+      "lib/logger.test.ts",
+      "prisma/seed.ts",
+      "prisma/seed/**/*.ts",
+      "prisma/scripts/**/*.ts",
+      "socket-server/**/*.ts",
+      "tests/**/*.ts",
+      "tests/**/*.tsx",
+    ],
+    rules: {
+      "no-console": "off",
     },
   },
   {

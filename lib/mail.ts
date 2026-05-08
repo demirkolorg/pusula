@@ -73,15 +73,18 @@ export async function mailGonder(m: MailGonderim): Promise<void> {
   };
 
   if (PROVIDER === "stub" || !RESEND_KEY) {
-    logger.info(ozet, "[mail-stub] Mail gönderilecekti");
-    if (process.env.NODE_ENV !== "production") {
-      console.log("\n----- MAIL (DEV) -----");
-      console.log("To:", efektifAlici);
-      if (overrideAktif) console.log("(orijinal:", m.alici + ")");
-      console.log("Subject:", efektifKonu);
-      console.log(efektifGovde);
-      console.log("----------------------\n");
-    }
+    // Sprint 5 / S5-12 — Pino logger üzerinden structured log; geliştirici
+    // konsol görmek istiyorsa `LOG_LEVEL=info` ayarı yeterli.
+    logger.info(
+      {
+        ...ozet,
+        alici: efektifAlici,
+        ...(overrideAktif ? { orijinalAlici: m.alici } : {}),
+        konu: efektifKonu,
+        govde: efektifGovde,
+      },
+      "[mail-stub] Mail gönderilecekti (DEV)",
+    );
     return;
   }
 
