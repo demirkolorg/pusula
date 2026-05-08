@@ -13,10 +13,47 @@ const poppins = Poppins({
   display: "swap",
 });
 
+// Sosyal paylaşım (WhatsApp, Twitter, LinkedIn, Slack, Discord vs.) link
+// önizlemesi için OpenGraph + Twitter Card metadata'sı. og:image ve favicon
+// app/opengraph-image.tsx ve app/icon.tsx üzerinden Next.js tarafından
+// otomatik üretilip <head>'e bağlanıyor.
 export const metadata: Metadata = {
+  metadataBase: new URL("https://pusulaportal.com"),
   title: "Pusula — Kaymakamlık Görev Yönetimi",
   description:
     "Trello tarzı kanban + görev takibi, çekirdek audit ve hata logu, mobil-first UI.",
+  applicationName: "Pusula",
+  keywords: [
+    "Pusula",
+    "kaymakamlık",
+    "görev yönetimi",
+    "kanban",
+    "trello",
+    "audit",
+    "hata logu",
+  ],
+  authors: [{ name: "Pusula" }],
+  creator: "Pusula",
+  publisher: "Pusula",
+  openGraph: {
+    type: "website",
+    locale: "tr_TR",
+    url: "/",
+    siteName: "Pusula",
+    title: "Pusula — Kaymakamlık Görev Yönetimi",
+    description:
+      "Trello tarzı kanban + görev takibi, çekirdek audit ve hata logu, mobil-first UI.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Pusula — Kaymakamlık Görev Yönetimi",
+    description:
+      "Trello tarzı kanban + görev takibi, çekirdek audit ve hata logu, mobil-first UI.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({
