@@ -21,26 +21,17 @@ import {
   yorumSil as yorumSilSrv,
 } from "./services";
 
-function birimIdAl(ctx: { oturum: { kullaniciId?: string } | null }): string {
-  const id = ctx.oturum?.kullaniciId;
-  if (!id) {
-    throw new EylemHatasi("Oturum yok.", HATA_KODU.GIRIS_YOK);
-  }
-  return id;
-}
-
-function kullaniciIdAl(ctx: { oturum: { kullaniciId?: string } | null }): string {
-  const id = ctx.oturum?.kullaniciId;
-  if (!id) throw new EylemHatasi("Oturum yok.", HATA_KODU.GIRIS_YOK);
-  return id;
-}
+// Sprint 3 / S3-14 — `birimIdAl` aslında kullaniciId döndürüyordu (yanlış ad).
+// `kullaniciIdAl` ile birleştirildi; service çağrılarında ikinci kez aynı id
+// geçmek yerine tek değişken kullanılır.
+import { kullaniciIdAl } from "@/lib/action-helpers";
 
 export const yorumlariListeleEylem = eylem({
   ad: "yorum:listele",
   girdi: yorumlariListeleSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:read", girdi.kart_id);
-    return kartYorumlariniListele(birimIdAl(ctx), girdi.kart_id);
+    return kartYorumlariniListele(kullaniciIdAl(ctx), girdi.kart_id);
   },
 });
 
@@ -51,7 +42,7 @@ export const yorumOlusturEylem = eylem({
     // Sprint 1 / S1-7 — granüler izin (Kural V.2 / #146).
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_YORUM_YAZ);
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.kart_id);
-    return yorumOlusturSrv(birimIdAl(ctx), kullaniciIdAl(ctx), girdi);
+    return yorumOlusturSrv(kullaniciIdAl(ctx), kullaniciIdAl(ctx), girdi);
   },
 });
 
@@ -66,7 +57,7 @@ export const yorumGuncelleEylem = eylem({
       ctx.oturum?.kullaniciId,
       IZIN_KODLARI.KART_YORUM_KENDI_DUZENLE,
     );
-    await yorumGuncelleSrv(birimIdAl(ctx), kullaniciIdAl(ctx), girdi);
+    await yorumGuncelleSrv(kullaniciIdAl(ctx), kullaniciIdAl(ctx), girdi);
     return { id: girdi.id };
   },
 });
@@ -95,7 +86,7 @@ export const yorumSilEylem = eylem({
         "WARN",
       );
     }
-    await yorumSilSrv(birimIdAl(ctx), kullaniciIdAl(ctx), girdi.id);
+    await yorumSilSrv(kullaniciIdAl(ctx), kullaniciIdAl(ctx), girdi.id);
     return { id: girdi.id };
   },
 });
