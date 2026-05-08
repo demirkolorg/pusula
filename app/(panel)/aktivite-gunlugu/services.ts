@@ -283,27 +283,44 @@ export async function aktiviteKaynakTipleriGetir(
   return tipler.map((t) => t.kaynak_tip);
 }
 
+// Sprint 2 / S2-6 — autocomplete davranışı: hard limit 50 + opsiyonel
+// arama parametresi (q). Eski 300+500+700 satır full-sort her sayfa
+// yüklemesinde tetikleniyordu (K-12). UI tarafı q parametresi vermezse
+// initial yükleme ilk 50 sonucu gösterir; kullanıcı yazdıkça aramaya
+// göre tekrar fetch edilir.
+const SECENEK_LIMITI = 50;
+
 export async function aktiviteBaglamSecenekleriGetir(
   kullaniciId: string,
+  q?: string,
 ): Promise<AktiviteBaglamSecenekleri> {
   const baglam = await kapsamBaglamiHazirla(kullaniciId);
   const { projeWhere, listeWhere, kartWhere } = secenekWhereOlustur(baglam);
 
+  const arama = q?.trim();
+  const aramaProje = arama
+    ? { ad: { contains: arama, mode: "insensitive" as const } }
+    : {};
+  const aramaListe = aramaProje;
+  const aramaKart = arama
+    ? { baslik: { contains: arama, mode: "insensitive" as const } }
+    : {};
+
   const [projeler, listeler, kartlar] = await Promise.all([
     db.proje.findMany({
-      where: projeWhere,
+      where: { ...projeWhere, ...aramaProje },
       orderBy: { ad: "asc" },
       select: { id: true, ad: true },
-      take: 300,
+      take: SECENEK_LIMITI,
     }),
     db.liste.findMany({
-      where: listeWhere,
+      where: { ...listeWhere, ...aramaListe },
       orderBy: { ad: "asc" },
       select: { id: true, ad: true, proje_id: true },
-      take: 500,
+      take: SECENEK_LIMITI,
     }),
     db.kart.findMany({
-      where: kartWhere,
+      where: { ...kartWhere, ...aramaKart },
       orderBy: { baslik: "asc" },
       select: {
         id: true,
@@ -311,7 +328,7 @@ export async function aktiviteBaglamSecenekleriGetir(
         liste_id: true,
         liste: { select: { proje_id: true } },
       },
-      take: 700,
+      take: SECENEK_LIMITI,
     }),
   ]);
 
