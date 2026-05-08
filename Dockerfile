@@ -79,6 +79,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 # image'ı ~300-500 MB büyütür ama tek kaynaklı hata yüzeyini sıfırlar.
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+# lib/ klasörü Next standalone'a bundle edilmiş ama dosya olarak yok.
+# prisma/seed.ts gibi maintenance script'leri lib'den import ettiği için
+# runner'a da kopyalıyoruz. Birkaç MB ekstra, runtime davranışı etkilenmez.
+COPY --from=builder --chown=nextjs:nodejs /app/lib ./lib
 
 # Entrypoint script (Windows CRLF güvenliği için sed)
 COPY --chown=nextjs:nodejs scripts/entrypoint.sh ./entrypoint.sh
