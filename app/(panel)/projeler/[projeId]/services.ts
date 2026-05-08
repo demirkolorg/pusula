@@ -252,13 +252,32 @@ async function kartiBulVeProjeAl(
 // Ziyaret kaydı — ana sayfa "son ziyaret edilen" widget'ı için
 // ============================================================
 
-// Proje detay sayfasına her girişte upsert; başarısızlık sayfayı bozmaz.
-// Audit middleware bu modeli ATLA listesinde tutar (lib/audit-middleware.ts).
+// Sprint 2 / S2-8 — kullanıcı sayfayı her açışta upsert tetikleniyordu;
+// kart navigasyonu sayfayı tekrar yükler → her tıklama 1× yazma. 1 saatlik
+// throttle: son ziyaret <1 saat ise upsert atlanır. findUnique okuması
+// tek index hit, write'tan çok daha ucuz.
+const ZIYARET_THROTTLE_MS = 60 * 60 * 1000;
+
 export async function projeyiZiyaretEt(
   kullaniciId: string,
   projeId: string,
 ): Promise<void> {
   try {
+    const mevcut = await db.projeZiyareti.findUnique({
+      where: {
+        kullanici_id_proje_id: {
+          kullanici_id: kullaniciId,
+          proje_id: projeId,
+        },
+      },
+      select: { son_ziyaret: true },
+    });
+    if (
+      mevcut &&
+      Date.now() - mevcut.son_ziyaret.getTime() < ZIYARET_THROTTLE_MS
+    ) {
+      return;
+    }
     await db.projeZiyareti.upsert({
       where: {
         kullanici_id_proje_id: {
