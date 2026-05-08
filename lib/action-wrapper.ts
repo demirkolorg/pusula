@@ -106,7 +106,13 @@ export function eylem<S extends z.ZodTypeAny | undefined, T>(
             url: cfg.ad,
             ekstra: { kod: err.kod, alanlar: err.alanlar },
           });
-          return hata(err.message, err.kod, err.alanlar);
+          // Sprint 1 / S1-15 — DB/internal sızıntı pattern'leri jenerik
+          // mesaja düşürülür. Orijinal mesaj log'da tam kalır.
+          return hata(
+            eylemHatasiniGuvenliMesajaCevir(err.message),
+            err.kod,
+            err.alanlar,
+          );
         }
 
         await hataKaydet({
@@ -133,4 +139,33 @@ export class EylemHatasi extends Error {
     super(mesaj);
     this.name = "EylemHatasi";
   }
+}
+
+// Sprint 1 / S1-15 — Prisma / DB / runtime internals sızıntı pattern'leri.
+// Service katmanı yanlışlıkla `throw new EylemHatasi(prismaErr.message, ...)`
+// yaparsa kullanıcı schema/sütun/constraint adlarını görmez. Orijinal mesaj
+// `hataKaydet` ile log'da tam tutulur.
+const HASSAS_PATTERN_LISTE: ReadonlyArray<RegExp> = [
+  /\bP\d{4}\b/, // Prisma error code (P2002, P2025, vb.)
+  /^prisma:/i,
+  /\.prisma/i,
+  /constraint.*violation/i,
+  /foreign key constraint/i,
+  /unique constraint/i,
+  /column .* does not exist/i,
+  /relation .* does not exist/i,
+  /database url/i,
+  /at \w[\w.]*\s*\(.+:\d+:\d+\)/, // node stack frame
+];
+
+function eylemHatasiniGuvenliMesajaCevir(mesaj: string): string {
+  if (mesaj.length > 500) {
+    return "İşlem tamamlanamadı. Tekrar deneyin.";
+  }
+  for (const re of HASSAS_PATTERN_LISTE) {
+    if (re.test(mesaj)) {
+      return "İşlem tamamlanamadı. Tekrar deneyin.";
+    }
+  }
+  return mesaj;
 }
