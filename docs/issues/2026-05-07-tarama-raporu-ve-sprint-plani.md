@@ -57,8 +57,8 @@
 | Sprint 2 | ✅ Tamamlandı | 16 / 16 | 2026-05-08 | 2026-05-08 | DB index + test |
 | Sprint 3 | ✅ Tamamlandı | 19 / 19 | 2026-05-08 | 2026-05-08 | S3-1..S3-6 plan-level (ADR-0032), uygulama Sprint 4'te |
 | Sprint 4 | ✅ Tamamlandı | 17 / 17 | 2026-05-08 | 2026-05-08 | UX & yarım feature |
-| Sprint 5 | ⏳ Beklemede | 0 / 13 | — | — | Production altyapı |
-| **TOPLAM** | — | **75 / 88** | — | — | %85 |
+| Sprint 5 | ✅ Tamamlandı (kısmi) | 6 / 13 | 2026-05-08 | 2026-05-08 | 7 madde defer (ADR-0034) |
+| **TOPLAM** | — | **81 / 88** | — | — | %92 |
 
 **Statü ikonları:** ⏳ Beklemede · 🚧 Devam ediyor · ✅ Tamamlandı · ⛔ Blocked · 🚫 İptal
 
@@ -279,48 +279,40 @@
 **Amaç:** Production'da scale ve observability — Redis rate-limiter, monitoring, partitioning, E2E.
 **Süre:** 2 hafta
 **Sahip:** —
-**Statü:** ⏳
+**Statü:** ✅ Tamamlandı (kısmi) — 2026-05-08
+
+> **6 madde implement; 7 madde defer** (ADR-0034) — external altyapı /
+> production deploy / E2E test scope'u nedeniyle Sprint 6+ takibinde.
 
 #### 5.1 Rate limiter & multi-pod
 
-- [ ] **S5-1** Redis tabanlı rate limiter
-  - `lib/rate-limit.ts` Redis impl (`@upstash/ratelimit` veya `ioredis` + Lua)
-  - Tüm limiter'ları geçir: `loginLimiter`, `davetLimiter`, `logHataLimiter`, vb.
+- [ ] **S5-1** Redis tabanlı rate limiter — 🚫 defer (ADR-0034)
 
 #### 5.2 Veritabanı
 
-- [ ] **S5-2** `aktivite_logu` partitioning + retention
-  - PARTITION BY RANGE (ay/çeyrek)
-  - 90 günden eski cron retention
-- [ ] **S5-3** `aciklama_dokuman` JSONB validation
-  - Zod TiptapDokumanSchema veya CHECK constraint
-- [ ] **S5-4** Schema CHECK constraint'leri
-  - `Kullanici.tc_kimlik_no` (regex 11 hane)
-  - `Etiket.renk` (hex format)
-  - `Birim.logo_url` (URL format)
-  - String alanlar `@db.VarChar(N)` veya CHECK length
-- [ ] **S5-5** `Eklenti.boyut` ve `Dosya.boyut` `Int` → `BigInt` (>2GB destek)
-- [ ] **S5-6** Connection pool config (`DATABASE_URL` parametre)
-  - `connection_limit=10&pool_timeout=20&connect_timeout=10`
-- [ ] **S5-7** Slow query alarm
-  - `lib/db.ts` `emit: "event"` mode + 500ms threshold
-  - `client.$on("query", ...)` → logger.warn
+- [ ] **S5-2** `aktivite_logu` partitioning + retention — 🚫 defer (ADR-0034)
+- [x] **S5-3** `aciklama_dokuman` JSONB validation — ✅ 2026-05-08 · zaten var (`tiptapDokumanSemasi` `lib/tiptap/schema.ts` Zod superRefine; `kart.guncelle` action schema'sında kullanılıyor)
+- [x] **S5-4** Schema CHECK constraint'leri — ✅ 2026-05-08 · commit `5e4d7a4`
+  - 8 constraint: tc_kimlik_no regex, Etiket.renk hex, Birim.logo_url URL, char_length cap'leri (Kullanici/Proje/Liste/Kart/Etiket)
+- [ ] **S5-5** `Eklenti.boyut` ve `Dosya.boyut` `Int` → `BigInt` — 🚫 defer (ADR-0034) — MVP 100MB limit, future-proofing
+- [x] **S5-6** Connection pool config — ✅ 2026-05-08 · commit `567dec9`
+  - `docs/deploy/sunucu-kurulum.md` production örneği güncel; `?connection_limit=10&pool_timeout=20&connect_timeout=10`
+- [ ] **S5-7** Slow query alarm — 🚫 defer (ADR-0034) — S5-10 ile birlikte gelir
 
 #### 5.3 Test ve observability
 
-- [ ] **S5-8** Playwright E2E (5 kritik akış)
-  - Login, kart CRUD/move, yorum, davet kabul, dosya upload
-- [ ] **S5-9** `@axe-core/playwright` CI WCAG 2.2 AA
-- [ ] **S5-10** Sentry / DataDog entegrasyonu
-  - `lib/hata-kayit.ts` external sink
-  - Slow query log shipping
+- [ ] **S5-8** Playwright E2E (5 kritik akış) — 🚫 defer (ADR-0034)
+- [ ] **S5-9** `@axe-core/playwright` CI WCAG 2.2 AA — 🚫 defer (ADR-0034)
+- [ ] **S5-10** Sentry / DataDog entegrasyonu — 🚫 defer (ADR-0034)
 
 #### 5.4 Hijyen & secret prevention
 
-- [ ] **S5-11** Pre-commit hook (`git-secrets` veya `trufflehog`)
-- [ ] **S5-12** ESLint rule: `no-console: ["error", { allow: ["warn", "error"] }]`
-  - `lib/logger.ts` hariç
-- [ ] **S5-13** `lib/db.ts` üstüne `import "server-only"`
+- [x] **S5-11** Pre-commit hook + secret tarayıcı — ✅ 2026-05-08 · commit `9a11896`
+  - `simple-git-hooks` paketi + `scripts/check-secrets.mjs` (8 pattern)
+  - Production'da gitleaks/trufflehog ile değiştirilmesi önerilir
+- [x] **S5-12** ESLint `no-console` rule — ✅ 2026-05-08 · commit `0eedf4a`
+  - error level; warn/error istisna; lib/logger + seed + scripts + socket-server + tests override
+- [x] **S5-13** `lib/db.ts` üstüne `import "server-only"` — ✅ 2026-05-08 · commit `58e241e`
 
 ---
 
