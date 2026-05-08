@@ -53,6 +53,23 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // Same-origin socket.io proxy: tarayıcı `pusulaportal.com/socket.io/*`
+  // adresine istek atar; Next.js bunu içeride socket-server container'ına
+  // forward eder. Cookie aynı origin'de olduğu için NextAuth oturumu
+  // doğrulanır — subdomain (socket.pusulaportal.com) için ayrı cookie
+  // domain ayarlamaya gerek kalmaz.
+  // SOCKET_INTERNAL_URL Dokploy'da `http://pusula-socket-vrpbmy:2501`
+  // olarak set edilir; yoksa lokal geliştirme için `http://localhost:2501`.
+  async rewrites() {
+    const socketTarget =
+      process.env.SOCKET_INTERNAL_URL ?? "http://localhost:2501";
+    return [
+      {
+        source: "/socket.io/:path*",
+        destination: `${socketTarget}/socket.io/:path*`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

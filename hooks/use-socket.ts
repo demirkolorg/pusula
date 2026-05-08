@@ -9,8 +9,12 @@ import { useOturumKullanicisi } from "@/hooks/use-oturum";
 // Kural 56-57: optimistic + reconnection. Echo filtresi (Kural 114) hook
 // içinde uygulanır.
 
+// Production'da SOCKET_URL boş → socket.io-client current origin'i kullanır
+// (`pusulaportal.com`); Next.js rewrite isteği socket-server'a forward eder.
+// Dev'de `.env.local` ile `NEXT_PUBLIC_SOCKET_URL=http://localhost:2501`
+// set edilir (Pusula app + socket ayrı portlarda çalışır).
 const SOCKET_URL =
-  process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:2501";
+  (process.env.NEXT_PUBLIC_SOCKET_URL || "").trim() || undefined;
 
 let _socket: Socket | null = null;
 let _socketRef = 0;
@@ -33,20 +37,21 @@ function kendiMi(requestId: string | null | undefined): boolean {
 
 function socketAl(): Socket {
   if (_socket) return _socket;
-  _socket = io(SOCKET_URL, {
+  const opts = {
     withCredentials: true,
     autoConnect: false,
-    // Production'da Traefik üzerinden WebSocket upgrade'i NextAuth cookie
-    // subdomain'e gitmediği için fail oluyor; long-polling tek transport.
-    // Latency farkı pratik olarak yok (~10-20 ms), bandwidth fazlalığı
-    // ihmal edilebilir. WS sonradan cookie domain düzeltmesi ile açılabilir.
+    // Production'da long-polling tek transport: Next.js rewrite ile
+    // same-origin proxy üzerinden çalışır; WebSocket upgrade rewrite
+    // tarafından desteklenmediği için pas geçilir. Latency farkı
+    // pratik olarak yok (~10-20 ms).
     transports: ["polling"],
     // connectionStateRecovery server-side, client otomatik denemeyi sürdürür
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
-  });
+  };
+  _socket = SOCKET_URL ? io(SOCKET_URL, opts) : io(opts);
   return _socket;
 }
 
