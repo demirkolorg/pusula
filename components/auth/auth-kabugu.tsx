@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Compass } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { AuthMarkaPanel } from "./auth-marka-panel";
 
 export type AuthKabuguProps = {
@@ -59,9 +60,12 @@ export function AuthKabugu({
             </span>
             <span>Pusula</span>
           </Link>
-          <span className="text-muted-foreground text-xs">
-            Kaymakamlık Görev Yönetimi
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-muted-foreground hidden text-xs sm:inline">
+              Kaymakamlık Görev Yönetimi
+            </span>
+            <ThemeToggle />
+          </div>
         </header>
 
         <main
