@@ -2,26 +2,38 @@ import type { NextAuthConfig } from "next-auth";
 
 const guvenli = process.env.NODE_ENV === "production";
 
+// AUTH_COOKIE_DOMAIN set edilirse cookie subdomain'lere de gönderilir
+// (örn ".pusulaportal.com" → socket.pusulaportal.com'da auth çalışır).
+// __Host- prefix'li cookie'ler domain attribute alamaz (RFC), o yüzden
+// csrfToken bu varyantı kullanmaz.
+const cookieDomain = process.env.AUTH_COOKIE_DOMAIN || undefined;
+
 // Kontrol Kural 69 + ADR-0004: SameSite=Strict cookie zorunlu.
 // `lax`'tan `strict`'e geçiş: cross-site link tıklamalarında oturum cookie'si
 // gönderilmez → CSRF saldırı yüzeyi büyük ölçüde kapatıldı.
 // Kullanıcı dış siteden link ile geldiğinde tekrar giriş gerekmez (NextAuth
 // callbackUrl pattern'i bunu zaten handle eder).
-const cookieOpts = {
+const cookieOptsBase = {
   httpOnly: true,
   sameSite: "strict" as const,
   path: "/",
   secure: guvenli,
 };
+const cookieOpts = cookieDomain
+  ? { ...cookieOptsBase, domain: cookieDomain }
+  : cookieOptsBase;
 
 // callbackUrl için lax: kullanıcının başka siteden tıklayıp dönüşünde
 // callbackUrl'yi kaybetmesin (UX gereği).
-const callbackCookieOpts = {
+const callbackCookieOptsBase = {
   httpOnly: true,
   sameSite: "lax" as const,
   path: "/",
   secure: guvenli,
 };
+const callbackCookieOpts = cookieDomain
+  ? { ...callbackCookieOptsBase, domain: cookieDomain }
+  : callbackCookieOptsBase;
 
 export const authConfig = {
   pages: {
@@ -38,8 +50,10 @@ export const authConfig = {
       options: callbackCookieOpts,
     },
     csrfToken: {
+      // __Host- prefix'i domain attribute'a izin vermez; cookieOptsBase
+      // (domain'siz) kullan ki cookie geçerli kalsın.
       name: `${guvenli ? "__Host-" : ""}pusula-csrf-token`,
-      options: cookieOpts,
+      options: cookieOptsBase,
     },
     pkceCodeVerifier: {
       name: `${guvenli ? "__Secure-" : ""}pusula-pkce`,
