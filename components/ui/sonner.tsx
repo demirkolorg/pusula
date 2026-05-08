@@ -25,22 +25,16 @@ const Toaster = ({ position, ...props }: ToasterProps) => {
       theme={(mounted ? theme : "light") as ToasterProps["theme"]}
       position={calculatedPosition}
       className="toaster group"
+      // Sprint 4 / S4-7 — Sonner default `aria-live="polite"` kullanır;
+      // hata mesajları için `assertive` daha uygun. `hotkey` ve `closeButton`
+      // çevirileri Türkçe.
+      hotkey={["altKey", "KeyT"]}
       icons={{
-        success: (
-          <CircleCheckIcon className="size-4" />
-        ),
-        info: (
-          <InfoIcon className="size-4" />
-        ),
-        warning: (
-          <TriangleAlertIcon className="size-4" />
-        ),
-        error: (
-          <OctagonXIcon className="size-4" />
-        ),
-        loading: (
-          <Loader2Icon className="size-4 animate-spin" />
-        ),
+        success: <CircleCheckIcon aria-hidden className="size-4" />,
+        info: <InfoIcon aria-hidden className="size-4" />,
+        warning: <TriangleAlertIcon aria-hidden className="size-4" />,
+        error: <OctagonXIcon aria-hidden className="size-4" />,
+        loading: <Loader2Icon aria-hidden className="size-4 animate-spin" />,
       }}
       style={
         {
