@@ -3,6 +3,7 @@
 import * as React from "react";
 import { DownloadIcon, FileIcon, ImageIcon, ImagePlusIcon, Loader2Icon, PaperclipIcon, Trash2Icon, UploadIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { boyutBicim } from "@/lib/dosya-bicim";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 import { yuklemeBaslatEylem, yuklemeOnaylaEylem } from "../actions";
@@ -257,11 +258,7 @@ function DosyaIkon({ mime }: { mime: string }) {
   return <FileIcon className="text-muted-foreground size-4" />;
 }
 
-function boyutBicim(byte: number): string {
-  if (byte < 1024) return `${byte} B`;
-  if (byte < 1024 * 1024) return `${Math.round(byte / 1024)} KB`;
-  return `${(byte / (1024 * 1024)).toFixed(1)} MB`;
-}
+// Sprint 3 / S3-10 — `boyutBicim` lib/dosya-bicim.ts'e taşındı.
 
 // Sidebar'dan açılabilir kompakt buton (Trello pattern: tek tıkla file picker)
 export function EklentiSidebarButonu({ kartId }: { kartId: string }) {

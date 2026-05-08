@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { boyutBicim } from "@/lib/dosya-bicim";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -285,8 +286,4 @@ function mimeRengi(mime: string): {
   return { icon: FileIcon, bg: "bg-muted", fg: "text-muted-foreground" };
 }
 
-function boyutBicim(byte: number): string {
-  if (byte < 1024) return `${byte} B`;
-  if (byte < 1024 * 1024) return `${Math.round(byte / 1024)} KB`;
-  return `${(byte / (1024 * 1024)).toFixed(1)} MB`;
-}
+// Sprint 3 / S3-10 — `boyutBicim` lib/dosya-bicim.ts'e taşındı.

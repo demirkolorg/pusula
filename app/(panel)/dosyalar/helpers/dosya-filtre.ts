@@ -185,13 +185,6 @@ export function filtreyiTemizle(): DosyaListeFiltre {
   return { ...VARSAYILAN_FILTRE };
 }
 
-/**
- * Boyutu insan-okur formata çevirir (UI'da satır metaverisi).
- */
-export function boyutBicim(byte: number): string {
-  if (byte < 1024) return `${byte} B`;
-  if (byte < 1024 * 1024) return `${Math.round(byte / 1024)} KB`;
-  if (byte < 1024 * 1024 * 1024)
-    return `${(byte / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(byte / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-}
+// Sprint 3 / S3-10 — `boyutBicim` lib/dosya-bicim.ts'e taşındı.
+// Re-export geçişlik için: çağrı tarafları aynı yolu kullanmaya devam eder.
+export { boyutBicim } from "@/lib/dosya-bicim";
