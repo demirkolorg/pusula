@@ -8,7 +8,7 @@
 import { useEffect } from "react";
 import { AlertTriangle, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { hataKaydet } from "@/lib/hata-kayit";
+import { hataKaydet } from "@/lib/hata-kayit-client";
 
 export default function AyarlarHatasi({
   error,

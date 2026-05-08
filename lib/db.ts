@@ -52,8 +52,31 @@ declare global {
   var __prisma: Db | undefined;
 }
 
-export const db: Db = globalThis.__prisma ?? olustur();
-
-if (process.env.NODE_ENV !== "production") {
-  globalThis.__prisma = db;
+// Lazy init — Next 16 / Turbopack build-time modül grafik evaluation'ında
+// PrismaClient instantiate edilmesin diye Proxy. Gerçek instance ilk property
+// erişiminde oluşturulur, build sırasında fake tracing yapılırken yan etki
+// üretmez. Runtime davranışı tek-instance singleton olarak aynıdır.
+let _gercekDb: Db | undefined;
+function dbAl(): Db {
+  if (_gercekDb) return _gercekDb;
+  _gercekDb = globalThis.__prisma ?? olustur();
+  if (process.env.NODE_ENV !== "production") {
+    globalThis.__prisma = _gercekDb;
+  }
+  return _gercekDb;
 }
+
+export const db: Db = new Proxy({} as Db, {
+  get(_t, prop, receiver) {
+    return Reflect.get(dbAl() as object, prop, receiver);
+  },
+  has(_t, prop) {
+    return Reflect.has(dbAl() as object, prop);
+  },
+  ownKeys() {
+    return Reflect.ownKeys(dbAl() as object);
+  },
+  getOwnPropertyDescriptor(_t, prop) {
+    return Reflect.getOwnPropertyDescriptor(dbAl() as object, prop);
+  },
+}) as Db;

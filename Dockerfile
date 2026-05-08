@@ -30,7 +30,7 @@ ENV NODE_ENV=production
 # Build-time placeholder env'ler — Next.js prerender sırasında PrismaClient
 # init veya diğer side-effect import'ların fail etmemesi için. Runtime'da
 # Dokploy gerçek değerleri ile override eder.
-ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder?schema=public"
+ENV DATABASE_URL="postgres://placeholder:placeholder@localhost:5432/placeholder?schema=public"
 ENV AUTH_SECRET="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 ENV AUTH_URL="http://localhost:2500"
 ENV AUTH_TRUST_HOST="true"
@@ -44,6 +44,7 @@ ENV MAIL_PROVIDER="resend"
 ENV MAIL_FROM="Pusula <onboarding@resend.dev>"
 ENV RESEND_API_KEY="re_placeholder"
 ENV NEXT_PUBLIC_BASE_URL="http://localhost:2500"
+ENV SOCKET_INTERNAL_TOKEN="placeholder-build-time-only"
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
