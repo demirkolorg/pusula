@@ -1,3 +1,8 @@
+// Sprint 5 / S5-13 — `server-only` paketi yanlışlıkla client bundle'ına
+// import edilirse build hatası fırlatır. Prisma client + audit extension
+// + DB credentials hiçbir şekilde tarayıcıya sızmamalı.
+import "server-only";
+
 import { PrismaClient } from "@prisma/client";
 import { auditExtension } from "./audit-middleware";
 
