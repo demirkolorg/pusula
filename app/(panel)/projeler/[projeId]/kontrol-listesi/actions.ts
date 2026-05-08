@@ -75,11 +75,28 @@ export const kontrolListesiOlusturEylem = eylem({
   },
 });
 
+async function kontrolListesininKartId(listeId: string): Promise<string> {
+  const l = await db.kontrolListesi.findUnique({
+    where: { id: listeId },
+    select: { kart_id: true },
+  });
+  if (!l) {
+    throw new EylemHatasi(
+      "Kontrol listesi bulunamadı.",
+      HATA_KODU.BULUNAMADI,
+    );
+  }
+  return l.kart_id;
+}
+
 export const kontrolListesiGuncelleEylem = eylem({
   ad: "kontrol-listesi:guncelle",
   girdi: kontrolListesiGuncelleSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
+    // Sprint 1 / S1-9 — resource-level RBAC (Kural V.2 / #146).
+    const kartId = await kontrolListesininKartId(girdi.id);
+    await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", kartId);
     await kontrolListesiGuncelleSrv(birimIdAl(ctx), girdi);
     return { id: girdi.id };
   },
@@ -90,6 +107,9 @@ export const kontrolListesiSilEylem = eylem({
   girdi: kontrolListesiSilSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
+    // Sprint 1 / S1-9 — resource-level RBAC (Kural V.2 / #146).
+    const kartId = await kontrolListesininKartId(girdi.id);
+    await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", kartId);
     await kontrolListesiSilSrv(birimIdAl(ctx), girdi.id);
     return { id: girdi.id };
   },
@@ -162,6 +182,9 @@ export const maddeSilEylem = eylem({
   girdi: maddeSilSemasi,
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
+    // Sprint 1 / S1-9 — resource-level RBAC (Kural V.2 / #146).
+    const kartId = await maddeninParentKartId(girdi.id);
+    await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", kartId);
     await maddeSilSrv(birimIdAl(ctx), girdi.id);
     return { id: girdi.id };
   },
