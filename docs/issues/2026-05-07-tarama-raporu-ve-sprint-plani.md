@@ -55,7 +55,7 @@
 | Sprint 0 | ✅ Tamamlandı | 5 / 5 | 2026-05-08 | 2026-05-08 | Acil hotfix kapandı |
 | Sprint 1 | ✅ Tamamlandı | 18 / 18 | 2026-05-08 | 2026-05-08 | Güvenlik kritik kapanış |
 | Sprint 2 | ✅ Tamamlandı | 16 / 16 | 2026-05-08 | 2026-05-08 | DB index + test |
-| Sprint 3 | ✅ Tamamlandı | 19 / 19 | 2026-05-08 | 2026-05-08 | S3-1..S3-6 plan-level (ADR-0032), uygulama Sprint 4'te |
+| Sprint 3 | ✅ Tamamlandı | 19 / 19 | 2026-05-08 | 2026-05-08 | S3-1..S3-6 mega dosya bölme uygulama dahil tamam (ADR-0032) |
 | Sprint 4 | ✅ Tamamlandı | 17 / 17 | 2026-05-08 | 2026-05-08 | UX & yarım feature |
 | Sprint 5 | ✅ Tamamlandı (kısmi) | 7 / 13 | 2026-05-08 | 2026-05-08 | 6 madde defer (ADR-0034) |
 | **TOPLAM** | — | **82 / 88** | — | — | %93 |
@@ -213,9 +213,17 @@
 
 #### 3.1 Mega dosya bölme
 
-> **S3-1..S3-6 plan-level tamam** — ADR-0032 (commit `59a4fc5`) bölme metodolojisini ve atomik commit sırasını dökümante eder. Uygulama Sprint 4 başında dedicated 7.5h scope.
+> **S3-1..S3-6 uygulama tamam (2026-05-08)** — ADR-0032 (commit `59a4fc5`) bölme metodolojisini dökümante etti, ardından dedicated session'da 6 mega dosya barrel pattern ile parçalara ayrıldı. Çağıran kod (~115 dosya) hiç değişmedi; type-check + 100+ birim test geçti.
 
-- [x] **S3-1..S3-6** ADR-0032 mega dosya bölme planı — ✅ 2026-05-08 · commit `59a4fc5`
+- [x] **S3-1..S3-6** ADR-0032 mega dosya bölme — ✅ 2026-05-08 · commit `59a4fc5` (plan)
+  - **Uygulama dedicated session — barrel + parça dosyalar:**
+    - [x] **S3-5** permissions-katalog 1214 → 7 parça + barrel · commit `15e3497`
+    - [x] **S3-4** bildirimler/tetikleyiciler 1082 → 8 parça + barrel · commit `38fe232`
+    - [x] **S3-3** dosyalar/services 985 → 5 parça + barrel · commit `578ce4f`
+    - [x] **S3-2** projeler/[projeId]/services 1350 → 4 parça + barrel · commit `abe5783`
+    - [x] **S3-1** aktivite/services 1756 → 6 parça + barrel · commit `967c43b`
+    - [x] **S3-6** kanban-pano 814 → 392 + use-kanban-dnd hook 548 (UI/orkestrasyon/pure-logic 3 katman) · commit `1ca8729`
+      - Bonus: dosya seviyesi `eslint-disable react-hooks/set-state-in-effect` kaldırıldı (`mounted` → `useSyncExternalStore`, `acikKartId` → URL canonical kaynak)
 
 #### 3.2 Yeni ortak helper'lar
 
