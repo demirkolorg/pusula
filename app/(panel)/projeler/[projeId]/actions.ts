@@ -125,7 +125,9 @@ export const listeGuncelleEylem = eylem({
   ad: "liste:guncelle",
   girdi: listeGuncelleSemasi,
   calistir: async (girdi, ctx) => {
-    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.LISTE_DUZENLE);
+    // Sprint 1 / S1-11 — granüler izin kodu (Kural V.2 / #146).
+    // Liste güncelleme şu an sadece ad değiştirme; ayrı izin koduna sahip.
+    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.LISTE_AD_DUZENLE);
     await yetkiZorunluListe(ctx.oturum?.kullaniciId, "liste:edit", girdi.id);
     await listeGuncelle(kullaniciIdAl(ctx), girdi);
     return { id: girdi.id };
@@ -153,7 +155,9 @@ export const listeSiralaEylem = eylem({
   ad: "liste:sirala",
   girdi: listeSiraSemasi,
   calistir: async (girdi, ctx) => {
-    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.LISTE_DUZENLE);
+    // Sprint 1 / S1-11 — granüler izin kodu (Kural V.2 / #146).
+    // Sıralama liste düzenlemekten ayrı bir aksiyon.
+    await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.LISTE_SIRALA);
     await yetkiZorunluListe(ctx.oturum?.kullaniciId, "liste:edit", girdi.id);
     return listeyeSiraVer(kullaniciIdAl(ctx), girdi);
   },
