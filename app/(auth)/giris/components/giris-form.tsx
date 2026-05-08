@@ -1,11 +1,13 @@
 "use client";
 
 import { useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,7 +52,11 @@ export function GirisForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit(gonder)} className="flex flex-col gap-4" noValidate>
+    <form
+      onSubmit={handleSubmit(gonder)}
+      className="flex flex-col gap-4"
+      noValidate
+    >
       <div className="flex flex-col gap-2">
         <Label htmlFor="email">E-posta</Label>
         <Input
@@ -71,7 +77,15 @@ export function GirisForm() {
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="parola">Parola</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="parola">Parola</Label>
+          <Link
+            href="/parola-sifirla"
+            className="text-muted-foreground hover:text-foreground text-xs underline-offset-4 hover:underline"
+          >
+            Unuttum
+          </Link>
+        </div>
         <Input
           id="parola"
           type="password"
@@ -87,7 +101,7 @@ export function GirisForm() {
         )}
       </div>
 
-      <Button type="submit" className="mt-2 h-11" disabled={yukleniyor}>
+      <Button type="submit" className="mt-2 h-11 w-full" disabled={yukleniyor}>
         {yukleniyor ? (
           <>
             <Loader2 className="size-4 animate-spin" />

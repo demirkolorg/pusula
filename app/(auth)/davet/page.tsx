@@ -6,14 +6,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
+
+import { AuthKabugu } from "@/components/auth/auth-kabugu";
 import { DavetKabulForm } from "./components/kabul-form";
 import { davetTokeniSorgula } from "./actions";
 
@@ -64,35 +59,39 @@ export default function DavetSayfasi() {
   }, []);
 
   return (
-    <div className="bg-muted/40 flex min-h-svh items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Davete Hoş Geldiniz</CardTitle>
-          <CardDescription>{aciklama(durum)}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {durum.tip === "yukleniyor" && (
-            <div className="text-muted-foreground flex items-center justify-center gap-2 py-6">
-              <Loader2 className="size-4 animate-spin" />
-              <span>Davet kontrol ediliyor…</span>
-            </div>
-          )}
-          {durum.tip === "gecerli" && (
-            <DavetKabulForm token={durum.token} email={durum.email} />
-          )}
-          {(durum.tip === "gecersiz" || durum.tip === "token-yok") && (
-            <div className="text-center text-sm">
-              <Link
-                href="/giris"
-                className="text-primary underline underline-offset-4"
-              >
-                Giriş sayfasına dön
-              </Link>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+    <AuthKabugu
+      formMaxGenislik="md"
+      baslik="Davete hoş geldiniz"
+      aciklama={aciklama(durum)}
+      altIcerik={
+        <Link
+          href="/giris"
+          className="text-foreground font-medium underline-offset-4 hover:underline"
+        >
+          Giriş sayfasına dön
+        </Link>
+      }
+    >
+      {durum.tip === "yukleniyor" && (
+        <div className="text-muted-foreground flex items-center justify-center gap-2 py-6">
+          <Loader2 className="size-4 animate-spin" />
+          <span>Davet kontrol ediliyor…</span>
+        </div>
+      )}
+      {durum.tip === "gecerli" && (
+        <DavetKabulForm token={durum.token} email={durum.email} />
+      )}
+      {(durum.tip === "gecersiz" || durum.tip === "token-yok") && (
+        <div className="text-center text-sm">
+          <Link
+            href="/giris"
+            className="text-primary underline underline-offset-4"
+          >
+            Giriş sayfasına dön
+          </Link>
+        </div>
+      )}
+    </AuthKabugu>
   );
 }
 

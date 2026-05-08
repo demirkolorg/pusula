@@ -6,14 +6,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
+
+import { AuthKabugu } from "@/components/auth/auth-kabugu";
 import { YeniParolaForm } from "../components/yeni-parola-form";
 import { sifirlamaTokeniSorgula } from "../actions";
 
@@ -64,33 +59,36 @@ export default function YeniParolaSayfasi() {
   }, []);
 
   return (
-    <div className="bg-muted/40 flex min-h-svh items-center justify-center p-4">
-      <Card className="w-full max-w-sm shadow-lg">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Yeni Parola Belirle</CardTitle>
-          <CardDescription>{aciklama(durum)}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {durum.tip === "yukleniyor" && (
-            <div className="text-muted-foreground flex items-center justify-center gap-2 py-6">
-              <Loader2 className="size-4 animate-spin" />
-              <span>Bağlantı doğrulanıyor…</span>
-            </div>
-          )}
-          {durum.tip === "gecerli" && <YeniParolaForm token={durum.token} />}
-          {(durum.tip === "gecersiz" || durum.tip === "token-yok") && (
-            <div className="text-center text-sm">
-              <Link
-                href="/parola-sifirla"
-                className="text-primary underline underline-offset-4"
-              >
-                Yeni bağlantı isteyin
-              </Link>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+    <AuthKabugu
+      baslik="Yeni parola belirle"
+      aciklama={aciklama(durum)}
+      altIcerik={
+        <Link
+          href="/giris"
+          className="text-foreground font-medium underline-offset-4 hover:underline"
+        >
+          Giriş sayfasına dön
+        </Link>
+      }
+    >
+      {durum.tip === "yukleniyor" && (
+        <div className="text-muted-foreground flex items-center justify-center gap-2 py-6">
+          <Loader2 className="size-4 animate-spin" />
+          <span>Bağlantı doğrulanıyor…</span>
+        </div>
+      )}
+      {durum.tip === "gecerli" && <YeniParolaForm token={durum.token} />}
+      {(durum.tip === "gecersiz" || durum.tip === "token-yok") && (
+        <div className="text-center text-sm">
+          <Link
+            href="/parola-sifirla"
+            className="text-primary underline underline-offset-4"
+          >
+            Yeni bağlantı isteyin
+          </Link>
+        </div>
+      )}
+    </AuthKabugu>
   );
 }
 

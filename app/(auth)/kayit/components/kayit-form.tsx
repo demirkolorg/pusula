@@ -231,7 +231,11 @@ export function KayitForm() {
         )}
       </div>
 
-      <Button type="submit" className="mt-2" disabled={kayitMut.isPending}>
+      <Button
+        type="submit"
+        className="mt-2 h-11 w-full"
+        disabled={kayitMut.isPending}
+      >
         {kayitMut.isPending ? (
           <>
             <Loader2 className="size-4 animate-spin" /> Gönderiliyor
@@ -240,10 +244,6 @@ export function KayitForm() {
           "Kayıt Ol"
         )}
       </Button>
-
-      <p className="text-muted-foreground mt-2 text-xs">
-        Kaydınız onaylandıktan sonra giriş yapabilirsiniz.
-      </p>
     </form>
   );
 }
