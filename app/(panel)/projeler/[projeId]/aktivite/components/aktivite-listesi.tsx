@@ -568,11 +568,13 @@ export function AktiviteDetayIcerik({
                 </div>
               </div>
               <ul className="flex flex-col gap-3">
-                {aktivite.degisiklikler.map((d, i) => {
+                {aktivite.degisiklikler.map((d) => {
                   const diff = aktiviteDiff(d.eski ?? "", d.yeni ?? "");
                   return (
                     <li
-                      key={i}
+                      // Sprint 3 / S3-19 — index yerine aktivite + alan
+                      // birleşimi (her aktivite için alan adı benzersiz).
+                      key={`${aktivite.id}:${d.alan}`}
                       className="border-border/70 rounded-lg border p-3"
                     >
                       <p className="text-foreground mb-2 text-[12.5px] font-semibold">
@@ -679,7 +681,11 @@ function DiyalogDeger({
           <span className="text-muted-foreground/60 italic">— (boş)</span>
         ) : (
           segmentler.map((s, i) => (
-            <DiffParcasi key={i} segment={s} tip={tip} />
+            // Sprint 3 / S3-19 — segment metni stable; aynı tip + sıra
+            // içinde aynı segment (eklenen/silinen) tekrar etmesi olası
+            // değil, ama yine de tip + i'yi key'e dahil edip duplicate
+            // güvencesi sağlanır.
+            <DiffParcasi key={`${tip}:${i}:${s.tip}`} segment={s} tip={tip} />
           ))
         )}
       </div>

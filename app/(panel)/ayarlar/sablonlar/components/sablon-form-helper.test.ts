@@ -15,14 +15,18 @@ const C: SablonListeTaslagi = { ad: "C", wip_limit: null };
 describe("listeEkle", () => {
   it("boş liste sona yeni boş eleman ekler", () => {
     const sonuc = listeEkle([]);
-    expect(sonuc).toEqual([{ ad: "", wip_limit: null }]);
+    expect(sonuc).toHaveLength(1);
+    expect(sonuc[0]).toMatchObject({ ad: "", wip_limit: null });
+    // Sprint 3 / S3-19 — _tempId stable React key için eklenir.
+    expect(sonuc[0]?._tempId).toMatch(/^liste-taslak-/);
   });
 
   it("dolu listenin sonuna ekler", () => {
     const sonuc = listeEkle([A]);
     expect(sonuc).toHaveLength(2);
     expect(sonuc[0]).toEqual(A);
-    expect(sonuc[1]).toEqual({ ad: "", wip_limit: null });
+    expect(sonuc[1]).toMatchObject({ ad: "", wip_limit: null });
+    expect(sonuc[1]?._tempId).toMatch(/^liste-taslak-/);
   });
 
   it("orijinali değiştirmez", () => {

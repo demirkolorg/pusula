@@ -63,7 +63,9 @@ export function SablonListeYonetici({ listeler, onChange, hatalar }: Props) {
             const hata = hatalar?.[index];
             return (
               <li
-                key={index}
+                // Sprint 3 / S3-19 — _tempId stable key (listeEkle ile
+                // dinamik üretilir); fallback: ad+index kombosu.
+                key={liste._tempId ?? `${liste.ad}:${index}`}
                 className="bg-muted/30 grid gap-1.5 rounded-lg border p-2"
               >
                 <div className="flex items-start gap-1.5">

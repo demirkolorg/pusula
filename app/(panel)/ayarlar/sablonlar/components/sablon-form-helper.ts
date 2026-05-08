@@ -5,12 +5,21 @@
 export type SablonListeTaslagi = {
   ad: string;
   wip_limit: number | null;
+  // Sprint 3 / S3-19 — React render'larında stable key için lokal id.
+  // UI tarafı sadece key olarak kullanır; persist edilmez (opsiyonel field).
+  _tempId?: string;
 };
+
+let _sayac = 0;
+function tempId(): string {
+  _sayac += 1;
+  return `liste-taslak-${_sayac}-${Math.random().toString(36).slice(2, 8)}`;
+}
 
 export function listeEkle(
   listeler: readonly SablonListeTaslagi[],
 ): SablonListeTaslagi[] {
-  return [...listeler, { ad: "", wip_limit: null }];
+  return [...listeler, { ad: "", wip_limit: null, _tempId: tempId() }];
 }
 
 export function listeSil(
