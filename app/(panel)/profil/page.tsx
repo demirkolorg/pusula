@@ -1,19 +1,25 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { aktifKullaniciId } from "@/lib/oturum";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import {
   BIRIM_KATEGORI_LABEL,
   BIRIM_TIP_LABEL,
   birimGorunenAd,
 } from "@/lib/constants/birim";
+import { tarihTam } from "@/lib/tarih-format";
+import { ProfilForm } from "./components/profil-form";
+import { ParolaDegistirForm } from "./components/parola-degistir-form";
+
+export const metadata = { title: "Profilim — Pusula" };
 
 export default async function ProfilPage() {
-  const oturum = await auth();
-  if (!oturum?.user) redirect("/giris");
-
-  const kullaniciId = (oturum.user as { id?: string }).id;
+  // Sprint 4 / S4-16 — Profil yönetimi: salt-okur kart + düzenleme +
+  // parola değiştirme. Audit log Kural 42 ile otomatik (Kullanici update
+  // middleware tarafından yakalanır).
+  const kullaniciId = await aktifKullaniciId();
   if (!kullaniciId) redirect("/giris");
 
   const kullanici = await db.kullanici.findUnique({
@@ -33,12 +39,6 @@ export default async function ProfilPage() {
 
   if (!kullanici) redirect("/giris");
 
-  const tarihFormat = new Intl.DateTimeFormat("tr-TR", {
-    dateStyle: "long",
-    timeStyle: "short",
-    timeZone: "Europe/Istanbul",
-  });
-
   const birimAdi = kullanici.birim
     ? birimGorunenAd({ ad: kullanici.birim.ad, tip: kullanici.birim.tip })
     : "Makam";
@@ -48,28 +48,19 @@ export default async function ProfilPage() {
       <div>
         <h1 className="text-2xl font-semibold">Profilim</h1>
         <p className="text-muted-foreground text-sm">
-          Hesap bilgilerinizi görüntüleyin.
+          Hesap bilgilerinizi görüntüleyin ve düzenleyin.
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Sol kolon — Salt okur bilgi (e-posta, birim, roller, hesap zamanları) */}
         <Card>
           <CardHeader>
-            <CardTitle>Kişisel Bilgiler</CardTitle>
+            <CardTitle>Hesap Bilgileri</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 text-sm">
-            <Alan baslik="Ad Soyad" deger={`${kullanici.ad} ${kullanici.soyad}`} />
             <Alan baslik="E-posta" deger={kullanici.email} />
-            <Alan baslik="Unvan" deger={kullanici.unvan ?? "—"} />
-            <Alan baslik="Telefon" deger={kullanici.telefon ?? "—"} />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Birim ve Roller</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3 text-sm">
+            <Separator />
             <div className="flex flex-col gap-1">
               <span className="text-muted-foreground text-xs">Birim</span>
               <span className="font-medium">{birimAdi}</span>
@@ -88,6 +79,7 @@ export default async function ProfilPage() {
                 )}
               </div>
             </div>
+            <Separator />
             <div className="flex flex-col gap-1">
               <span className="text-muted-foreground text-xs">Roller</span>
               <div className="flex flex-wrap gap-1">
@@ -102,25 +94,45 @@ export default async function ProfilPage() {
                 )}
               </div>
             </div>
+            <Separator />
             <Alan
               baslik="Hesap oluşturuldu"
-              deger={tarihFormat.format(kullanici.olusturma_zamani)}
+              deger={tarihTam(kullanici.olusturma_zamani)}
             />
             <Alan
               baslik="Son giriş"
-              deger={
-                kullanici.son_giris_zamani
-                  ? tarihFormat.format(kullanici.son_giris_zamani)
-                  : "—"
-              }
+              deger={tarihTam(kullanici.son_giris_zamani)}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Sağ kolon — Profil düzenleme */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Kişisel Bilgileri Düzenle</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ProfilForm
+              baslangic={{
+                ad: kullanici.ad,
+                soyad: kullanici.soyad,
+                unvan: kullanici.unvan,
+                telefon: kullanici.telefon,
+              }}
             />
           </CardContent>
         </Card>
       </div>
 
-      <p className="text-muted-foreground text-xs">
-        Profil düzenleme ve parola değiştirme özellikleri sonraki sürümde gelecek.
-      </p>
+      {/* Parola değiştirme — alt blok, ayrı vurgulu kart */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Parolayı Değiştir</CardTitle>
+        </CardHeader>
+        <CardContent className="max-w-md">
+          <ParolaDegistirForm />
+        </CardContent>
+      </Card>
     </div>
   );
 }
