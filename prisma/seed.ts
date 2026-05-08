@@ -438,6 +438,25 @@ async function projeleriYukle(ctx: SeedCtx): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  // Sprint 1 / S1-18 — production safeguard.
+  // Seed `temizle()` ile tüm tabloları boşaltıp baştan dolduruyor; production
+  // veritabanına yanlışlıkla çalıştırılırsa katastrofik. NODE_ENV production
+  // veya DATABASE_URL localhost dışında bir host gösteriyorsa açıkça onay
+  // (`PUSULA_SEED_PROD_OK=evet`) gerekir.
+  const url = process.env.DATABASE_URL ?? "";
+  const localhostMu = /@(?:localhost|127\.0\.0\.1|::1)[:/]/.test(url);
+  const productionMu = process.env.NODE_ENV === "production";
+  const onaylandi = process.env.PUSULA_SEED_PROD_OK === "evet";
+  if ((productionMu || !localhostMu) && !onaylandi) {
+    console.error(
+      "[seed] Production veya localhost dışı DB tespit edildi. Devam etmek " +
+        "için PUSULA_SEED_PROD_OK=evet ortam değişkeni gereklidir.\n" +
+        `  NODE_ENV=${process.env.NODE_ENV ?? "(yok)"}\n` +
+        `  DATABASE_URL host=${url.replace(/^.*@/, "").split("/")[0] ?? "(parse edilemedi)"}`,
+    );
+    process.exit(2);
+  }
+
   console.log("Seed başlıyor: mevcut veri temizlenecek.");
   await temizle();
   const roller = await rolVeIzinleriYukle();
