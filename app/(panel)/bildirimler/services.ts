@@ -299,12 +299,14 @@ export async function bildirimUret(
     meta: (girdi.meta as object) ?? undefined,
   }));
 
-  // createManyAndReturn yerine $transaction içinde tek tek (id'leri lazım)
-  const sonuclar = await db.$transaction(
-    data.map((d) =>
-      db.bildirim.create({ data: d, select: { id: true, alici_id: true } }),
-    ),
-  );
+  // Sprint 2 / S2-7 — N INSERT loop yerine tek `createManyAndReturn`.
+  // Eski yorumda "id'ler lazım" denmişti ama Prisma 5+ bulk insert + return
+  // destekliyor. Bildirim audit ATLA listesinde (S2-1), bulk insert audit
+  // amplifikasyonu üretmez.
+  const sonuclar = await db.bildirim.createManyAndReturn({
+    data,
+    select: { id: true, alici_id: true },
+  });
   const map = sonuclar.map((s) => ({
     id: s.id.toString(),
     alici_id: s.alici_id,
