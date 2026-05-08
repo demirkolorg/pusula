@@ -254,3 +254,31 @@ html {
 ::-webkit-scrollbar-corner {
   background: transparent;
 }
+/* ===========================================================
+   Sprint 4 / S4-2 — `prefers-reduced-motion` desteği.
+   Animasyon hassasiyeti olan kullanıcılar için tüm animasyon ve
+   transition süreleri ihmal edilebilir bir değere düşürülür.
+   WCAG 2.3.3 Animation from Interactions (AAA).
+   =========================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ===========================================================
+   Sprint 4 / S4-11 — :focus-visible scroll-margin-top.
+   Sticky header (h-14 ≈ 56px + p-4 boşluk) focus alan elementi
+   kapatıyordu; klavye navigasyonu sırasında element header
+   altına gizleniyordu. `scroll-margin-top` browser'a "scroll-into-view
+   sırasında bu offset kadar boşluk bırak" der.
+   WCAG 2.4.11 Focus Not Obscured (AA).
+   =========================================================== */
+:focus-visible {
+  scroll-margin-top: 5rem;
+}
