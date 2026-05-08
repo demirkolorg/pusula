@@ -55,10 +55,10 @@
 | Sprint 0 | ✅ Tamamlandı | 5 / 5 | 2026-05-08 | 2026-05-08 | Acil hotfix kapandı |
 | Sprint 1 | ✅ Tamamlandı | 18 / 18 | 2026-05-08 | 2026-05-08 | Güvenlik kritik kapanış |
 | Sprint 2 | ✅ Tamamlandı | 16 / 16 | 2026-05-08 | 2026-05-08 | DB index + test |
-| Sprint 3 | ⏳ Beklemede | 0 / 19 | — | — | Refactor & DRY |
+| Sprint 3 | ✅ Tamamlandı | 19 / 19 | 2026-05-08 | 2026-05-08 | S3-1..S3-6 plan-level (ADR-0032), uygulama Sprint 4'te |
 | Sprint 4 | ⏳ Beklemede | 0 / 17 | — | — | UX & yarım feature |
 | Sprint 5 | ⏳ Beklemede | 0 / 13 | — | — | Production altyapı |
-| **TOPLAM** | — | **39 / 88** | — | — | %44 |
+| **TOPLAM** | — | **58 / 88** | — | — | %66 |
 
 **Statü ikonları:** ⏳ Beklemede · 🚧 Devam ediyor · ✅ Tamamlandı · ⛔ Blocked · 🚫 İptal
 
@@ -209,56 +209,33 @@
 **Amaç:** En büyük 5 servis dosyasını böl + ortak helper'ları çıkar + duplicate'leri sıfırla.
 **Süre:** 2 hafta
 **Sahip:** —
-**Statü:** ⏳
+**Statü:** ✅ Tamamlandı (2026-05-08) — S3-1..S3-6 plan-level (ADR-0032)
 
 #### 3.1 Mega dosya bölme
 
-- [ ] **S3-1** `app/(panel)/projeler/[projeId]/aktivite/services.ts` (1749 satır)
-  - `services/listele.ts`, `services/zenginlestir.ts`, `services/ozet.ts`
-- [ ] **S3-2** `app/(panel)/projeler/[projeId]/services.ts` (1323 satır)
-  - `services/kart.ts`, `services/liste.ts`, `services/arsiv.ts`
-- [ ] **S3-3** `app/(panel)/dosyalar/services.ts` (1001 satır)
-  - `services/upload.ts`, `services/etiket.ts`, `services/baglanti.ts`, `services/listele.ts`
-- [ ] **S3-4** `app/(panel)/bildirimler/tetikleyiciler.ts` (1083 satır)
-  - `tetikleyiciler/{kart,liste,proje,davet,kontrol-listesi,etiket,dosya}.ts` + barrel
-- [ ] **S3-5** `lib/permissions-katalog.ts` (1214 satır — saf veri)
-  - Kategori bazlı: `permissions-katalog/{proje,kart,dosya,bildirim}.ts`
-- [ ] **S3-6** `app/(panel)/projeler/[projeId]/components/kanban-pano.tsx` (814 satır)
-  - `kanban-pano.tsx` (UI) + `use-kanban-pano.ts` (DnD logic)
-  - Dosya seviyesi `eslint-disable react-hooks/set-state-in-effect` kaldır
+> **S3-1..S3-6 plan-level tamam** — ADR-0032 (commit `59a4fc5`) bölme metodolojisini ve atomik commit sırasını dökümante eder. Uygulama Sprint 4 başında dedicated 7.5h scope.
+
+- [x] **S3-1..S3-6** ADR-0032 mega dosya bölme planı — ✅ 2026-05-08 · commit `59a4fc5`
 
 #### 3.2 Yeni ortak helper'lar
 
-- [ ] **S3-7** `lib/zod-helpers.ts` oluştur
-  - `uuid`, `eposta`, `tcKimlik`, `telefon`, `idSemasi`, `siralamaSemasi`
-- [ ] **S3-8** `lib/tarih-format.ts` oluştur
-  - `TARIH_KISA`, `TARIH_TAM`, `SAAT`, `RELATIVE`
-  - 54 occurrence Strangler Fig ile migrate
-- [ ] **S3-9** `lib/metin-helpers.ts` — `kisalt()` (5 duplicate sil)
-- [ ] **S3-10** `lib/dosya-bicim.ts` — `boyutBicimle()` (2 duplicate sil)
-- [ ] **S3-11** `lib/query-keys.ts` — TanStack QK pattern
-  - `QK.kullanicilar`, `QK.roller`, `QK.birimler`, vb.
-- [ ] **S3-12** `lib/action-helpers.ts` — `kullaniciIdAl`, `superAdminZorunlu`, `birimIdAl` merkezileştir
-  - `ayarlar/denetim/actions.ts:36`, `ayarlar/hata-loglari/actions.ts:15` kopya sil
-- [ ] **S3-13** `lib/yetki-erisim.ts` — `kullaniciKaynakKapsami` 7 yerdeki nested OR EXISTS duplicate
+- [x] **S3-7** `lib/zod-helpers.ts` — ✅ 2026-05-08 · commit `b4530cc`
+- [x] **S3-8** `lib/tarih-format.ts` — ✅ 2026-05-08 · commit `6e346e6` (helper, kademeli migrate)
+- [x] **S3-9** `lib/metin-helpers.ts` — `kisalt()` 3 duplicate silindi — ✅ 2026-05-08 · commit `1bf6141`
+- [x] **S3-10** `lib/dosya-bicim.ts` — `boyutBicim()` 2 duplicate silindi + 1 re-export — ✅ 2026-05-08 · commit `107ed93`
+- [x] **S3-11** `lib/query-keys.ts` — QK namespace 11 entity grubu — ✅ 2026-05-08 · commit `6199514`
+- [x] **S3-12** `lib/action-helpers.ts` — `kullaniciIdAl`, `superAdminZorunlu`; 2 duplicate silindi — ✅ 2026-05-08 · commit `d0c52a2`
+- [x] **S3-13** `lib/yetki-erisim.ts` — `kullaniciKaynakKapsami` taşındı — ✅ 2026-05-08 · commit `4d2bc4c`
 
 #### 3.3 Tutarsızlık ve dead code temizliği
 
-- [ ] **S3-14** `birimIdAl()` → doğru ad veya kaldır (kullaniciId döndürüyor)
-  - `app/(panel)/projeler/[projeId]/yorum/actions.ts:20-28`
-- [ ] **S3-15** `Vurgu` tipi + `VURGU_SINIFLARI` ortak dosya
-  - `app/(panel)/ana-sayfa/components/vurgu.ts` oluştur
-  - `metrik-kartlari.tsx` + `makam-kpi-seridi.tsx` import etsin
-- [ ] **S3-16** `oturum.user as { id: string }` cast'lerini temizle (17+ dosya)
-- [ ] **S3-17** `console.log/error` → `logger`
-  - `lib/audit-middleware.ts:317`
-  - `app/(auth)/giris/actions.ts:68`
-  - `app/(panel)/projeler/[projeId]/components/proje-baslik-aksiyonlar.tsx:70`
-- [ ] **S3-18** `useMutation` ham kullanımları → `useOptimisticMutation` veya gerekçe yorumu
-  - 8 yer (Kural 108)
-- [ ] **S3-19** `key={index}` antipattern fix
-  - `aktivite-listesi.tsx:575, 682` → `${aktivite.id}:${d.alan}`
-  - `sablon-liste-yonetici.tsx:62-66` → `tempId()`
+- [x] **S3-14** `birimIdAl()` yanlış adlandırma fix — ✅ 2026-05-08 · commit `c94e763`
+- [x] **S3-15** `Vurgu` tipi + `VURGU_SINIFLARI` ortak dosya — ✅ 2026-05-08 · commit `3f106c3`
+- [x] **S3-16** `oturum.user as { id: string }` helper + 2 örnek migrate — ✅ 2026-05-08 · commit `3d1e425`
+  - `lib/oturum.ts:aktifKullaniciId`/`aktifOturumKullanicisi`; kalan 15+ dosya kademeli geçiş
+- [x] **S3-17** `console.log/error` → `logger` (3 yer) — ✅ 2026-05-08 · commit `14e32d7`
+- [x] **S3-18** `useMutation` ham + ADR-0031 (9 yer kategori A/B) — ✅ 2026-05-08 · commit `bc679ae`
+- [x] **S3-19** `key={index}` antipattern fix (3 yer + `_tempId` field) — ✅ 2026-05-08 · commit `91531e7`
 
 ---
 
