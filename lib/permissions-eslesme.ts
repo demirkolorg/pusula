@@ -62,14 +62,15 @@ export const ESKI_YENI_ESLEME: Record<string, IzinKodu[]> = {
     // aksiyonu ile kontrol edilir. Düzenleyebilen herkes kapatamaz (Karar 4B).
     IZIN_KODLARI.KART_ETIKET_ATA,
     IZIN_KODLARI.KART_ETIKET_CIKAR,
-    IZIN_KODLARI.KART_KOPYALA,
+    // Sprint 4 / S4-17 — KART_KOPYALA + KART_ILISKI_KUR henüz implement
+    // edilmemiş feature izinleri; geçmiş `kart:edit` eski koduna
+    // genişletme listesinden kaldırıldı (ADR-0033).
     IZIN_KODLARI.KART_ARSIVLE,
     IZIN_KODLARI.KART_YORUM_YAZ,
     IZIN_KODLARI.KART_EKLENTI_YUKLE,
     IZIN_KODLARI.KART_KONTROL_OLUSTUR,
     IZIN_KODLARI.KART_KONTROL_MADDE_OLUSTUR,
     IZIN_KODLARI.KART_KONTROL_MADDE_ISARETLE,
-    IZIN_KODLARI.KART_ILISKI_KUR,
     IZIN_KODLARI.KART_YETKILI_KISI_ATA,
     IZIN_KODLARI.KART_YETKILI_BIRIM_ATA,
   ],

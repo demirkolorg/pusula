@@ -1128,9 +1128,14 @@ const PERSONEL_KART: IzinKodu[] = [
   IZIN_KODLARI.KART_KONTROL_MADDE_ISARETLE,
 ];
 
+// Sprint 4 / S4-17 — Dead izinler (KART_KOPYALA, KART_ILISKI_KUR,
+// KART_ILISKI_KALDIR) varsayılan rol izin listelerinden kaldırıldı.
+// Karar: katalog'da TANIM olarak kalır (gelecek feature implement
+// edilirken yeniden eklenir); seed/varsayılan atamadan çıkarıldı —
+// kullanıcılar var olmayan eylemler için izinli görünmesin.
+// Detay: ADR-0033.
 const BIRIM_AMIRI_KART: IzinKodu[] = [
   ...PERSONEL_KART,
-  IZIN_KODLARI.KART_KOPYALA,
   IZIN_KODLARI.KART_ARSIVLE,
   IZIN_KODLARI.KART_SIL,
   IZIN_KODLARI.KART_GERI_YUKLE,
@@ -1146,8 +1151,6 @@ const BIRIM_AMIRI_KART: IzinKodu[] = [
   IZIN_KODLARI.KART_KONTROL_MADDE_OLUSTUR,
   IZIN_KODLARI.KART_KONTROL_MADDE_DUZENLE,
   IZIN_KODLARI.KART_KONTROL_MADDE_SIL,
-  IZIN_KODLARI.KART_ILISKI_KUR,
-  IZIN_KODLARI.KART_ILISKI_KALDIR,
   IZIN_KODLARI.KART_YETKILI_LISTELE,
   IZIN_KODLARI.KART_YETKILI_KISI_ATA,
   IZIN_KODLARI.KART_YETKILI_KISI_CIKAR,
