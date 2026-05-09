@@ -13,6 +13,79 @@ async function listeBaglami(
   });
 }
 
+// Listenin tüm kullanıcılarını topla — liste yetkilileri + proje yetkilileri.
+// Yeni liste oluşturma / güncelleme bildirimleri için.
+async function listeAliciIdleri(
+  listeId: string,
+  haricId: string | null,
+): Promise<{
+  aliciIdler: string[];
+  ad: string;
+  projeId: string;
+} | null> {
+  const liste = await db.liste.findUnique({
+    where: { id: listeId },
+    select: {
+      ad: true,
+      proje_id: true,
+      yetkililer: { select: { kullanici_id: true } },
+      proje: {
+        select: {
+          yetkililer: { select: { kullanici_id: true } },
+        },
+      },
+    },
+  });
+  if (!liste) return null;
+  const idler = new Set<string>();
+  for (const y of liste.yetkililer) idler.add(y.kullanici_id);
+  for (const y of liste.proje.yetkililer) idler.add(y.kullanici_id);
+  if (haricId) idler.delete(haricId);
+  return {
+    aliciIdler: Array.from(idler),
+    ad: liste.ad,
+    projeId: liste.proje_id,
+  };
+}
+
+export async function tetikleListeOlusturuldu(opt: {
+  listeId: string;
+  olusturanId: string;
+}): Promise<void> {
+  const ctx = await listeAliciIdleri(opt.listeId, opt.olusturanId);
+  if (!ctx || ctx.aliciIdler.length === 0) return;
+  const adi = await adSoyad(opt.olusturanId);
+  await bildirimUret({
+    alici_idler: ctx.aliciIdler,
+    ureten_id: opt.olusturanId,
+    tip: "LISTE_OLUSTURULDU",
+    baslik: `${adi} yeni bir liste oluşturdu`,
+    ozet: ctx.ad,
+    proje_id: ctx.projeId,
+    kaynak_tip: "Liste",
+    kaynak_id: opt.listeId,
+  });
+}
+
+export async function tetikleListeGuncellendi(opt: {
+  listeId: string;
+  degistirenId: string;
+}): Promise<void> {
+  const ctx = await listeAliciIdleri(opt.listeId, opt.degistirenId);
+  if (!ctx || ctx.aliciIdler.length === 0) return;
+  const adi = await adSoyad(opt.degistirenId);
+  await bildirimUret({
+    alici_idler: ctx.aliciIdler,
+    ureten_id: opt.degistirenId,
+    tip: "LISTE_GUNCELLENDI",
+    baslik: `${adi} bir liste bilgilerini güncelledi`,
+    ozet: ctx.ad,
+    proje_id: ctx.projeId,
+    kaynak_tip: "Liste",
+    kaynak_id: opt.listeId,
+  });
+}
+
 export async function tetikleListeUyeEklendi(opt: {
   listeId: string;
   eklenenId: string;

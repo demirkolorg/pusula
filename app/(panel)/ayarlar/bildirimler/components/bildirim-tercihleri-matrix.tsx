@@ -4,6 +4,7 @@ import * as React from "react";
 import { Loader2Icon } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   useBildirimTercihGuncelle,
@@ -40,24 +41,136 @@ export function BildirimTercihleriMatrix() {
     );
   }
 
+  // Global toplu işlem — tüm tipleri tek seferde aç/kapat. tercih kaydı
+  // yoksa default açık olduğundan, kapatmak için her tipi ayrı kaydetmek
+  // gerek (tek Promise.all batch).
+  const tumTipler = React.useMemo<BildirimTipi[]>(
+    () => TERCIH_GRUPLARI.flatMap((g) => [...g.tipler]),
+    [],
+  );
+
+  const tumKanaliAyarla = (
+    kanal: "in_app_acik" | "email_acik",
+    deger: boolean,
+  ) => {
+    for (const tip of tumTipler) {
+      guncelle.mutate({ tip, [kanal]: deger });
+    }
+  };
+
+  const grupKanaliAyarla = (
+    tipler: ReadonlyArray<BildirimTipi>,
+    kanal: "in_app_acik" | "email_acik",
+    deger: boolean,
+  ) => {
+    for (const tip of tipler) {
+      guncelle.mutate({ tip, [kanal]: deger });
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6">
+      <section className="rounded-lg border bg-muted/40 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold">Tüm bildirimler</h2>
+            <p className="text-xs text-muted-foreground">
+              Toplu işlem — tüm tipleri tek seferde aç veya kapat.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => tumKanaliAyarla("in_app_acik", true)}
+            >
+              Tüm bildirimleri aç
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => tumKanaliAyarla("in_app_acik", false)}
+            >
+              Tüm bildirimleri kapat
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => tumKanaliAyarla("email_acik", true)}
+            >
+              Tüm e-postaları aç
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => tumKanaliAyarla("email_acik", false)}
+            >
+              Tüm e-postaları kapat
+            </Button>
+          </div>
+        </div>
+      </section>
+
       {TERCIH_GRUPLARI.map((grup) => (
         <section
           key={grup.baslik}
           className="rounded-lg border bg-card"
           aria-labelledby={`grup-${grup.baslik}`}
         >
-          <header className="border-b px-4 py-3">
-            <h2
-              id={`grup-${grup.baslik}`}
-              className="text-base font-semibold"
-            >
-              {grup.baslik}
-            </h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {grup.aciklama}
-            </p>
+          <header className="flex flex-wrap items-start justify-between gap-3 border-b px-4 py-3">
+            <div className="min-w-0">
+              <h2
+                id={`grup-${grup.baslik}`}
+                className="text-base font-semibold"
+              >
+                {grup.baslik}
+              </h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {grup.aciklama}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs"
+                onClick={() =>
+                  grupKanaliAyarla(grup.tipler, "in_app_acik", true)
+                }
+              >
+                Bildirim aç
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs"
+                onClick={() =>
+                  grupKanaliAyarla(grup.tipler, "in_app_acik", false)
+                }
+              >
+                Bildirim kapat
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs"
+                onClick={() =>
+                  grupKanaliAyarla(grup.tipler, "email_acik", true)
+                }
+              >
+                E-posta aç
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs"
+                onClick={() =>
+                  grupKanaliAyarla(grup.tipler, "email_acik", false)
+                }
+              >
+                E-posta kapat
+              </Button>
+            </div>
           </header>
           <ul className="divide-y">
             {grup.tipler.map((tip) => {

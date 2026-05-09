@@ -1,6 +1,7 @@
 "use server";
 
 import { eylem, EylemHatasi } from "@/lib/action-wrapper";
+import { bildirimGuvenliCagir } from "@/lib/bildirim-guvenli";
 import {
   herhangiBirIzin,
   yetkiZorunlu,
@@ -8,6 +9,11 @@ import {
 } from "@/lib/permissions";
 import { yetkiZorunluKart } from "@/lib/yetki";
 import { HATA_KODU } from "@/lib/sonuc";
+import { db } from "@/lib/db";
+import {
+  tetikleYorumGuncellendi,
+  tetikleYorumSilindi,
+} from "@/app/(panel)/bildirimler/tetikleyiciler";
 import {
   yorumGuncelleSemasi,
   yorumlariListeleSemasi,
@@ -57,7 +63,25 @@ export const yorumGuncelleEylem = eylem({
       ctx.oturum?.kullaniciId,
       IZIN_KODLARI.KART_YORUM_KENDI_DUZENLE,
     );
+    const yazanId = ctx.oturum?.kullaniciId ?? null;
     await yorumGuncelleSrv(kullaniciIdAl(ctx), kullaniciIdAl(ctx), girdi);
+    if (yazanId) {
+      const yorum = await db.yorum.findUnique({
+        where: { id: girdi.id },
+        select: { kart_id: true },
+      });
+      if (yorum) {
+        void bildirimGuvenliCagir(
+          tetikleYorumGuncellendi({
+            yorumId: girdi.id,
+            kartId: yorum.kart_id,
+            yazanId,
+            icerik: girdi.icerik,
+          }),
+          "yorum-guncellendi",
+        );
+      }
+    }
     return { id: girdi.id };
   },
 });
@@ -86,7 +110,22 @@ export const yorumSilEylem = eylem({
         "WARN",
       );
     }
+    // Silmeden ÖNCE kart_id'yi yakala — silinince yorum kaydı yok olur.
+    const yorum = await db.yorum.findUnique({
+      where: { id: girdi.id },
+      select: { kart_id: true },
+    });
     await yorumSilSrv(kullaniciIdAl(ctx), kullaniciIdAl(ctx), girdi.id);
+    if (yorum) {
+      void bildirimGuvenliCagir(
+        tetikleYorumSilindi({
+          yorumId: girdi.id,
+          kartId: yorum.kart_id,
+          silenId: kullaniciId,
+        }),
+        "yorum-silindi",
+      );
+    }
     return { id: girdi.id };
   },
 });

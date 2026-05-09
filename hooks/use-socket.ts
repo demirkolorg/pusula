@@ -19,6 +19,16 @@ const SOCKET_URL =
 let _socket: Socket | null = null;
 let _socketRef = 0;
 
+// Deploy sonrası socket-server restart olduğunda eski sid sunucuda yok →
+// Engine.io polling 400 "Session ID unknown" döner. socket.io-client'ın
+// kendi reconnection mantığı bu durumda yavaş toparlanıyor (kullanıcı F5
+// basana dek polling worker eski sid'le döngüde takılıyor). Ardışık 3
+// `connect_error` görürsek transport'u zorla kapatıp yeni handshake'e
+// itiyoruz — listener'lar aynı socket instance üzerinde korunur.
+let _ardisikHataSayisi = 0;
+const HATA_ESIGI = 3;
+const RESET_GECIKME_MS = 500;
+
 // Mutation request_id'lerini tut — gelen event'in request_id'si match ediyorsa
 // echo (kendi mutation'ı) — drop. Set 5dk sonra otomatik temizler ki sonsuz
 // büyümesin.
@@ -52,6 +62,19 @@ function socketAl(): Socket {
     reconnectionDelayMax: 5000,
   };
   _socket = SOCKET_URL ? io(SOCKET_URL, opts) : io(opts);
+
+  _socket.on("connect", () => {
+    _ardisikHataSayisi = 0;
+  });
+  _socket.on("connect_error", () => {
+    _ardisikHataSayisi++;
+    if (_ardisikHataSayisi >= HATA_ESIGI && _socket) {
+      _ardisikHataSayisi = 0;
+      _socket.disconnect();
+      setTimeout(() => _socket?.connect(), RESET_GECIKME_MS);
+    }
+  });
+
   return _socket;
 }
 

@@ -80,6 +80,59 @@ export async function tetikleKartYetkiliAtama(opt: {
 }
 
 // =====================================================================
+// Yorum güncellendi / silindi — kart yetkililerine bildirim
+// =====================================================================
+
+export async function tetikleYorumGuncellendi(opt: {
+  yorumId: string;
+  kartId: string;
+  yazanId: string;
+  icerik: string;
+}): Promise<void> {
+  const kart = await kartYetkiBaglami(opt.kartId);
+  if (!kart) return;
+  const yetkiliMap = await kartYetkiliAliciMap([kart], [opt.yazanId]);
+  const aliciIdler = yetkiliMap.get(kart.id) ?? [];
+  if (aliciIdler.length === 0) return;
+  const yazanAdi = await adSoyad(opt.yazanId);
+  await bildirimUret({
+    alici_idler: aliciIdler,
+    ureten_id: opt.yazanId,
+    tip: "YORUM_GUNCELLENDI",
+    baslik: `${yazanAdi} bir yorumu güncelledi`,
+    ozet: `${kart.baslik}: ${kisalt(opt.icerik, 80)}`,
+    kart_id: opt.kartId,
+    proje_id: kart.liste.proje_id,
+    kaynak_tip: "Yorum",
+    kaynak_id: opt.yorumId,
+  });
+}
+
+export async function tetikleYorumSilindi(opt: {
+  yorumId: string;
+  kartId: string;
+  silenId: string;
+}): Promise<void> {
+  const kart = await kartYetkiBaglami(opt.kartId);
+  if (!kart) return;
+  const yetkiliMap = await kartYetkiliAliciMap([kart], [opt.silenId]);
+  const aliciIdler = yetkiliMap.get(kart.id) ?? [];
+  if (aliciIdler.length === 0) return;
+  const silenAdi = await adSoyad(opt.silenId);
+  await bildirimUret({
+    alici_idler: aliciIdler,
+    ureten_id: opt.silenId,
+    tip: "YORUM_SILINDI",
+    baslik: `${silenAdi} bir yorumu sildi`,
+    ozet: kart.baslik,
+    kart_id: opt.kartId,
+    proje_id: kart.liste.proje_id,
+    kaynak_tip: "Yorum",
+    kaynak_id: opt.yorumId,
+  });
+}
+
+// =====================================================================
 // 3. Karta yorum eklendi — kart yetkililerine bildirim (yazan hariç)
 // =====================================================================
 
@@ -541,6 +594,50 @@ export async function tetikleKartAciklamaDegisti(opt: {
     ureten_id: opt.degistirenId,
     tip: "KART_ACIKLAMA_DEGISTI",
     baslik: `${adi} bir kartın açıklamasını güncelledi`,
+    ozet: ctx.baslik,
+    kart_id: opt.kartId,
+    proje_id: ctx.projeId,
+    kaynak_tip: "Kart",
+    kaynak_id: opt.kartId,
+  });
+}
+
+// =====================================================================
+// Arşiv/geri-yükle — kart üyelerine bildirim
+// =====================================================================
+
+export async function tetikleKartArsivlendi(opt: {
+  kartId: string;
+  arsivleyenId: string;
+}): Promise<void> {
+  const ctx = await kartUyeleriniToplaHaricli(opt.kartId, opt.arsivleyenId);
+  if (!ctx || ctx.aliciIdler.length === 0) return;
+  const adi = await adSoyad(opt.arsivleyenId);
+  await bildirimUret({
+    alici_idler: ctx.aliciIdler,
+    ureten_id: opt.arsivleyenId,
+    tip: "KART_ARSIVLENDI",
+    baslik: `${adi} bir kartı arşivledi`,
+    ozet: ctx.baslik,
+    kart_id: opt.kartId,
+    proje_id: ctx.projeId,
+    kaynak_tip: "Kart",
+    kaynak_id: opt.kartId,
+  });
+}
+
+export async function tetikleKartGeriYuklendi(opt: {
+  kartId: string;
+  geriYukleyenId: string;
+}): Promise<void> {
+  const ctx = await kartUyeleriniToplaHaricli(opt.kartId, opt.geriYukleyenId);
+  if (!ctx || ctx.aliciIdler.length === 0) return;
+  const adi = await adSoyad(opt.geriYukleyenId);
+  await bildirimUret({
+    alici_idler: ctx.aliciIdler,
+    ureten_id: opt.geriYukleyenId,
+    tip: "KART_GERI_YUKLENDI",
+    baslik: `${adi} bir kartı arşivden çıkardı`,
     ozet: ctx.baslik,
     kart_id: opt.kartId,
     proje_id: ctx.projeId,

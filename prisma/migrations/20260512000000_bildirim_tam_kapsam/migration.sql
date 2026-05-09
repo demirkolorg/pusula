@@ -1,0 +1,32 @@
+-- Tam kapsamlı bildirim — tüm proje/liste/kart yaşam döngüsü olayları.
+-- Daha önce sadece kritik eylemler tetikleyici üretiyordu; kullanıcı isteği
+-- üzerine her mutate aksiyonu (CRUD) için bildirim üretildi.
+
+-- Proje yaşam döngüsü
+ALTER TYPE "BildirimTipi" ADD VALUE IF NOT EXISTS 'PROJE_OLUSTURULDU';
+ALTER TYPE "BildirimTipi" ADD VALUE IF NOT EXISTS 'PROJE_GUNCELLENDI';
+ALTER TYPE "BildirimTipi" ADD VALUE IF NOT EXISTS 'PROJE_ARSIVLENDI';
+ALTER TYPE "BildirimTipi" ADD VALUE IF NOT EXISTS 'PROJE_GERI_YUKLENDI';
+ALTER TYPE "BildirimTipi" ADD VALUE IF NOT EXISTS 'PROJE_SILINDI';
+
+-- Liste yaşam döngüsü
+ALTER TYPE "BildirimTipi" ADD VALUE IF NOT EXISTS 'LISTE_OLUSTURULDU';
+ALTER TYPE "BildirimTipi" ADD VALUE IF NOT EXISTS 'LISTE_GUNCELLENDI';
+
+-- Kart arşiv akışı
+ALTER TYPE "BildirimTipi" ADD VALUE IF NOT EXISTS 'KART_ARSIVLENDI';
+ALTER TYPE "BildirimTipi" ADD VALUE IF NOT EXISTS 'KART_GERI_YUKLENDI';
+
+-- Yorum yaşam döngüsü (oluşturma zaten YORUM_EKLENDI ile var)
+ALTER TYPE "BildirimTipi" ADD VALUE IF NOT EXISTS 'YORUM_GUNCELLENDI';
+ALTER TYPE "BildirimTipi" ADD VALUE IF NOT EXISTS 'YORUM_SILINDI';
+
+-- Kontrol listesi yaşam döngüsü
+ALTER TYPE "BildirimTipi" ADD VALUE IF NOT EXISTS 'KONTROL_LISTESI_OLUSTURULDU';
+ALTER TYPE "BildirimTipi" ADD VALUE IF NOT EXISTS 'KONTROL_LISTESI_GUNCELLENDI';
+ALTER TYPE "BildirimTipi" ADD VALUE IF NOT EXISTS 'KONTROL_LISTESI_SILINDI';
+
+-- Kontrol maddesi yaşam döngüsü (atama zaten MADDE_ATAMA ile var)
+ALTER TYPE "BildirimTipi" ADD VALUE IF NOT EXISTS 'KART_KONTROL_MADDE_EKLENDI';
+ALTER TYPE "BildirimTipi" ADD VALUE IF NOT EXISTS 'KART_KONTROL_MADDE_GUNCELLENDI';
+ALTER TYPE "BildirimTipi" ADD VALUE IF NOT EXISTS 'KART_KONTROL_MADDE_SILINDI';

@@ -124,6 +124,100 @@ export const TIP_METNI: Record<BildirimTipi, TipMetni> = {
     baslik: "Dosya önizleme hazır",
     aciklama: "Yüklediğiniz büyük dosyanın önizleme/thumbnail'i tamamlandığında",
   },
+  // Yetki çıkarma kanalları
+  KART_YETKILI_CIKARILDI: {
+    baslik: "Karttan çıkarıldım",
+    aciklama: "Bir karttan yetkili olarak çıkarıldığınızda",
+  },
+  LISTE_UYE_EKLENDI: {
+    baslik: "Listeye eklendim",
+    aciklama: "Bir listeye yetkili olarak eklendiğinizde",
+  },
+  LISTE_UYE_CIKARILDI: {
+    baslik: "Listeden çıkarıldım",
+    aciklama: "Bir listeden yetkili olarak çıkarıldığınızda",
+  },
+  // Tam kapsamlı yaşam döngüsü
+  PROJE_OLUSTURULDU: {
+    baslik: "Proje oluşturuldu",
+    aciklama: "Yetkili olduğunuz yeni bir proje oluşturulduğunda",
+  },
+  PROJE_GUNCELLENDI: {
+    baslik: "Proje bilgileri güncellendi",
+    aciklama: "Yetkili olduğunuz bir projenin bilgileri değiştiğinde",
+  },
+  PROJE_ARSIVLENDI: {
+    baslik: "Proje arşivlendi",
+    aciklama: "Yetkili olduğunuz bir proje arşivlendiğinde",
+  },
+  PROJE_GERI_YUKLENDI: {
+    baslik: "Proje geri yüklendi",
+    aciklama: "Yetkili olduğunuz bir proje arşivden çıkarıldığında",
+  },
+  PROJE_SILINDI: {
+    baslik: "Proje silindi",
+    aciklama: "Yetkili olduğunuz bir proje silindiğinde",
+  },
+  LISTE_OLUSTURULDU: {
+    baslik: "Liste oluşturuldu",
+    aciklama: "Yetkili olduğunuz bir projede yeni liste oluşturulduğunda",
+  },
+  LISTE_GUNCELLENDI: {
+    baslik: "Liste güncellendi",
+    aciklama: "Yetkili olduğunuz bir listenin bilgileri değiştiğinde",
+  },
+  KART_OLUSTURULDU: {
+    baslik: "Kart oluşturuldu",
+    aciklama: "Yetkili olduğunuz bir listede yeni kart oluşturulduğunda",
+  },
+  KART_BASLIK_DEGISTI: {
+    baslik: "Kart başlığı değişti",
+    aciklama: "Yetkili olduğunuz bir kartın başlığı güncellendiğinde",
+  },
+  KART_ACIKLAMA_DEGISTI: {
+    baslik: "Kart açıklaması değişti",
+    aciklama: "Yetkili olduğunuz bir kartın açıklaması düzenlendiğinde",
+  },
+  KART_ARSIVLENDI: {
+    baslik: "Kart arşivlendi",
+    aciklama: "Yetkili olduğunuz bir kart arşivlendiğinde",
+  },
+  KART_GERI_YUKLENDI: {
+    baslik: "Kart geri yüklendi",
+    aciklama: "Yetkili olduğunuz bir kart arşivden çıkarıldığında",
+  },
+  YORUM_GUNCELLENDI: {
+    baslik: "Yorum güncellendi",
+    aciklama: "Yetkili olduğunuz bir karttaki yorum düzenlendiğinde",
+  },
+  YORUM_SILINDI: {
+    baslik: "Yorum silindi",
+    aciklama: "Yetkili olduğunuz bir karttaki yorum silindiğinde",
+  },
+  KONTROL_LISTESI_OLUSTURULDU: {
+    baslik: "Kontrol listesi oluşturuldu",
+    aciklama: "Yetkili olduğunuz bir karta kontrol listesi eklendiğinde",
+  },
+  KONTROL_LISTESI_GUNCELLENDI: {
+    baslik: "Kontrol listesi güncellendi",
+    aciklama: "Yetkili olduğunuz bir kartın kontrol listesi değiştiğinde",
+  },
+  KONTROL_LISTESI_SILINDI: {
+    baslik: "Kontrol listesi silindi",
+    aciklama: "Yetkili olduğunuz bir karttaki kontrol listesi silindiğinde",
+  },
+  KART_KONTROL_MADDE_EKLENDI: {
+    baslik: "Madde eklendi",
+    aciklama: "Yetkili olduğunuz bir karta yeni kontrol maddesi eklendiğinde",
+  },
+  KART_KONTROL_MADDE_GUNCELLENDI: {
+    baslik: "Madde güncellendi",
+    aciklama: "Yetkili olduğunuz bir karttaki madde değiştirildiğinde",
+  },
+  KART_KONTROL_MADDE_SILINDI: {
+    baslik: "Madde silindi",
+    aciklama: "Yetkili olduğunuz bir karttaki madde silindiğinde",
+  },
 };
 
 export const TERCIH_GRUPLARI: ReadonlyArray<TercihGrubu> = [
@@ -133,9 +227,9 @@ export const TERCIH_GRUPLARI: ReadonlyArray<TercihGrubu> = [
     tipler: ["YORUM_MENTION", "KART_YETKILI_ATAMA", "MADDE_ATAMA"],
   },
   {
-    baslik: "Yorum & Eklenti",
-    aciklama: "Yetkili olduğunuz kartlardaki etkileşim",
-    tipler: ["YORUM_EKLENDI", "EKLENTI_YUKLENDI"],
+    baslik: "Yorum",
+    aciklama: "Yetkili olduğunuz kartlardaki yorum etkileşimleri",
+    tipler: ["YORUM_EKLENDI", "YORUM_GUNCELLENDI", "YORUM_SILINDI"],
   },
   {
     baslik: "Bitiş tarihi",
@@ -144,13 +238,58 @@ export const TERCIH_GRUPLARI: ReadonlyArray<TercihGrubu> = [
   },
   {
     baslik: "Kart yaşam döngüsü",
-    aciklama: "Kart taşındı / silindi / tamamlandı",
-    tipler: ["KART_DURUM_DEGISTI", "KART_SILINDI", "KART_TAMAMLANDI"],
+    aciklama: "Kart oluşturma, başlık/açıklama değişimi, taşıma, arşiv, silme, tamamlama",
+    tipler: [
+      "KART_OLUSTURULDU",
+      "KART_BASLIK_DEGISTI",
+      "KART_ACIKLAMA_DEGISTI",
+      "KART_DURUM_DEGISTI",
+      "KART_ARSIVLENDI",
+      "KART_GERI_YUKLENDI",
+      "KART_SILINDI",
+      "KART_TAMAMLANDI",
+    ],
+  },
+  {
+    baslik: "Kontrol listesi & Maddeler",
+    aciklama: "Kontrol listesi ve madde CRUD olayları",
+    tipler: [
+      "KONTROL_LISTESI_OLUSTURULDU",
+      "KONTROL_LISTESI_GUNCELLENDI",
+      "KONTROL_LISTESI_SILINDI",
+      "KART_KONTROL_MADDE_EKLENDI",
+      "KART_KONTROL_MADDE_GUNCELLENDI",
+      "KART_KONTROL_MADDE_SILINDI",
+    ],
+  },
+  {
+    baslik: "Liste yönetimi",
+    aciklama: "Liste oluşturma, güncelleme, silme ve yetki yönetimi",
+    tipler: [
+      "LISTE_OLUSTURULDU",
+      "LISTE_GUNCELLENDI",
+      "LISTE_SILINDI",
+      "LISTE_UYE_EKLENDI",
+      "LISTE_UYE_CIKARILDI",
+    ],
   },
   {
     baslik: "Proje yönetimi",
-    aciklama: "Proje üyeliği değişiklikleri",
-    tipler: ["PROJE_UYE_EKLENDI", "PROJE_UYE_CIKARILDI"],
+    aciklama: "Proje yaşam döngüsü ve yetki yönetimi",
+    tipler: [
+      "PROJE_OLUSTURULDU",
+      "PROJE_GUNCELLENDI",
+      "PROJE_ARSIVLENDI",
+      "PROJE_GERI_YUKLENDI",
+      "PROJE_SILINDI",
+      "PROJE_UYE_EKLENDI",
+      "PROJE_UYE_CIKARILDI",
+    ],
+  },
+  {
+    baslik: "Kart yetkili yönetimi",
+    aciklama: "Kart yetkilisi ekleme/çıkarma",
+    tipler: ["KART_YETKILI_CIKARILDI"],
   },
   {
     baslik: "Tamamlama önerileri (ADR-0019)",
@@ -165,14 +304,9 @@ export const TERCIH_GRUPLARI: ReadonlyArray<TercihGrubu> = [
     ],
   },
   {
-    baslik: "Diğer",
-    aciklama: "Düşük öncelikli olaylar",
-    tipler: [
-      "LISTE_SILINDI",
-      "DAVET_KABUL_EDILDI",
-      "ETIKET_DEGISTI",
-      "KAPAK_DEGISTI",
-    ],
+    baslik: "Görsel & Etiket",
+    aciklama: "Karttaki etiket ve kapak değişiklikleri",
+    tipler: ["ETIKET_DEGISTI", "KAPAK_DEGISTI"],
   },
   {
     baslik: "Dosya (ADR-0028)",
@@ -182,6 +316,12 @@ export const TERCIH_GRUPLARI: ReadonlyArray<TercihGrubu> = [
       "DOSYA_SILINDI",
       "DOSYA_BAGLANDI",
       "DOSYA_ONIZLEME_HAZIR",
+      "EKLENTI_YUKLENDI",
     ],
+  },
+  {
+    baslik: "Diğer",
+    aciklama: "Davet ve sistem bildirimleri",
+    tipler: ["DAVET_KABUL_EDILDI"],
   },
 ];

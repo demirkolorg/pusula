@@ -20,6 +20,8 @@ export {
   tetikleYorumMention,
   tetikleKartYetkiliAtama,
   tetikleYorumEklendi,
+  tetikleYorumGuncellendi,
+  tetikleYorumSilindi,
   tetikleEklentiYuklendi,
   tetikleKartDurumDegisti,
   tetikleKartBitisDegisti,
@@ -35,17 +37,26 @@ export {
   tetikleKartBaslikDegisti,
   tetikleKartAciklamaDegisti,
   tetikleKartYetkiliCikarildi,
+  tetikleKartArsivlendi,
+  tetikleKartGeriYuklendi,
 } from "./tetikleyiciler/kart";
 
 export {
   tetikleListeSilindi,
   tetikleListeUyeEklendi,
   tetikleListeUyeCikarildi,
+  tetikleListeOlusturuldu,
+  tetikleListeGuncellendi,
 } from "./tetikleyiciler/liste";
 
 export {
   tetikleProjeUyeEklendi,
   tetikleProjeUyeCikarildi,
+  tetikleProjeOlusturuldu,
+  tetikleProjeGuncellendi,
+  tetikleProjeArsivlendi,
+  tetikleProjeGeriYuklendi,
+  tetikleProjeSilindi,
 } from "./tetikleyiciler/proje";
 
 export { tetikleDavetKabulEdildi } from "./tetikleyiciler/davet";
@@ -55,6 +66,12 @@ export {
   tetikleMaddeTamamlamaOnerildi,
   tetikleMaddeTamamlamaOnaylandi,
   tetikleMaddeTamamlamaReddedildi,
+  tetikleKontrolListesiOlusturuldu,
+  tetikleKontrolListesiGuncellendi,
+  tetikleKontrolListesiSilindi,
+  tetikleMaddeEklendi,
+  tetikleMaddeGuncellendi,
+  tetikleMaddeSilindi,
 } from "./tetikleyiciler/kontrol-listesi";
 
 export { tetikleEtiketDegisti } from "./tetikleyiciler/etiket";

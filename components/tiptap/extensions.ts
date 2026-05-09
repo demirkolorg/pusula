@@ -31,6 +31,10 @@ export function tiptapExtensionleri(secenekler: TiptapExtensionSecenekleri = {})
       horizontalRule: false,
       // Blockquote da MVP dışı.
       blockquote: false,
+      // Tiptap v3 StarterKit Link'i dahili olarak ekliyor; aşağıda kendi
+      // Link.configure'ımızı (autolink, protocols, HTMLAttributes) kullandığımız
+      // için duplicate'ı engellemek üzere kapatıyoruz.
+      link: false,
     }),
     Link.configure({
       openOnClick: false,

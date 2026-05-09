@@ -7,7 +7,13 @@ import { yetkiZorunluKart } from "@/lib/yetki";
 import { HATA_KODU } from "@/lib/sonuc";
 import { db } from "@/lib/db";
 import {
+  tetikleKontrolListesiGuncellendi,
+  tetikleKontrolListesiOlusturuldu,
+  tetikleKontrolListesiSilindi,
   tetikleMaddeAtama,
+  tetikleMaddeEklendi,
+  tetikleMaddeGuncellendi,
+  tetikleMaddeSilindi,
   tetikleMaddeTamamlamaOnaylandi,
   tetikleMaddeTamamlamaOnerildi,
   tetikleMaddeTamamlamaReddedildi,
@@ -72,7 +78,18 @@ export const kontrolListesiOlusturEylem = eylem({
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.kart_id);
-    return kontrolListesiOlusturSrv(birimIdAl(ctx), girdi);
+    const olusturanId = ctx.oturum?.kullaniciId ?? null;
+    const sonuc = await kontrolListesiOlusturSrv(birimIdAl(ctx), girdi);
+    if (olusturanId) {
+      void bildirimGuvenliCagir(
+        tetikleKontrolListesiOlusturuldu({
+          kontrolListeId: sonuc.id,
+          olusturanId,
+        }),
+        "kontrol-listesi-olusturuldu",
+      );
+    }
+    return sonuc;
   },
 });
 
@@ -98,7 +115,17 @@ export const kontrolListesiGuncelleEylem = eylem({
     // Sprint 1 / S1-9 — resource-level RBAC (Kural V.2 / #146).
     const kartId = await kontrolListesininKartId(girdi.id);
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", kartId);
+    const degistirenId = ctx.oturum?.kullaniciId ?? null;
     await kontrolListesiGuncelleSrv(birimIdAl(ctx), girdi);
+    if (degistirenId) {
+      void bildirimGuvenliCagir(
+        tetikleKontrolListesiGuncellendi({
+          kontrolListeId: girdi.id,
+          degistirenId,
+        }),
+        "kontrol-listesi-guncellendi",
+      );
+    }
     return { id: girdi.id };
   },
 });
@@ -111,6 +138,17 @@ export const kontrolListesiSilEylem = eylem({
     // Sprint 1 / S1-9 — resource-level RBAC (Kural V.2 / #146).
     const kartId = await kontrolListesininKartId(girdi.id);
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", kartId);
+    const silenId = ctx.oturum?.kullaniciId ?? null;
+    // Silmeden ÖNCE bildirim üret — silindikten sonra kontrol listesi yok olur.
+    if (silenId) {
+      await bildirimGuvenliCagir(
+        tetikleKontrolListesiSilindi({
+          kontrolListeId: girdi.id,
+          silenId,
+        }),
+        "kontrol-listesi-silindi",
+      );
+    }
     await kontrolListesiSilSrv(birimIdAl(ctx), girdi.id);
     return { id: girdi.id };
   },
@@ -136,6 +174,17 @@ export const maddeOlusturEylem = eylem({
           atayanId,
         }),
         "madde-atama-olustur",
+      );
+    }
+    // Generic madde eklendi bildirimi (atama dışı, kart yetkililerine).
+    if (atayanId) {
+      void bildirimGuvenliCagir(
+        tetikleMaddeEklendi({
+          maddeId: m.id,
+          metin: m.metin,
+          ekleyenId: atayanId,
+        }),
+        "madde-eklendi",
       );
     }
     return m;
@@ -180,6 +229,16 @@ export const maddeGuncelleEylem = eylem({
         "madde-atama-guncelle",
       );
     }
+    // Generic madde güncellendi bildirimi (kart yetkililerine).
+    if (atayanId) {
+      void bildirimGuvenliCagir(
+        tetikleMaddeGuncellendi({
+          maddeId: girdi.id,
+          degistirenId: atayanId,
+        }),
+        "madde-guncellendi",
+      );
+    }
     return { id: girdi.id };
   },
 });
@@ -192,6 +251,14 @@ export const maddeSilEylem = eylem({
     // Sprint 1 / S1-9 — resource-level RBAC (Kural V.2 / #146).
     const kartId = await maddeninParentKartId(girdi.id);
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", kartId);
+    const silenId = ctx.oturum?.kullaniciId ?? null;
+    // Silmeden ÖNCE bildirim üret — silindikten sonra madde meta yok olur.
+    if (silenId) {
+      await bildirimGuvenliCagir(
+        tetikleMaddeSilindi({ maddeId: girdi.id, silenId }),
+        "madde-silindi",
+      );
+    }
     await maddeSilSrv(birimIdAl(ctx), girdi.id);
     return { id: girdi.id };
   },

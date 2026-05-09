@@ -14,15 +14,19 @@ import { HATA_KODU } from "@/lib/sonuc";
 import { db } from "@/lib/db";
 import {
   tetikleKartAciklamaDegisti,
+  tetikleKartArsivlendi,
   tetikleKartBaslikDegisti,
   tetikleKartBitisDegisti,
   tetikleKartDurumDegisti,
+  tetikleKartGeriYuklendi,
   tetikleKartOlusturuldu,
   tetikleKartSilindi,
   tetikleKartTamamlandi,
   tetikleKartTamamlamaOnaylandi,
   tetikleKartTamamlamaOnerildi,
   tetikleKartTamamlamaReddedildi,
+  tetikleListeGuncellendi,
+  tetikleListeOlusturuldu,
   tetikleListeSilindi,
   tetikleListeUyeCikarildi,
   tetikleListeUyeEklendi,
@@ -122,6 +126,10 @@ export const listeOlusturEylem = eylem({
     await yetkiZorunluProje(ctx.oturum?.kullaniciId, "proje:edit", girdi.proje_id);
     const kullaniciId = kullaniciIdAl(ctx);
     const yeni = await listeOlustur(kullaniciId, girdi);
+    void bildirimGuvenliCagir(
+      tetikleListeOlusturuldu({ listeId: yeni.id, olusturanId: kullaniciId }),
+      "liste-olusturuldu",
+    );
     revalidatePath(`/projeler/${girdi.proje_id}`);
     return yeni;
   },
@@ -135,7 +143,14 @@ export const listeGuncelleEylem = eylem({
     // Liste güncelleme şu an sadece ad değiştirme; ayrı izin koduna sahip.
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.LISTE_AD_DUZENLE);
     await yetkiZorunluListe(ctx.oturum?.kullaniciId, "liste:edit", girdi.id);
+    const degistirenId = ctx.oturum?.kullaniciId ?? null;
     await listeGuncelle(kullaniciIdAl(ctx), girdi);
+    if (degistirenId) {
+      void bildirimGuvenliCagir(
+        tetikleListeGuncellendi({ listeId: girdi.id, degistirenId }),
+        "liste-guncellendi",
+      );
+    }
     return { id: girdi.id };
   },
 });
@@ -379,7 +394,14 @@ export const kartGeriYukleEylem = eylem({
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_SIL);
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.id);
+    const geriYukleyenId = ctx.oturum?.kullaniciId ?? null;
     await kartGeriYukle(kullaniciIdAl(ctx), girdi.id);
+    if (geriYukleyenId) {
+      void bildirimGuvenliCagir(
+        tetikleKartGeriYuklendi({ kartId: girdi.id, geriYukleyenId }),
+        "kart-geri-yuklendi",
+      );
+    }
     return { id: girdi.id };
   },
 });
@@ -433,7 +455,26 @@ export const kartArsivEylem = eylem({
   calistir: async (girdi, ctx) => {
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_DUZENLE);
     await yetkiZorunluKart(ctx.oturum?.kullaniciId, "kart:edit", girdi.id);
-    return kartArsivToggle(kullaniciIdAl(ctx), girdi);
+    const arsivleyenId = ctx.oturum?.kullaniciId ?? null;
+    const sonuc = await kartArsivToggle(kullaniciIdAl(ctx), girdi);
+    // ADR-0009: arsiv_mi true → arşivlendi, false → geri yüklendi.
+    if (arsivleyenId) {
+      if (girdi.arsiv_mi) {
+        void bildirimGuvenliCagir(
+          tetikleKartArsivlendi({ kartId: girdi.id, arsivleyenId }),
+          "kart-arsivlendi",
+        );
+      } else {
+        void bildirimGuvenliCagir(
+          tetikleKartGeriYuklendi({
+            kartId: girdi.id,
+            geriYukleyenId: arsivleyenId,
+          }),
+          "kart-arsivden-cikarildi",
+        );
+      }
+    }
+    return sonuc;
   },
 });
 
