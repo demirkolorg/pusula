@@ -67,6 +67,7 @@ const httpServer = createServer(async (req, res) => {
     // Internal token doğrulaması — DoS / yetkisiz broadcast'i engeller.
     const token = req.headers.authorization?.replace(/^Bearer\s+/i, "");
     if (token !== INTERNAL_TOKEN) {
+      console.log("[yayinla] FAIL: token mismatch");
       res.writeHead(401);
       res.end("yetkisiz");
       return;
@@ -77,14 +78,22 @@ const httpServer = createServer(async (req, res) => {
       try {
         const { event, room: hedef, payload } = JSON.parse(govde);
         if (typeof event !== "string" || typeof hedef !== "string") {
+          console.log(
+            `[yayinla] FAIL: eksik alan event=${typeof event} room=${typeof hedef}`,
+          );
           res.writeHead(400);
           res.end("eksik alan");
           return;
         }
+        const odadakiSayi = io.sockets.adapter.rooms.get(hedef)?.size ?? 0;
+        console.log(
+          `[yayinla] OK: event=${event} room=${hedef} dinleyici=${odadakiSayi}`,
+        );
         io.to(hedef).emit(event, payload);
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ ok: true }));
-      } catch {
+      } catch (err) {
+        console.log(`[yayinla] FAIL: parse hatası ${err}`);
         res.writeHead(400);
         res.end("gecersiz json");
       }

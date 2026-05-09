@@ -315,6 +315,8 @@ export async function bildirimUret(
   // Realtime broadcast — her alıcının kendi room'una bildirim:yeni yayınla.
   // Echo filtresi: bildirim üreten kullanıcı kendine bildirim almadığı için
   // (üreten dışlanır), echo problemi yok. Yine de zarf ureten_id taşır.
+  // Hata yutulmaz — logla; aksi halde emit fail olunca polling fallback'e
+  // (60 sn) düşene kadar bildirim gözükmez ve sebep belirsiz kalır.
   for (const r of map) {
     yayinla(SOCKET.BILDIRIM_YENI, room.kullanici(r.alici_id), {
       id: r.id,
@@ -323,7 +325,17 @@ export async function bildirimUret(
       ozet: metinler.ozet,
       kart_id: girdi.kart_id ?? null,
       proje_id: girdi.proje_id ?? null,
-    }).catch(() => {});
+    }).catch((err: unknown) => {
+      logger.warn(
+        {
+          bildirim_id: r.id,
+          alici_id: r.alici_id,
+          tip: girdi.tip,
+          hata: err instanceof Error ? err.message : String(err),
+        },
+        "[bildirim-realtime] socket emit basarisiz",
+      );
+    });
   }
 
   // Faz 4 — E-mail kanalı (anlık). Bildirim DB kaydı + realtime'dan ayrı:

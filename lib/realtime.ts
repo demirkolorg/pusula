@@ -44,7 +44,7 @@ export async function yayinla<T>(
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
-    await fetch(`${SOCKET_URL}/yayinla`, {
+    const r = await fetch(`${SOCKET_URL}/yayinla`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -53,9 +53,13 @@ export async function yayinla<T>(
       body: JSON.stringify({ event, room: hedefRoom, payload: zarf }),
       signal: ctrl.signal,
     });
-  } catch {
-    // Sessiz: socket-server kapalıysa da app çalışır, sadece realtime gitmez.
-    // Production'da metrik counter eklenebilir (S8).
+    if (!r.ok) {
+      // 401 → token mismatch, 404 → endpoint yok, 5xx → server hatası.
+      // Caller hatayı logsun (services.ts gibi); sessiz fail yerine throw.
+      throw new Error(
+        `socket /yayinla HTTP ${r.status} ${r.statusText} url=${SOCKET_URL}`,
+      );
+    }
   } finally {
     clearTimeout(timer);
   }
