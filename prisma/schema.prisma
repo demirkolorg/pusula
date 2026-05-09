@@ -1260,6 +1260,10 @@ enum BildirimTipi {
   KART_OLUSTURULDU
   KART_BASLIK_DEGISTI
   KART_ACIKLAMA_DEGISTI
+  // Yetkili çıkarma kanalları — eksik kalmıştı (sadece proje çıkarma vardı).
+  KART_YETKILI_CIKARILDI
+  LISTE_UYE_EKLENDI
+  LISTE_UYE_CIKARILDI
 }
 
 model Bildirim {

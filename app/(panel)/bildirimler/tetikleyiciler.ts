@@ -34,9 +34,14 @@ export {
   tetikleKartOlusturuldu,
   tetikleKartBaslikDegisti,
   tetikleKartAciklamaDegisti,
+  tetikleKartYetkiliCikarildi,
 } from "./tetikleyiciler/kart";
 
-export { tetikleListeSilindi } from "./tetikleyiciler/liste";
+export {
+  tetikleListeSilindi,
+  tetikleListeUyeEklendi,
+  tetikleListeUyeCikarildi,
+} from "./tetikleyiciler/liste";
 
 export {
   tetikleProjeUyeEklendi,

@@ -24,6 +24,8 @@ import {
   tetikleKartTamamlamaOnerildi,
   tetikleKartTamamlamaReddedildi,
   tetikleListeSilindi,
+  tetikleListeUyeCikarildi,
+  tetikleListeUyeEklendi,
 } from "@/app/(panel)/bildirimler/tetikleyiciler";
 import {
   kartArsivSemasi,
@@ -601,7 +603,18 @@ export const listeYetkiliEkleEylem = eylem({
     const projeId = await listeProjeIdGetir(girdi.liste_id);
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_YETKILI_YONET);
     await yetkiZorunluProje(ctx.oturum?.kullaniciId, "proje:authorize", projeId);
+    const ekleyenId = ctx.oturum?.kullaniciId ?? null;
     const yetkili = await listeYetkiliEkle(girdi.liste_id, girdi.kullanici_id);
+    if (ekleyenId) {
+      void bildirimGuvenliCagir(
+        tetikleListeUyeEklendi({
+          listeId: girdi.liste_id,
+          eklenenId: girdi.kullanici_id,
+          ekleyenId,
+        }),
+        "liste-uye-eklendi",
+      );
+    }
     return { liste_id: girdi.liste_id, yetkili };
   },
 });
@@ -616,7 +629,18 @@ export const listeYetkiliKaldirEylem = eylem({
     const projeId = await listeProjeIdGetir(girdi.liste_id);
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_YETKILI_YONET);
     await yetkiZorunluProje(ctx.oturum?.kullaniciId, "proje:authorize", projeId);
+    const cikaranId = ctx.oturum?.kullaniciId ?? null;
     await listeYetkiliKaldir(girdi.liste_id, girdi.kullanici_id);
+    if (cikaranId && cikaranId !== girdi.kullanici_id) {
+      void bildirimGuvenliCagir(
+        tetikleListeUyeCikarildi({
+          listeId: girdi.liste_id,
+          cikarilanId: girdi.kullanici_id,
+          cikaranId,
+        }),
+        "liste-uye-cikarildi",
+      );
+    }
     return { liste_id: girdi.liste_id, kullanici_id: girdi.kullanici_id };
   },
 });

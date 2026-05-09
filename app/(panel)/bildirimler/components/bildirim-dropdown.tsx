@@ -105,6 +105,10 @@ const TIP_IKON: Record<
   KART_OLUSTURULDU: PlusCircleIcon,
   KART_BASLIK_DEGISTI: PencilIcon,
   KART_ACIKLAMA_DEGISTI: FileTextIcon,
+  // Yetkili çıkarma kanalları
+  KART_YETKILI_CIKARILDI: UserMinusIcon,
+  LISTE_UYE_EKLENDI: UserPlusIcon,
+  LISTE_UYE_CIKARILDI: UserMinusIcon,
 };
 
 const TIP_RENK: Record<BildirimTipi, string> = {
@@ -140,6 +144,10 @@ const TIP_RENK: Record<BildirimTipi, string> = {
   KART_OLUSTURULDU: "bg-blue-100 text-blue-700",
   KART_BASLIK_DEGISTI: "bg-slate-100 text-slate-700",
   KART_ACIKLAMA_DEGISTI: "bg-slate-100 text-slate-700",
+  // Yetkili çıkarma kanalları
+  KART_YETKILI_CIKARILDI: "bg-amber-100 text-amber-700",
+  LISTE_UYE_EKLENDI: "bg-emerald-100 text-emerald-700",
+  LISTE_UYE_CIKARILDI: "bg-amber-100 text-amber-700",
 };
 
 export function BildirimDropdown() {

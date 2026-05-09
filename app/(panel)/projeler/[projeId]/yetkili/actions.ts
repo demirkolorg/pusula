@@ -9,6 +9,7 @@ import { HATA_KODU } from "@/lib/sonuc";
 import { davetLimiter } from "@/lib/rate-limit";
 import {
   tetikleKartYetkiliAtama,
+  tetikleKartYetkiliCikarildi,
   tetikleProjeUyeCikarildi,
   tetikleProjeUyeEklendi,
 } from "@/app/(panel)/bildirimler/tetikleyiciler";
@@ -217,7 +218,18 @@ export const kartaYetkiliKaldirEylem = eylem({
     const projeId = await kartProjeIdGetir(girdi.kart_id);
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.PROJE_YETKILI_YONET);
     await yetkiZorunluProje(ctx.oturum?.kullaniciId, "proje:authorize", projeId);
+    const cikaranId = ctx.oturum?.kullaniciId ?? null;
     await kartaYetkiliKaldirSrv(birimIdAl(ctx), girdi.kart_id, girdi.kullanici_id);
+    if (cikaranId && cikaranId !== girdi.kullanici_id) {
+      void bildirimGuvenliCagir(
+        tetikleKartYetkiliCikarildi({
+          kartId: girdi.kart_id,
+          cikarilanId: girdi.kullanici_id,
+          cikaranId,
+        }),
+        "kart-yetkili-cikarildi",
+      );
+    }
     return { kart_id: girdi.kart_id, kullanici_id: girdi.kullanici_id };
   },
 });

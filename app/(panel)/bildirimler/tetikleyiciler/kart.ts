@@ -548,3 +548,29 @@ export async function tetikleKartAciklamaDegisti(opt: {
     kaynak_id: opt.kartId,
   });
 }
+
+// =====================================================================
+// 17. Karttan yetkili çıkarıldı — çıkarılan kişiye bildirim
+// =====================================================================
+
+export async function tetikleKartYetkiliCikarildi(opt: {
+  kartId: string;
+  cikarilanId: string;
+  cikaranId: string;
+}): Promise<void> {
+  if (opt.cikarilanId === opt.cikaranId) return;
+  const kart = await kartBaglami(opt.kartId);
+  if (!kart) return;
+  const cikaranAdi = await adSoyad(opt.cikaranId);
+  await bildirimUret({
+    alici_idler: [opt.cikarilanId],
+    ureten_id: opt.cikaranId,
+    tip: "KART_YETKILI_CIKARILDI",
+    baslik: `${cikaranAdi} sizi bir karttan çıkardı`,
+    ozet: kart.baslik,
+    kart_id: opt.kartId,
+    proje_id: kart.proje_id,
+    kaynak_tip: "Kart",
+    kaynak_id: opt.kartId,
+  });
+}

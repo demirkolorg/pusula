@@ -34,6 +34,10 @@ export const BILDIRIM_TIPLERI = [
   "KART_OLUSTURULDU",
   "KART_BASLIK_DEGISTI",
   "KART_ACIKLAMA_DEGISTI",
+  // Yetkili çıkarma kanalları (proje çıkarma zaten vardı).
+  "KART_YETKILI_CIKARILDI",
+  "LISTE_UYE_EKLENDI",
+  "LISTE_UYE_CIKARILDI",
 ] as const;
 
 export const bildirimTipiSemasi = z.enum(BILDIRIM_TIPLERI);
