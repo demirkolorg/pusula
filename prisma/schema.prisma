@@ -1255,6 +1255,11 @@ enum BildirimTipi {
   DOSYA_SILINDI
   DOSYA_BAGLANDI
   DOSYA_ONIZLEME_HAZIR
+  // Kullanıcı isteği — kart yaşam döngüsü "düşük öncelikli" eventleri.
+  // Pusula tasarımı başlangıçta bunları spam riski sayıyordu; artık opt-in.
+  KART_OLUSTURULDU
+  KART_BASLIK_DEGISTI
+  KART_ACIKLAMA_DEGISTI
 }
 
 model Bildirim {

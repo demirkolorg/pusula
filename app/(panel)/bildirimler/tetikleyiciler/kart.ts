@@ -472,3 +472,79 @@ export async function tetikleBitisGecti(): Promise<number> {
   }
   return toplam;
 }
+
+// =====================================================================
+// 14. Kart oluşturuldu — kart yetkililerine bildirim (oluşturan hariç)
+// =====================================================================
+
+export async function tetikleKartOlusturuldu(opt: {
+  kartId: string;
+  olusturanId: string;
+}): Promise<void> {
+  const ctx = await kartUyeleriniToplaHaricli(opt.kartId, opt.olusturanId);
+  if (!ctx || ctx.aliciIdler.length === 0) return;
+  const adi = await adSoyad(opt.olusturanId);
+  await bildirimUret({
+    alici_idler: ctx.aliciIdler,
+    ureten_id: opt.olusturanId,
+    tip: "KART_OLUSTURULDU",
+    baslik: `${adi} yeni bir kart oluşturdu`,
+    ozet: ctx.baslik,
+    kart_id: opt.kartId,
+    proje_id: ctx.projeId,
+    kaynak_tip: "Kart",
+    kaynak_id: opt.kartId,
+  });
+}
+
+// =====================================================================
+// 15. Kart başlığı değişti — kart yetkililerine bildirim
+// =====================================================================
+
+export async function tetikleKartBaslikDegisti(opt: {
+  kartId: string;
+  degistirenId: string;
+  yeniBaslik: string;
+  eskiBaslik: string;
+}): Promise<void> {
+  // Aynı başlık geldi → bildirim gerekmez (idempotent guard).
+  if (opt.yeniBaslik === opt.eskiBaslik) return;
+  const ctx = await kartUyeleriniToplaHaricli(opt.kartId, opt.degistirenId);
+  if (!ctx || ctx.aliciIdler.length === 0) return;
+  const adi = await adSoyad(opt.degistirenId);
+  await bildirimUret({
+    alici_idler: ctx.aliciIdler,
+    ureten_id: opt.degistirenId,
+    tip: "KART_BASLIK_DEGISTI",
+    baslik: `${adi} bir kartın başlığını güncelledi`,
+    ozet: `${kisalt(opt.eskiBaslik, 40)} → ${kisalt(opt.yeniBaslik, 40)}`,
+    kart_id: opt.kartId,
+    proje_id: ctx.projeId,
+    kaynak_tip: "Kart",
+    kaynak_id: opt.kartId,
+  });
+}
+
+// =====================================================================
+// 16. Kart açıklaması değişti — kart yetkililerine bildirim
+// =====================================================================
+
+export async function tetikleKartAciklamaDegisti(opt: {
+  kartId: string;
+  degistirenId: string;
+}): Promise<void> {
+  const ctx = await kartUyeleriniToplaHaricli(opt.kartId, opt.degistirenId);
+  if (!ctx || ctx.aliciIdler.length === 0) return;
+  const adi = await adSoyad(opt.degistirenId);
+  await bildirimUret({
+    alici_idler: ctx.aliciIdler,
+    ureten_id: opt.degistirenId,
+    tip: "KART_ACIKLAMA_DEGISTI",
+    baslik: `${adi} bir kartın açıklamasını güncelledi`,
+    ozet: ctx.baslik,
+    kart_id: opt.kartId,
+    proje_id: ctx.projeId,
+    kaynak_tip: "Kart",
+    kaynak_id: opt.kartId,
+  });
+}

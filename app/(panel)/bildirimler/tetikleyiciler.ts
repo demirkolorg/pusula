@@ -31,6 +31,9 @@ export {
   tetikleKapakDegisti,
   tetikleBitisYaklasiyor,
   tetikleBitisGecti,
+  tetikleKartOlusturuldu,
+  tetikleKartBaslikDegisti,
+  tetikleKartAciklamaDegisti,
 } from "./tetikleyiciler/kart";
 
 export { tetikleListeSilindi } from "./tetikleyiciler/liste";

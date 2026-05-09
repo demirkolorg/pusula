@@ -30,6 +30,10 @@ export const BILDIRIM_TIPLERI = [
   "DOSYA_SILINDI",
   "DOSYA_BAGLANDI",
   "DOSYA_ONIZLEME_HAZIR",
+  // Kullanıcı isteği — kart yaşam döngüsü düşük öncelikli eventleri.
+  "KART_OLUSTURULDU",
+  "KART_BASLIK_DEGISTI",
+  "KART_ACIKLAMA_DEGISTI",
 ] as const;
 
 export const bildirimTipiSemasi = z.enum(BILDIRIM_TIPLERI);

@@ -13,8 +13,11 @@ import {
 import { HATA_KODU } from "@/lib/sonuc";
 import { db } from "@/lib/db";
 import {
+  tetikleKartAciklamaDegisti,
+  tetikleKartBaslikDegisti,
   tetikleKartBitisDegisti,
   tetikleKartDurumDegisti,
+  tetikleKartOlusturuldu,
   tetikleKartSilindi,
   tetikleKartTamamlandi,
   tetikleKartTamamlamaOnaylandi,
@@ -178,7 +181,16 @@ export const kartOlusturEylem = eylem({
     await yetkiZorunlu(ctx.oturum?.kullaniciId, IZIN_KODLARI.KART_OLUSTUR);
     await yetkiZorunluListe(ctx.oturum?.kullaniciId, "liste:create", girdi.liste_id);
     const kullaniciId = kullaniciIdAl(ctx);
-    return kartOlusturSrv(kullaniciId, girdi);
+    const sonuc = await kartOlusturSrv(kullaniciId, girdi);
+    // Kart oluşturma bildirimi — liste/proje yetkililerine.
+    void bildirimGuvenliCagir(
+      tetikleKartOlusturuldu({
+        kartId: sonuc.id,
+        olusturanId: kullaniciId,
+      }),
+      "kart-olusturuldu",
+    );
+    return sonuc;
   },
 });
 
@@ -199,6 +211,16 @@ export const kartGuncelleEylem = eylem({
       );
     }
     const degistirenId = ctx.oturum?.kullaniciId ?? null;
+    // Başlık karşılaştırması için eski değeri update'ten önce çek.
+    // (Açıklama için karşılaştırma yapmıyoruz — JSON karşılaştırması ağır;
+    // client onChange zaten gerçek değişiklikte trigger atar.)
+    const eski =
+      degistirenId && girdi.baslik !== undefined
+        ? await db.kart.findUnique({
+            where: { id: girdi.id },
+            select: { baslik: true },
+          })
+        : null;
     await kartGuncelleSrv(kullaniciIdAl(ctx), girdi);
     // Sadece anlamlı alanlar değiştiğinde bildirim — tip-spesifik trigger.
     if (degistirenId && girdi.bitis !== undefined) {
@@ -218,6 +240,26 @@ export const kartGuncelleEylem = eylem({
           tamamlayanId: degistirenId,
         }),
         "kart-tamamlandi",
+      );
+    }
+    if (degistirenId && girdi.baslik !== undefined && eski) {
+      void bildirimGuvenliCagir(
+        tetikleKartBaslikDegisti({
+          kartId: girdi.id,
+          degistirenId,
+          yeniBaslik: girdi.baslik,
+          eskiBaslik: eski.baslik,
+        }),
+        "kart-baslik-degisti",
+      );
+    }
+    if (degistirenId && girdi.aciklama_dokuman !== undefined) {
+      void bildirimGuvenliCagir(
+        tetikleKartAciklamaDegisti({
+          kartId: girdi.id,
+          degistirenId,
+        }),
+        "kart-aciklama-degisti",
       );
     }
     return { id: girdi.id };

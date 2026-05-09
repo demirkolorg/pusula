@@ -10,12 +10,15 @@ import {
   CheckCircle2Icon,
   CheckSquareIcon,
   ClipboardCheckIcon,
+  FileTextIcon,
   ImageIcon,
   ListXIcon,
   MailCheckIcon,
   MessageSquareIcon,
   MoveIcon,
   PaperclipIcon,
+  PencilIcon,
+  PlusCircleIcon,
   TagIcon,
   Trash2Icon,
   UserMinusIcon,
@@ -98,6 +101,10 @@ const TIP_IKON: Record<
   DOSYA_SILINDI: PaperclipIcon,
   DOSYA_BAGLANDI: PaperclipIcon,
   DOSYA_ONIZLEME_HAZIR: PaperclipIcon,
+  // Kullanıcı isteği — kart yaşam döngüsü
+  KART_OLUSTURULDU: PlusCircleIcon,
+  KART_BASLIK_DEGISTI: PencilIcon,
+  KART_ACIKLAMA_DEGISTI: FileTextIcon,
 };
 
 const TIP_RENK: Record<BildirimTipi, string> = {
@@ -129,6 +136,10 @@ const TIP_RENK: Record<BildirimTipi, string> = {
   DOSYA_SILINDI: "bg-red-100 text-red-700",
   DOSYA_BAGLANDI: "bg-emerald-100 text-emerald-700",
   DOSYA_ONIZLEME_HAZIR: "bg-slate-100 text-slate-700",
+  // Kullanıcı isteği — kart yaşam döngüsü
+  KART_OLUSTURULDU: "bg-blue-100 text-blue-700",
+  KART_BASLIK_DEGISTI: "bg-slate-100 text-slate-700",
+  KART_ACIKLAMA_DEGISTI: "bg-slate-100 text-slate-700",
 };
 
 export function BildirimDropdown() {
