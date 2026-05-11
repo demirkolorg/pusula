@@ -2,6 +2,7 @@
 
 Kaymakamlık görev yönetim sistemi. Trello tarzı kanban + liste görünümü, RBAC, audit log, optimistic UI.
 
+
 > **Stack:** Next.js 16 (App Router) · React 19 · Bun · Prisma 6 · Postgres · NextAuth · shadcn/ui · TanStack Query/Table · dnd-kit · Vitest · Playwright
 
 ## Gereksinimler
