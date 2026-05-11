@@ -86,7 +86,23 @@ jobs:
             echo "::error::DOKPLOY_APP_WEBHOOK secret tanımsız."
             exit 1
           fi
-          curl -fsS -X POST --max-time 30 "$WEBHOOK_URL"
+          # Dokploy webhook'u GitHub-style push event payload bekliyor
+          # (apps/dokploy/pages/api/deploy/[refreshToken].ts → extractBranchName).
+          # Aksi halde "Branch Not Match" (HTTP 301) döner ve deploy başlamaz.
+          RESPONSE=$(curl -sS -X POST --max-time 30 \
+            -H "X-GitHub-Event: push" \
+            -H "Content-Type: application/json" \
+            -d '{"ref": "refs/heads/main"}' \
+            -w "\nHTTP_STATUS:%{http_code}" \
+            "$WEBHOOK_URL")
+          STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS:" | cut -d: -f2)
+          BODY=$(echo "$RESPONSE" | grep -v "HTTP_STATUS:")
+          echo "Status: $STATUS"
+          echo "Body: $BODY"
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::Dokploy webhook fail (pusula-app): status=$STATUS body=$BODY"
+            exit 1
+          fi
           echo "pusula-app deploy tetiklendi."
 
   deploy-socket:
@@ -105,7 +121,21 @@ jobs:
             echo "::error::DOKPLOY_SOCKET_WEBHOOK secret tanımsız."
             exit 1
           fi
-          curl -fsS -X POST --max-time 30 "$WEBHOOK_URL"
+          # Bkz. pusula-app deploy step yorumu — GitHub-style payload zorunlu.
+          RESPONSE=$(curl -sS -X POST --max-time 30 \
+            -H "X-GitHub-Event: push" \
+            -H "Content-Type: application/json" \
+            -d '{"ref": "refs/heads/main"}' \
+            -w "\nHTTP_STATUS:%{http_code}" \
+            "$WEBHOOK_URL")
+          STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS:" | cut -d: -f2)
+          BODY=$(echo "$RESPONSE" | grep -v "HTTP_STATUS:")
+          echo "Status: $STATUS"
+          echo "Body: $BODY"
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::Dokploy webhook fail (pusula-socket): status=$STATUS body=$BODY"
+            exit 1
+          fi
           echo "pusula-socket deploy tetiklendi."
 
   ozet:
