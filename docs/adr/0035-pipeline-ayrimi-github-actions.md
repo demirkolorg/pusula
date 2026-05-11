@@ -65,7 +65,8 @@ Reddedildi: "unutulur, eski koda kalır" — operasyonel hata kaynağı.
 - [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml) `dorny/paths-filter@v3` ile `app` ve `socket` outputs üretir; her job ilgili Dokploy webhook'unu `curl -fsS -X POST --max-time 30` ile çağırır.
 - `workflow_dispatch` ile manuel tetikleme (`target: app | socket | both`).
 - Paylaşılan dosyalar (`auth.ts`, `auth.config.ts`, `prisma/**`, `package.json`, `bun.lock`, `tsconfig.json`, `lib/socket-events.ts`, `lib/yetki.ts`, `lib/permissions/**`, `lib/db.ts`, `.dockerignore`) her iki path listesinde de yer alır → değişince ikisi de rebuild olur.
-- Dokploy panel ayarı: her iki servisin **Auto Deploy: OFF**, **Manual Trigger Webhook** üretilip GitHub secret'larına yazılır (`DOKPLOY_APP_WEBHOOK`, `DOKPLOY_SOCKET_WEBHOOK`).
+- Dokploy panel ayarı: her iki servisin **Auto Deploy: ON** kalır (Dokploy webhook endpoint'i `if (!autoDeploy) return 400` kontrolü yapar — refresh token URL'inin çalışması için ON şart). Buna rağmen Dokploy push event'i almaz çünkü **GitHub repo webhook'u silinir** (Settings → Webhooks → Delete). Push'u sadece bizim Actions yakalar, refresh token URL'i ile path-filtered olarak Dokploy'a iletir.
+- GitHub Actions secret'ları: `DOKPLOY_APP_WEBHOOK` ve `DOKPLOY_SOCKET_WEBHOOK` her servisin **General → Refresh Token** URL'i ile doldurulur (`https://dokploy.<host>/api/deploy/<refresh_token>` formatı).
 
 ## Sonuçlar
 
@@ -84,9 +85,32 @@ Reddedildi: "unutulur, eski koda kalır" — operasyonel hata kaynağı.
 - `.github/workflows/deploy.yml` sil veya `on:` bloğunu boşalt.
 - 60sn içinde eski davranışa dönülür, data kaybı yok.
 
+## Yanlış Tavsiye Düzeltmesi (2026-05-11)
+
+İlk uygulama sırasında "Dokploy → Auto Deploy: OFF" tavsiye edilmişti. Bu YANLIŞ. Dokploy webhook endpoint'inin kaynak kodu (`apps/dokploy/pages/api/deploy/[refreshToken].ts` canary branch):
+
+```ts
+if (!application?.autoDeploy) {
+    res.status(400).json({ message: "Automatic deployments are disabled..." });
+    return;
+}
+```
+
+Yani **`autoDeploy` flag'i webhook tetiklemesi için de zorunlu**. Doğru yaklaşım: Dokploy'da Auto Deploy: ON kalmalı, **GitHub'taki repo webhook'u silinmeli** (Settings → Webhooks → Delete). Push'a sadece bizim Actions reaksiyon verir.
+
+T1 testi (commit `4ca2606`) ilk run'da bu yüzden 400 ile fail etmişti; webhook silindikten + Auto Deploy: ON yapıldıktan sonra re-run başarılı oldu.
+
+## Test Sonuçları (2026-05-11 smoke test)
+
+| Senaryo | Değişiklik | deploy-app | deploy-socket | Sonuç |
+|---------|-----------|:---:|:---:|:---:|
+| T10 | `README.md` | skipped | skipped | ✅ |
+| T1 | `app/page.tsx` | success | skipped | ✅ |
+| T2 | `socket-server/index.ts` | skipped | success | ✅ |
+
+3/3 senaryo beklenen davranışı verdi. Plan §10.1 K1.1 (≥9/10 senaryo) karşılandı.
+
 ## Sonraki Adımlar
 
-1. Sunucu tarafı (kullanıcı): Dokploy webhook URL'leri al + GitHub secret'larına ekle + her iki servisin Auto Deploy'unu OFF yap.
-2. Plan §7.1'deki 10 senaryolu test matrisini (`chore/deploy-pipeline-test` branch'i yerine direkt main commit'leri ile, Kural 85) yürüt.
-3. 1 hafta gözlem: `docker service ps pusula-socket-vrpbmy` çıktısında 1 saatlik pencerede en fazla 1 Shutdown bekleniyor (önceki: 4).
-4. Plan §12.2 karar noktası: Katman 1 yeterli mi yoksa Katman 2 (Redis adapter) gerekli mi?
+1. 1 hafta gözlem: `docker service ps pusula-socket-vrpbmy` çıktısında 1 saatlik pencerede en fazla 1 Shutdown bekleniyor (önceki: 4).
+2. Plan §12.2 karar noktası: Katman 1 yeterli mi yoksa Katman 2 (Redis adapter) gerekli mi?

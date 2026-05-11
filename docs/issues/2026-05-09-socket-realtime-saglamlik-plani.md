@@ -2,7 +2,7 @@
 
 **Oluşturulma:** 2026-05-09
 **Sahibi:** —
-**Statü:** 🚧 Devam ediyor — Katman 1 uygulandı (Plan B, ADR-0035), sunucu tarafı bekleniyor; Katman 2 değerlendirmede
+**Statü:** 🚧 Katman 1 deploy + smoke test PASS (2026-05-11, T10/T1/T2 3/3), 1 hafta gözlem fazında; Katman 2 değerlendirmede
 **Tip:** Altyapı / Realtime + Deploy
 **Tahmini efor:** Katman 1: 1–3 saat · Katman 2: 4–8 saat
 **Bağımlılık:** Dokploy panel erişimi, sunucuda `docker service` görünürlüğü, Traefik label edit izni
@@ -432,15 +432,19 @@ scripts/entrypoint.sh
 
 #### 5.3.3 Plan B — GitHub Actions Webhook Shim (Plan A imkansızsa)
 
-**1) Dokploy'da auto-deploy'u kapat.** Her iki servis: **General → Auto Deploy: OFF**.
+> ⚠️ **2026-05-11 güncellemesi:** İlk yazımda "Auto Deploy: OFF" tavsiye edilmişti — bu YANLIŞ. Dokploy webhook endpoint'i (`pages/api/deploy/[refreshToken].ts`) `if (!application?.autoDeploy) return 400` kontrolü yapar. Auto Deploy ON kalmalı; double-deploy'u **GitHub repo webhook'unu silerek** önleriz.
 
-**2) Webhook URL'lerini al.** Dokploy → her servis → **Webhooks** sekmesi → **Manual Trigger Webhook** URL'ini kopyala.
+**1) Dokploy'da Auto Deploy: ON kalsın.** Her iki servis: **General → Auto Deploy: ON**. (Refresh token URL'inin çalışması için zorunlu.)
 
-**3) GitHub repo secret'ları ekle.** Settings → Secrets and variables → Actions:
-- `DOKPLOY_APP_WEBHOOK` — pusula-app webhook URL
-- `DOKPLOY_SOCKET_WEBHOOK` — pusula-socket webhook URL
+**2) Refresh Token URL'lerini al.** Dokploy → her servis → **General → Refresh Token** (`https://dokploy.<host>/api/deploy/<token>` formatı). İki ayrı URL.
 
-**4) `.github/workflows/deploy.yml` ekle:**
+**3) GitHub repo webhook'unu sil.** Settings → Webhooks → Dokploy webhook'unu (URL'i `/api/deploy/...` ile biten) **Delete**. Yoksa push'a Dokploy + Actions iki kez reaksiyon verir.
+
+**4) GitHub repo secret'ları ekle.** Settings → Secrets and variables → Actions:
+- `DOKPLOY_APP_WEBHOOK` — pusula-app refresh token URL
+- `DOKPLOY_SOCKET_WEBHOOK` — pusula-socket refresh token URL
+
+**5) `.github/workflows/deploy.yml` ekle:**
 
 ```yaml
 name: Deploy
@@ -1089,9 +1093,11 @@ ELSE:
 | 2026-05-11 | 1 | `.github/workflows/deploy.yml` yazıldı | ✅ Yapıldı |
 | 2026-05-11 | 1 | ADR-0035 yazıldı | ✅ Yapıldı |
 | 2026-05-11 | 1 | CHANGELOG güncellendi | ✅ Yapıldı |
-| | 1 | Sunucu: Auto Deploy OFF + webhook secret'lar (kullanıcı eylemi) | ⏳ Bekleniyor |
-| | 1 | §7.1 testleri (10 senaryo) | ⏳ Sunucu hazırlığı sonrası |
-| | 1 | §10.1 kriterler | ⏳ |
+| 2026-05-11 | 1 | GitHub Dokploy webhook'u silindi (id 619890570) | ✅ Yapıldı |
+| 2026-05-11 | 1 | Dokploy Auto Deploy: ON + refresh token secrets | ✅ Kullanıcı yaptı |
+| 2026-05-11 | 1 | §7.1 smoke test (T10/T1/T2) | ✅ 3/3 PASS |
+| 2026-05-11 | 1 | §10.1 K1.1 (≥9/10 senaryo) | ✅ Karşılandı |
+| | 1 | §10.1 K1.4 (1 hafta gözlem: ≤1 Shutdown/saat) | ⏳ Gözlem başladı |
 | | — | Katman 2 karar noktası (§12.2) | ⏳ 1 hafta gözlem sonrası |
 | | 2 | Bağımlılık + Redis servisi | |
 | | 2 | Adapter swap + graceful shutdown | |
