@@ -1,8 +1,10 @@
 # ADR-0001 — Kurum ve Birim modellerini tek tabloda birleştirme
 
+> **SUPERSEDED by [ADR-0036](0036-birim-kavrami-kaldirildi.md) (2026-05-11)** — Birim/Kurum kavramı tamamen kaldırıldı; görünürlük yalnızca kişi-bazlı `*Yetkilisi` join tabloları üzerinden yürür.
+
 **Tarih:** 2026-05-03
-**Durum:** Kabul edildi
-**İlgili kurallar:** `kontrol/SKILL.md` Kural 50a (güncellenmesi gerekiyor)
+**Durum:** Superseded (ADR-0036)
+**İlgili kurallar:** `kontrol/SKILL.md` Kural 50a (ADR-0036 ile güncellendi)
 
 ## Bağlam
 

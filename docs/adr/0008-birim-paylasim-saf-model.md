@@ -1,7 +1,9 @@
 # ADR 0008 — Birim Paylaşım Modeli ve Saf Görünürlük
 
+> **SUPERSEDED by [ADR-0036](0036-birim-kavrami-kaldirildi.md) (2026-05-11)** — Birim kavramı sistemden tamamen kaldırıldı; bu ADR ile eklenen `Birim`, `ProjeBirimi`, `ListeBirimi`, `KartBirimi` modelleri silindi. Görünürlük artık yalnızca kişi-bazlı (`ProjeYetkilisi`/`ListeYetkilisi`/`KartYetkilisi`) yürür.
+
 **Tarih:** 2026-05-04
-**Durum:** Kabul edildi
+**Durum:** Superseded (ADR-0036)
 **Bağlam:** ADR-0001 (kurum-birim birleştirme), ADR-0005 (resource-level RBAC), ADR-0007 (tek kurum mimari) — bu ADR ADR-0007'yi **supersede eder**.
 
 ## Bağlam

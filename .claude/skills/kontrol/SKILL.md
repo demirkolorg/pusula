@@ -39,8 +39,8 @@ description: Pusula (kaymakamlık görev yönetimi) projesinin tüm geliştirme 
 5. **Tüm UI metni Türkçe** — `Kaydet`, `Sil`, `Bekleniyor`, `Yükleniyor...` (İngilizce sızıntı yasak).
 6. **Identifier'lar Türkçe** (slug-style) — dosya/klasör/route/DB tablosu/CSS class:
    - Klasör: `projeler/`, `kartlar/`, `bildirimler/`
-   - Route: `/ayarlar/birimler` (NOT `/settings/units`)
-   - Tablo: `kart`, `proje_uyesi` (NOT `card`, `project_member`)
+   - Route: `/ayarlar/kullanicilar` (NOT `/settings/users`)
+   - Tablo: `kart`, `proje_yetkilisi` (NOT `card`, `project_authorized`)
    - **Function/var ASCII (Türkçesini İngilizce yaz)** → `getCard`, `createCard` (kod identifier'ları İngilizce, görünen her şey Türkçe)
 7. **i18n hazırlığı** — string'ler component içinde hard-code edilmez, `lib/i18n/tr.ts` üzerinden gelir.
 8. **Tarih/saat formatı** — `Intl.DateTimeFormat('tr-TR')`, `Europe/Istanbul` timezone, `dd.MM.yyyy HH:mm`.
@@ -69,7 +69,7 @@ description: Pusula (kaymakamlık görev yönetimi) projesinin tüm geliştirme 
     - `staleTime: 30s` default; realtime gelen tablolarda `Infinity` + manuel invalidation.
     - **Optimistic update default (Bölüm S, Kural 107-116) — server-state mutate eden her hook bunu zorunlu kılar.**
 23a. **Tablo: TanStack Table (headless)** + shadcn `<DataTable>` wrapper. AG Grid, MUI DataGrid yasak.
-    - Kullanım: kullanıcı listesi, birim listesi, audit log, hata log, denetim, eklenti listesi.
+    - Kullanım: kullanıcı listesi, audit log, hata log, denetim, eklenti listesi.
     - Mobile'de tablo değil card-list (Kural 15) — `useBreakpoint()` ile dallandır.
     - Server-side sorting/filtering/pagination zorunlu (50+ satır).
     - Kolon görünürlüğü, sıralama, sıkıştırma (density), kolon yeniden sıralama desteklenir.
@@ -113,7 +113,7 @@ description: Pusula (kaymakamlık görev yönetimi) projesinin tüm geliştirme 
 48. **Server Action default** — REST endpoint sadece dışarıya açılan veya 3rd-party callback için.
 49. **Tüm girdi Zod ile validate edilir** — server tarafında, client validation güvenlik DEĞİL.
 50. **RBAC kontrol her action başında** — `await yetkiKontrol(user, 'kart:edit', kartId)`.
-50a. **Makam katmanı validation** — `Kullanici.birim_id = null` sadece şu rollerde geçerli: `SUPER_ADMIN`, `KAYMAKAM`. `BIRIM_AMIRI` ve `PERSONEL` için birim ZORUNLU (Zod refine reddetsin). Yetki kontrolünde `KAYMAKAM`/`SUPER_ADMIN` rolleri birim filtresini her zaman atlar.
+50a. **Makam katmanı erişimi (ADR-0036, 2026-05-11)** — Birim kavramı kaldırıldı. 3 sistem rolü: `SUPER_ADMIN`, `KAYMAKAM`, `PERSONEL`. `KAYMAKAM` ve `SUPER_ADMIN` (`*` izinli rolleri) yetki/erişim filtresini her zaman atlar → tüm kaynaklara erişir. `PERSONEL` yalnızca kişi-bazlı `*Yetkilisi` join tabloları (`ProjeYetkilisi`/`ListeYetkilisi`/`KartYetkilisi`) üzerinden atandığı kaynakları görür. Birim doğrulaması/atanması yapılmaz.
 51. **Throttle/rate-limit** — login, davet, eklenti upload, search'te zorunlu.
 52. **Hata response standardı:**
     ```ts

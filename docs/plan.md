@@ -257,25 +257,15 @@ HataLogu
 
 ## 2. Domain Modeli — Kaymakamlık Yapısı
 
+> **Not (ADR-0036, 2026-05-11):** `Birim` katmanı kaldırıldı. Kullanıcılar artık doğrudan tek kuruma bağlıdır; görünürlük yalnızca kişi-bazlı `*Yetkilisi` join tabloları üzerinden yürür.
+
 ```
 Kurum (1) ─ tek kayıt, "Tekman Kaymakamlığı"
   │
-  ├── Makam katmanı (sanal — birim_id = null)
-  │     • Süper Admin (rol: SUPER_ADMIN)
-  │     • Kaymakam    (rol: KAYMAKAM)
-  │     • Kaymakam Yardımcısı (rol: KAYMAKAM — kaymakamla aynı işleyiş)
-  │
-  ├── Birim (n)
-  │     • Özel Kalem
-  │     • Yazı İşleri Müdürlüğü
-  │     • İlçe Yazı İşleri
-  │     • Sosyal Yardımlaşma
-  │     • Nüfus Müdürlüğü
-  │     • (her birim hiyerarşik olabilir, alt birim destekli)
-  │
   ├── Kullanıcı (n)
-  │     • Makam'da (birim_id = null) → SUPER_ADMIN, KAYMAKAM
-  │     • Birime bağlı (birim_id = X) → BIRIM_AMIRI, PERSONEL
+  │     • Süper Admin (rol: SUPER_ADMIN)
+  │     • Kaymakam    (rol: KAYMAKAM — yardımcısı dahil, aynı işleyiş)
+  │     • Personel   (rol: PERSONEL)
   │     • Bir veya birden çok rol
   │     • Aktif/pasif, izinli vs.
   │
@@ -300,26 +290,21 @@ Kurum (1) ─ tek kayıt, "Tekman Kaymakamlığı"
 |-----|-------------|
 | `SUPER_ADMIN` | Sistem ayarları, tüm projeler, kullanıcı yönetimi |
 | `KAYMAKAM` | Tüm projeleri görür, onay, denetim, raporlar |
-| `BIRIM_AMIRI` | Kendi biriminin projeleri + atandığı projeler |
 | `PERSONEL` | Atandığı projeler + atandığı kartlar |
 
 Yetkiler **permission bazlı** (granular): `proje:create`, `kart:edit`, `user:invite`, `audit:read`, vs.
 Roller bu izinleri gruplar. UI'dan rol-izin matrisi düzenlenebilir.
 
-### Makam Katmanı (Birime Bağlı Olmayan Kullanıcılar)
+### Makam Katmanı (Tüm Kaynaklara Erişen Kullanıcılar)
 
-Kaymakam ve sistem yöneticileri **herhangi bir birime bağlı değildir**; kuruma doğrudan bağlıdır. Schema'da bu durum `Kullanici.birim_id = null` ile temsil edilir.
+`SUPER_ADMIN` ve `KAYMAKAM` rolleri tüm kaynaklara erişir (yetki filtresi atlanır). ADR-0036 ile birim kavramı kaldırıldığından kullanıcılar artık birime değil doğrudan kuruma bağlıdır.
 
 | Kural | Detay |
 |-------|-------|
-| **Hangi roller `birim_id = null` olabilir?** | `SUPER_ADMIN`, `KAYMAKAM` |
-| **Kaymakam Yardımcısı** | `KAYMAKAM` rolüyle aynı (işleyişte fark yok). Ayrı rol/birim yok. |
-| **Validation** | `BIRIM_AMIRI` ve `PERSONEL` için `birim_id` **zorunlu** — Zod refine reddetsin (hata fırlatsın). |
-| **Yetki kontrolü** | `KAYMAKAM` ve `SUPER_ADMIN` rolleri **birim filtresini her zaman atlar** → kurumun tamamına erişim. |
-| **UI etiketi** | Birim alanı boş kullanıcılar için **"Makam"** rozeti. i18n: `birim.makam = "Makam"`. |
-| **Birim formu** | Rol KAYMAKAM/SUPER_ADMIN seçildiğinde birim alanı disabled + üzerinde "Makam" yazılı. |
-| **Birim bazlı raporlar** | Makam kullanıcıları ayrı bölüm ("Makam: 2 kişi") olarak listelenir. |
-| **Audit log** | Birim alanı null kalır, gezgin "Makam" olarak render eder. |
+| **Yetki kontrolü** | `KAYMAKAM` ve `SUPER_ADMIN` rolleri **erişim filtresini her zaman atlar** → kurumun tamamına erişim. |
+| **PERSONEL erişimi** | Yalnızca atandığı kişi-yetkili olduğu kaynaklar (`ProjeYetkilisi`/`ListeYetkilisi`/`KartYetkilisi`). |
+| **Kaymakam Yardımcısı** | `KAYMAKAM` rolüyle aynı (işleyişte fark yok). Ayrı rol yok. |
+| **Audit log** | Kullanıcı rolü ve erişimi audit kayıtlarında loglanır. |
 
 ---
 
@@ -329,8 +314,7 @@ Kaymakam ve sistem yöneticileri **herhangi bir birime bağlı değildir**; kuru
 
 ```
 Kurum                                   (tek satır — single tenant)
-Birim                                   (parent_id ile self-reference)
-Kullanici                               (birim_id, password_hash, mfa_secret)
+Kullanici                               (password_hash, mfa_secret) — ADR-0036 ile birim kaldırıldı
 Rol  ─ İzin                             (RBAC matrisi)
 KullaniciRol                            (n-n)
 
@@ -389,7 +373,6 @@ app/
 │   ├── bildirimler/
 │   ├── ayarlar/
 │   │   ├── kurum/                      # Kurum bilgileri
-│   │   ├── birimler/
 │   │   ├── kullanicilar/
 │   │   ├── roller/                     # Rol-izin matrisi
 │   │   └── etiketler/                  # Global etiket havuzu

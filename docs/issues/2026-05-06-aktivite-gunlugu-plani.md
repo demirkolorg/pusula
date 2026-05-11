@@ -1,9 +1,11 @@
 # Aktivite Günlüğü — Mimari Plan
 
+> **⚠️ ASKIYA ALINDI (2026-05-11) — [ADR-0036](../adr/0036-birim-kavrami-kaldirildi.md) ile birim mantığı kaldırıldı.** Bu plandaki kapsam motoru (birim filtresi, `altBirimIdleri`, `birimKullaniciIdleri`, `BIRIM_AMIRI` kapsam matrisi, `lib/aktivite/mesajlar/birim.ts`) birim eksenine bağlıydı. Plan yeniden tasarlanmadan implement edilmemeli. Yetki kapsamı artık yalnızca kişi-bazlı `*Yetkilisi` join'leri üzerinden yürür.
+
 > **Tarih:** 2026-05-06
-> **Durum:** Taslak v3 — kapsam motoru uygulanabilirlik revizyonu sonrası (bkz. Bölüm 12 Karar Soruları)
+> **Durum:** Taslak v3 — ASKIDA (ADR-0036 sonrası yeniden tasarım gerekiyor)
 > **Sahip:** —
-> **İlgili ADR:** TBD-NNNN-aktivite-gunlugu, ayrıca [ADR-0005 Resource-Level RBAC](../adr/0005-resource-level-rbac.md), [ADR-0008 Birim Paylaşım Saf Modeli](../adr/0008-birim-paylasim-saf-model.md), [ADR-0014 Granüler İzin Kataloğu](../adr/0014-granuler-izin-katalogu.md), [ADR-0020 Çöp Kutusu / Sidebar RBAC](../adr/0020-cop-kutusu.md)
+> **İlgili ADR:** TBD-NNNN-aktivite-gunlugu, ayrıca [ADR-0005 Resource-Level RBAC](../adr/0005-resource-level-rbac.md), ~~[ADR-0008 Birim Paylaşım Saf Modeli](../adr/0008-birim-paylasim-saf-model.md)~~ (superseded), [ADR-0014 Granüler İzin Kataloğu](../adr/0014-granuler-izin-katalogu.md), [ADR-0020 Çöp Kutusu / Sidebar RBAC](../adr/0020-cop-kutusu.md), [ADR-0036 Birim Kavramı Kaldırıldı](../adr/0036-birim-kavrami-kaldirildi.md)
 > **İlgili kurallar:** Kural 5 (TR UI), 23 (TanStack Query), 50/50a (RBAC), 90 (5 katman), 96 (virtualization), 131 (saf modül), 139 (saf fonksiyon test); resource-level RBAC için [ADR-0005](../adr/0005-resource-level-rbac.md)
 
 ---
