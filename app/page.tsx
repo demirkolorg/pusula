@@ -4,3 +4,4 @@ export default function Anasayfa() {
   redirect("/ana-sayfa");
 }
 
+
