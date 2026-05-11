@@ -1095,7 +1095,9 @@ ELSE:
 | 2026-05-11 | 1 | CHANGELOG güncellendi | ✅ Yapıldı |
 | 2026-05-11 | 1 | GitHub Dokploy webhook'u silindi (id 619890570) | ✅ Yapıldı |
 | 2026-05-11 | 1 | Dokploy Auto Deploy: ON + refresh token secrets | ✅ Kullanıcı yaptı |
-| 2026-05-11 | 1 | §7.1 smoke test (T10/T1/T2) | ✅ 3/3 PASS |
+| 2026-05-11 | 1 | §7.1 smoke test (T10/T1/T2) — Actions seviyesi | ✅ 3/3 PASS |
+| 2026-05-11 | 1 | İlk smoke test'te Dokploy 301 "Branch Not Match" tespit edildi (304c121 fix) | ✅ Düzeltildi |
+| 2026-05-11 | 1 | End-to-end test (T1.v2 + T2.v2 + manual dispatch) — Dokploy 200 | ✅ 3/3 PASS |
 | 2026-05-11 | 1 | §10.1 K1.1 (≥9/10 senaryo) | ✅ Karşılandı |
 | | 1 | §10.1 K1.4 (1 hafta gözlem: ≤1 Shutdown/saat) | ⏳ Gözlem başladı |
 | | — | Katman 2 karar noktası (§12.2) | ⏳ 1 hafta gözlem sonrası |
