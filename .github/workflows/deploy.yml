@@ -1,0 +1,124 @@
+name: Deploy
+
+# Pipeline ayrımı: app ve socket-server bağımsız deploy hatları.
+# Detay: docs/issues/2026-05-09-socket-realtime-saglamlik-plani.md §5.3.3
+#
+# Manuel tetikleme: Actions → Deploy → Run workflow → target seç.
+# Bu workflow Dokploy'un kendi auto-deploy'unu KAPATIYOR; Dokploy panel'inde
+# her iki servis için "Auto Deploy: OFF" yapılmalı, yoksa double-deploy olur.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Manuel deploy hedefi"
+        required: true
+        type: choice
+        options: [app, socket, both]
+
+jobs:
+  detect-changes:
+    name: Değişiklik tespiti
+    runs-on: ubuntu-latest
+    outputs:
+      app: ${{ steps.filter.outputs.app }}
+      socket: ${{ steps.filter.outputs.socket }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Path filter
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            app:
+              - 'app/**'
+              - 'components/**'
+              - 'hooks/**'
+              - 'lib/**'
+              - 'public/**'
+              - 'middleware.ts'
+              - 'next.config.ts'
+              - 'tailwind.config.*'
+              - 'postcss.config.*'
+              - 'Dockerfile'
+              - 'scripts/entrypoint.sh'
+              - 'auth.ts'
+              - 'auth.config.ts'
+              - 'prisma/**'
+              - 'package.json'
+              - 'bun.lock'
+              - 'tsconfig.json'
+              - '.dockerignore'
+            socket:
+              - 'socket-server/**'
+              - 'Dockerfile.socket'
+              - 'lib/socket-events.ts'
+              - 'lib/yetki.ts'
+              - 'lib/permissions/**'
+              - 'lib/db.ts'
+              - 'auth.ts'
+              - 'auth.config.ts'
+              - 'prisma/**'
+              - 'package.json'
+              - 'bun.lock'
+              - 'tsconfig.json'
+              - '.dockerignore'
+
+  deploy-app:
+    name: pusula-app deploy
+    needs: detect-changes
+    if: |
+      github.event_name == 'workflow_dispatch' && (github.event.inputs.target == 'app' || github.event.inputs.target == 'both') ||
+      github.event_name == 'push' && needs.detect-changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dokploy webhook (pusula-app)
+        env:
+          WEBHOOK_URL: ${{ secrets.DOKPLOY_APP_WEBHOOK }}
+        run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "::error::DOKPLOY_APP_WEBHOOK secret tanımsız."
+            exit 1
+          fi
+          curl -fsS -X POST --max-time 30 "$WEBHOOK_URL"
+          echo "pusula-app deploy tetiklendi."
+
+  deploy-socket:
+    name: pusula-socket deploy
+    needs: detect-changes
+    if: |
+      github.event_name == 'workflow_dispatch' && (github.event.inputs.target == 'socket' || github.event.inputs.target == 'both') ||
+      github.event_name == 'push' && needs.detect-changes.outputs.socket == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dokploy webhook (pusula-socket)
+        env:
+          WEBHOOK_URL: ${{ secrets.DOKPLOY_SOCKET_WEBHOOK }}
+        run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "::error::DOKPLOY_SOCKET_WEBHOOK secret tanımsız."
+            exit 1
+          fi
+          curl -fsS -X POST --max-time 30 "$WEBHOOK_URL"
+          echo "pusula-socket deploy tetiklendi."
+
+  ozet:
+    name: Deploy özeti
+    needs: [detect-changes, deploy-app, deploy-socket]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Özet
+        run: |
+          echo "## Deploy Özeti" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Servis | Tetiklendi |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|--------|------------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| pusula-app | ${{ needs.deploy-app.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| pusula-socket | ${{ needs.deploy-socket.result }} |" >> "$GITHUB_STEP_SUMMARY"
